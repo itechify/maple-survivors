@@ -98,7 +98,7 @@ func test_dark_sight_is_the_spec_form() -> void:
 	var book := _world().book
 	var d: Dictionary = book.def(KEY)
 	assert_eq([book.skill_id(KEY), d.kind, d.slot, d.damage, int(d.job), d.book], [4001003, "form", "active", "none", 400, "400"])
-	assert_eq(d.cast, {"rule": "form", "mob_within": 150.0})
+	assert_eq(d.cast, {"rule": "form", "mob_within": 150.0, "sub_target": true})
 	assert_eq(d.buff, {"hidden": true, "stat": "speed", "field": "speed", "duration": 5.0})
 	assert_eq(d.form, {"duration": 5.0, "exclusive_group": "shadower_stance", "effects": {},
 		"subs": [{"skill": SUB, "first_after": 0.8, "interval": 2.0, "ignores_hidden": true}]})
@@ -156,17 +156,29 @@ func test_the_old_passive_slot_definition_cards_and_tests_are_gone() -> void:
 
 # --- admission and the window -----------------------------------------------------------------------------------------
 
-func test_the_form_admits_only_with_a_monster_within_150_px() -> void:
-	for dx: float in [0.0, 190.0, 300.0, -190.0]:
+func test_the_form_admits_only_when_assassinates_box_holds_a_target_on_either_side() -> void:
+	# D17: nothing within 150 px, or a monster the box (10 to 100 px in front, 120 up) cannot reach, opens no window.
+	for dx: float in [0.0, 190.0, 300.0, -190.0, 140.0, -140.0, 108.0, -108.0]:
 		var w := _world(dx)
-		assert_true(_of(_run(w, 1.0), "form_started").is_empty(), "dx %s: nothing in reach" % dx)
+		assert_true(_of(_run(w, 1.0), "form_started").is_empty(), "dx %s: no target in Assassinate's box on either side" % dx)
 		assert_false(w.is_hidden())
-	for dx: float in [140.0, 100.0, -100.0, -140.0]:
+	for dx: float in [100.0, 60.0, 12.0, -12.0, -60.0, -100.0]:
 		var w := _world(dx)
 		var started := _of(_run(w, 0.1), "form_started")
-		assert_eq(started.size(), 1, "dx %s: a living mob within 150 px starts the Form" % dx)
+		assert_eq(started.size(), 1, "dx %s: a living mob in the box (either side) starts the Form" % dx)
 		assert_eq(String(started[0].skill), KEY)
 		assert_true(w.is_hidden())
+
+
+func test_the_caster_turns_to_the_side_of_the_target_at_the_cast() -> void:
+	for facing: int in [1, -1]:
+		var w := _world(0.0)
+		w.player.facing = facing
+		_mob(w, -80.0) # behind the caster, whichever way it faces
+		var events := _run(w, 1.2)
+		assert_eq(_of(events, "form_started").size(), 1, "facing %d: admitted by the monster behind" % facing)
+		assert_eq(w.player.facing, -facing, "turned toward it at the cast")
+		assert_eq(_of(events, "mob_hit", SUB).size(), 3, "facing %d: Assassinate's first cast lands on it" % facing)
 
 
 func test_the_window_is_five_seconds_hidden_and_ends_with_form_ended() -> void:
@@ -265,14 +277,17 @@ func test_assassinate_takes_the_nearest_monster_and_a_scheduled_boss_first() -> 
 
 
 func test_assassinate_waits_while_no_monster_is_in_its_box() -> void:
-	# 130 px ahead: inside the 150 px admission, outside the box (10 to 100 px in front).
+	# The Form opens with a monster in the box; it then steps out (130 px ahead: inside 150 px, outside the box 10 to 100 px).
 	var w := _world(0.0)
-	var mob := _mob(w, 130.0)
-	var events := _run(w, 2.3)
+	var mob := _mob(w, 60.0)
+	var events := _run(w, 0.3)
+	w.swarm.x[mob] = w.player.pos.x + 130.0
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	events.append_array(_run(w, 2.0, 0.3))
 	assert_eq(_of(events, "form_started").size(), 1, "the Form admitted")
 	assert_true(_of(events, "mob_hit").is_empty(), "no monster in the box: nothing struck, the cast stays due")
 	assert_true(w.is_hidden())
-	# The monster steps into the box at 2.3 s: the due cast fires on the next tick, the interval then starts there.
+	# The monster steps back into the box at 2.3 s: the due cast fires on the next tick, the interval then starts there.
 	w.swarm.x[mob] = w.player.pos.x + 60.0
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 	events = _run(w, 2.0, 2.3)
@@ -368,7 +383,7 @@ func test_hidden_blocks_contact_hits_and_mob_and_boss_attacks() -> void:
 		var ordinary: bool = setup.mob_imgs.has(MF.TAURO)
 		if ordinary:
 			RF.place_player(w, 400)
-			RF.put_mob(w, MF.TAURO, 540)
+			RF.put_mob(w, MF.TAURO, 480) # 80 px ahead: inside Assassinate's box, so the Form opens
 		else:
 			RF.put_mob(w, SNAIL, w.player.pos.x + 100, w.player.pos.y)
 		w.drain_events()

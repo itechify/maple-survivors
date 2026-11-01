@@ -217,6 +217,8 @@ static func validation_errors(defs: Dictionary) -> PackedStringArray:
 			errors.append("%s.cast needs rule form and positive mob_within" % key)
 		if String(d.get("damage", "")) != "none" or String(d.get("slot", "")) != "active":
 			errors.append("%s: form needs damage none and slot active" % key)
+		if cast is Dictionary and cast.has("sub_target") and not cast.sub_target is bool:
+			errors.append("%s.cast.sub_target must be boolean" % key)
 		var effects: Variant = block.get("effects")
 		if not effects is Dictionary:
 			errors.append("%s.form.effects needs an object" % key)
