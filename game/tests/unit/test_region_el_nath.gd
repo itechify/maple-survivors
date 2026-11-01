@@ -4,6 +4,7 @@ extends TestCase
 ## Witch and Riche that no pool may hold) and that every skill of the three bosses resolves to a supported MobSkill.
 
 const CAL := preload("res://tests/calibrated_levels.gd")
+const RC := preload("res://tests/region_checks.gd")
 const KEY := "el_nath"
 const MAPS := [211010000, 211041100, 211042100]
 const BOSSES := [6090001, 6090000, 8220001]
@@ -43,7 +44,7 @@ func test_stage_names_its_region_maps_and_bosses() -> void:
 		assert_eq(Array(boss.attacks), ["attack1"], "boss %d" % int(boss.mob_id))
 		assert_eq(float(boss.attack_interval), 8.0)
 		assert_true(float(boss.attack_dmg_mult) > 0.0)
-	assert_true(data.stages.progression.find(KEY) > data.stages.progression.find("sleepywood"), "after Sleepywood")
+	assert_eq(RC.neighbours(data.stages.progression, KEY), ["mu_lung", "magatia"], "step 10 sits between mu_lung and magatia")
 
 
 func test_drop_band_and_level_scale_replace_the_opening_ramp() -> void:

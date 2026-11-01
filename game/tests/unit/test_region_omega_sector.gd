@@ -4,6 +4,7 @@ extends TestCase
 ## skill of the three bosses resolves to a supported MobSkill.
 
 const CAL := preload("res://tests/calibrated_levels.gd")
+const RC := preload("res://tests/region_checks.gd")
 const KEY := "omega_sector"
 const MAPS := [221040000, 221030200, 221030500]
 const BOSSES := [4240000, 5120100, 6220001]
@@ -35,7 +36,7 @@ func test_stage_names_its_region_maps_and_bosses() -> void:
 		assert_true(String(entry.boss.get("_tier", "")).begins_with("tier C"), "tier note on the boss numbers")
 		for field: String in ["hp_mult", "dmg_mult", "attack_dmg_mult"]:
 			assert_true(float(entry.boss[field]) > 0.0, "%d %s" % [int(entry.boss.mob_id), field])
-	assert_true(data.stages.progression.find(KEY) > data.stages.progression.find("sleepywood"), "after Sleepywood")
+	assert_eq(RC.neighbours(data.stages.progression, KEY), ["ludibrium", "korean_folk_town"], "step 7 sits between ludibrium and korean_folk_town")
 
 
 func test_drop_band_and_level_scale_replace_the_opening_ramp() -> void:

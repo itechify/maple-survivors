@@ -5,6 +5,7 @@ extends TestCase
 ## skills, the pool mobs' EXP against the level curve) are cache-backed and SKIP without the asset cache.
 
 const CAL := preload("res://tests/calibrated_levels.gd")
+const RC := preload("res://tests/region_checks.gd")
 const KEY := "temple_of_time"
 const MAPS := [270010500, 270020500, 270030500]
 const BOSSES := [8220004, 8220005, 8220006]
@@ -34,8 +35,7 @@ func before_each() -> void:
 func test_the_stage_is_the_last_of_the_progression_with_the_temple_fields() -> void:
 	var progression: Array = data.stages.progression
 	assert_true(progression.has(KEY), "listed in the progression")
-	assert_eq(progression[-1], KEY, "the last region of the progression")
-	assert_true(progression.find(KEY) > progression.find("leafre"), "after Leafre; step 16 once the regions between sit in")
+	assert_eq(RC.neighbours(progression, KEY), ["clocktower", ""], "step 16 sits between clocktower and nothing")
 	assert_eq(String(stage.get("region", "")), "Temple of Time")
 	assert_eq(String(stage.get("continent", "")), "Ossyria", "String.wz group ossyria")
 	assert_eq(stage.get("drop_band"), [108.0, 120.0], "C12 widened step 16's band from [110, 120] (GAME_DESIGN 8.3)")
