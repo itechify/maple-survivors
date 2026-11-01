@@ -1,15 +1,14 @@
 extends TestCase
-## The creation Job page with Shadower (spec #425, SH13 #438). Shadower ships `playable: false` until SH14 #439, so the page is
-## verified on the shipped list (ten rows, no Shadower), on the eleven-row list the playable mirror (`DataRepo.patch`) makes, and on
-## lists the patch reduces to two jobs (layout, selection, keyboard step, weapon box). Removing the mirror after the selection
-## drives the refusal test.
+## The creation Job page with Shadower (spec #425, SH13 #438; playable since SH14 #439). The page is verified on the shipped
+## eleven-row list, on the ten-row list an UNPLAYABLE patch (`DataRepo.patch`) gives, and on lists the patch reduces to two jobs
+## (layout, selection, keyboard step, weapon box). Making Shadower unplayable after the selection drives the refusal test.
 ## The Job page needs the cache (Look OK stays disabled until the hair/face columns exist), so every test that opens it calls
 ## `require_cache()`; the data-level tests run in CI.
 
 const CREATE := preload("res://scenes/ui/character_create.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-## Shadower playable: the eleven-row page (Shadower between Night Lord and Buccaneer, in canonical order).
-const PLAYABLE := {"jobs_survivor": {"jobs": {"422": {"playable": true}}}}
+## Shadower off: the ten-row page of the jobs before SH14 (Night Lord, then Buccaneer).
+const UNPLAYABLE := {"jobs_survivor": {"jobs": {"422": {"playable": false}}}}
 ## Every other playable job disabled: the page has the two rows 212 and 422.
 const REDUCED := {"jobs_survivor": {"jobs": {"112": {"playable": false}, "122": {"playable": false}, "132": {"playable": false},
 	"222": {"playable": false}, "232": {"playable": false}, "312": {"playable": false}, "412": {"playable": false}, "512": {"playable": false},
@@ -76,35 +75,34 @@ func _row(creation: Control, id: int) -> Button:
 	return creation.find_child("Job_%d" % id, true, false) as Button
 
 
-func test_shipped_shadower_is_unplayable_and_the_page_keeps_its_ten_rows_with_212_the_default() -> void:
+func test_shipped_shadower_is_playable_between_night_lord_and_buccaneer_with_212_the_default() -> void:
 	var shipped := _tree()
-	assert_false(shipped.job(422).playable)
-	assert_eq(shipped.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 412, 512, 522] as Array[int], "SH14 adds the row")
-	assert_eq(shipped.default_job(), 212)
-	DataRepo.patch = PLAYABLE.duplicate(true)
-	var mirror := _tree()
-	assert_true(mirror.job(422).playable, "the patch seam makes it playable")
-	assert_eq(mirror.playable_jobs(), IDS, "canonical order, eleven rows")
-	assert_eq(mirror.playable_jobs().find(422), SHADOWER_ROW)
-	assert_eq(mirror.default_job(), 212, "the pin keeps 212 the default with eleven playable jobs")
-	assert_eq(mirror.name_of(422), "Shadower")
-	assert_eq(mirror.creation_weapon(422), 1332005, "the Razor")
+	assert_true(shipped.job(422).playable, "SH14 flipped it")
+	assert_eq(shipped.playable_jobs(), IDS, "canonical order, eleven rows")
+	assert_eq(shipped.playable_jobs().find(422), SHADOWER_ROW)
+	assert_eq(shipped.default_job(), 212, "the pin keeps 212 the default with eleven playable jobs")
+	assert_eq(shipped.name_of(422), "Shadower")
+	assert_eq(shipped.creation_weapon(422), 1332005, "the Razor")
+	DataRepo.patch = UNPLAYABLE.duplicate(true)
+	var patched := _tree()
+	assert_false(patched.job(422).playable, "the patch seam still turns it off")
+	assert_eq(patched.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 412, 512, 522] as Array[int], "unplayable again: ten rows")
 
 
-func test_the_shipped_page_lists_ten_rows_and_no_shadower() -> void:
+func test_an_unplayable_shadower_has_no_row_and_the_page_keeps_the_ten_row_pitch() -> void:
 	if not require_cache():
 		return
+	DataRepo.patch = UNPLAYABLE.duplicate(true)
 	var creation := _job_page(_flow(), "ShShip01")
 	var ids: Array[int] = [112, 122, 132, 212, 222, 232, 312, 412, 512, 522]
 	assert_eq(creation.job_ids, ids)
-	assert_true(_row(creation, 422) == null, "no Shadower row yet")
+	assert_true(_row(creation, 422) == null, "no Shadower row while it is unplayable")
 	assert_eq(creation.job_pitch, 16.0)
 
 
 func test_eleven_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var creation := _job_page(_flow(), "ShRows01")
 	var ids: Array[int] = IDS.duplicate()
 	assert_eq(creation.job_ids, ids)
@@ -132,7 +130,6 @@ func test_eleven_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> vo
 func test_clicking_shadower_selects_it_and_moves_the_highlight() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var creation := _job_page(_flow(), "ShClick01")
 	_row(creation, 422).pressed.emit()
 	assert_eq(creation.job_id, 422)
@@ -146,7 +143,6 @@ func test_clicking_shadower_selects_it_and_moves_the_highlight() -> void:
 func test_up_and_down_step_through_all_eleven_rows_and_clamp() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var creation := _job_page(_flow(), "ShKeys01")
 	creation.select_job(312)
 	creation._input(_key(KEY_DOWN))
@@ -190,7 +186,6 @@ func test_a_reduced_list_lays_out_two_rows_and_steps_between_them() -> void:
 func test_the_weapon_box_shows_the_razor() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var creation := _job_page(_flow(), "ShWeapon01")
 	creation.select_job(422)
 	assert_eq(creation.avatar.look.equips[-1], 1332005, "the preview wears the Razor")
@@ -206,7 +201,6 @@ func test_the_weapon_box_shows_the_razor() -> void:
 func test_create_makes_a_shadower_with_the_razor() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var flow := _flow()
 	var creation := _job_page(flow, "ShOne01")
 	creation.select_job(422)
@@ -228,11 +222,10 @@ func test_create_makes_a_shadower_with_the_razor() -> void:
 func test_shadower_is_refused_when_it_stops_being_playable_after_selection() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var flow := _flow()
 	var creation := _job_page(flow, "ShRefused01")
 	creation.select_job(422)
-	DataRepo.patch = {}
+	DataRepo.patch = UNPLAYABLE.duplicate(true)
 	creation.create_button.pressed.emit()
 	assert_eq(creation.phase, "job", "still on the page")
 	assert_ne(String(creation.message.text), "", "the refusal is shown")

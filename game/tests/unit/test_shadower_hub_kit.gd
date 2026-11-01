@@ -1,10 +1,10 @@
 extends TestCase
 ## The `--hub --job=422` test kit (spec #425, SH13 #438): the Shadower's fixture, its dagger ATT scroll stacks and the spare
-## equipment it can wear. Shadower ships `playable: false` until SH14 #439, so the job-error test uses the data seam
-## (`DataRepo.patch`) as the "playable" mirror.
+## equipment it can wear. Shadower is playable since SH14 #439; the job-error test uses the data seam
+## (`DataRepo.patch`) as the "unplayable" mirror.
 
 const FIXTURE := "res://tests/fixtures/characters/shadower_t2.json"
-const PLAYABLE := {"jobs_survivor": {"jobs": {"422": {"playable": true}}}}
+const UNPLAYABLE := {"jobs_survivor": {"jobs": {"422": {"playable": false}}}}
 const SPARE := [1002001, 1332000, 1082002, 1040031]
 const DAGGER_SCROLLS := [2043300, 2043301, 2043302, 2043304, 2043305]
 
@@ -99,9 +99,9 @@ func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
 	fp.erase("_doc")
 	var data := DataRepo.load_all()
 	var shipped := JobTree.from_data(data.jobs, data.jobs_survivor)
-	assert_true(HubTestKit.job_error({"job": 422}, fixture, shipped).contains("not playable"), "422 is not playable until SH14")
-	DataRepo.patch = PLAYABLE.duplicate(true)
+	assert_eq(HubTestKit.job_error({"job": 422}, fixture, shipped), "", "422 is playable (SH14)")
+	assert_true(HubTestKit.job_error({"job": 422}, fp, shipped).contains("does not match"))
+	assert_true(HubTestKit.job_error({"job": 212}, fixture, shipped).contains("does not match"))
+	DataRepo.patch = UNPLAYABLE.duplicate(true)
 	var mirror := DataRepo.jobs(DataRepo.load_all())
-	assert_eq(HubTestKit.job_error({"job": 422}, fixture, mirror), "", "and accepted through the playable mirror")
-	assert_true(HubTestKit.job_error({"job": 422}, fp, mirror).contains("does not match"))
-	assert_true(HubTestKit.job_error({"job": 212}, fixture, mirror).contains("does not match"))
+	assert_true(HubTestKit.job_error({"job": 422}, fixture, mirror).contains("not playable"), "refused through the unplayable mirror")

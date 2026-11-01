@@ -1,6 +1,6 @@
 extends TestCase
 ## The creation Job page with Corsair (spec #384, C14 #398, C15 #399). Corsair ships `playable: true`, so the page is verified
-## on the shipped list (ten rows, Corsair last) and on a list `DataRepo.patch` reduces to two jobs (layout, selection, keyboard
+## on the shipped list (eleven rows, Corsair last) and on a list `DataRepo.patch` reduces to two jobs (layout, selection, keyboard
 ## step, weapon box). A patch that makes 522 unplayable again drives the refusal test.
 ## The Job page needs the cache (Look OK stays disabled until the hair/face columns exist), so every test that opens it calls
 ## `require_cache()`; the data-level tests run in CI.
@@ -8,12 +8,12 @@ extends TestCase
 const CREATE := preload("res://scenes/ui/character_create.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 ## 522 and 412 both off: the eight-row page the pre-Corsair tests describe (Night Lord, 412, is also playable on the merged list).
-const UNPLAYABLE := {"jobs_survivor": {"jobs": {"412": {"playable": false}, "522": {"playable": false}}}}
+const UNPLAYABLE := {"jobs_survivor": {"jobs": {"412": {"playable": false}, "422": {"playable": false}, "522": {"playable": false}}}}
 ## Every other playable job disabled: the page has the two rows 212 and 522.
 const REDUCED := {"jobs_survivor": {"jobs": {"112": {"playable": false}, "122": {"playable": false}, "132": {"playable": false},
-	"222": {"playable": false}, "232": {"playable": false}, "312": {"playable": false}, "412": {"playable": false}, "512": {"playable": false},
+	"222": {"playable": false}, "232": {"playable": false}, "312": {"playable": false}, "412": {"playable": false}, "422": {"playable": false}, "512": {"playable": false},
 	"522": {"playable": true}}}}
-const CORSAIR_ROW := 9 ## zero-based row of 522: the last, after Buccaneer (512)
+const CORSAIR_ROW := 10 ## zero-based row of 522: the last, after Buccaneer (512)
 
 var save_path := TestCase.test_dir("creation_night_lord/save.json")
 var _nodes: Array[Node] = []
@@ -74,11 +74,11 @@ func _row(creation: Control, id: int) -> Button:
 	return creation.find_child("Job_%d" % id, true, false) as Button
 
 
-func test_shipped_corsair_is_playable_and_is_the_tenth_job_after_buccaneer() -> void:
+func test_shipped_corsair_is_playable_and_is_the_eleventh_job_after_buccaneer() -> void:
 	var shipped := _tree()
 	assert_true(shipped.job(522).playable)
-	assert_eq(shipped.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 412, 512, 522] as Array[int], "canonical order, ten rows")
-	assert_eq(shipped.default_job(), 212, "the pin keeps 212 the default with ten playable jobs")
+	assert_eq(shipped.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 412, 422, 512, 522] as Array[int], "canonical order, eleven rows")
+	assert_eq(shipped.default_job(), 212, "the pin keeps 212 the default with eleven playable jobs")
 	assert_eq(shipped.name_of(522), "Corsair")
 	assert_eq(shipped.creation_weapon(522), 1492000, "the Pistol")
 	assert_eq(shipped.playable_jobs().find(522), CORSAIR_ROW)
@@ -87,11 +87,11 @@ func test_shipped_corsair_is_playable_and_is_the_tenth_job_after_buccaneer() -> 
 	assert_eq(_tree().playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 512] as Array[int])
 
 
-func test_ten_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> void:
+func test_eleven_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> void:
 	if not require_cache():
 		return
 	var creation := _job_page(_flow(), "CorRows01")
-	var ids: Array[int] = [112, 122, 132, 212, 222, 232, 312, 412, 512, 522]
+	var ids: Array[int] = [112, 122, 132, 212, 222, 232, 312, 412, 422, 512, 522]
 	assert_eq(creation.job_ids, ids)
 	assert_eq(creation.job_id, 212, "the default job is chosen when the page opens")
 	for i in ids.size():
@@ -106,9 +106,9 @@ func test_ten_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> void:
 	assert_eq(corsair.text, "Corsair")
 	assert_true(corsair.get_theme_stylebox("normal") is StyleBoxEmpty, "Corsair is not highlighted until chosen")
 	assert_false(_row(creation, 212).get_theme_stylebox("normal") is StyleBoxEmpty, "212 is highlighted")
-	# Ten rows at the eight-row pitch (21 px) would run past the sign's panel and under the "Choose your job." message: the
-	# pitch shrinks to 16 px so the last row ends above CREATE.JOB_LIST_BOTTOM.
-	assert_eq(creation.job_pitch, 16.0)
+	# Eleven rows at the eight-row pitch (21 px) would run past the sign's panel and under the "Choose your job." message: the
+	# pitch shrinks to 15 px so the last row ends above CREATE.JOB_LIST_BOTTOM.
+	assert_eq(creation.job_pitch, 15.0)
 	var end: float = _row(creation, 522).position.y + creation.job_pitch - 2.0 # the intended row height; a headless Button measures taller
 	assert_true(end <= CREATE.JOB_LIST_BOTTOM, "the last row ends at %s, above %s" % [end, CREATE.JOB_LIST_BOTTOM])
 	assert_true(end <= CREATE.MESSAGE_BOX.position.y, "and clear of the message strip")
@@ -127,7 +127,7 @@ func test_clicking_corsair_selects_it_and_moves_the_highlight() -> void:
 	assert_true(String(creation._job_blurb.text).begins_with("Corsair"), "the blurb names the chosen job: %s" % creation._job_blurb.text)
 
 
-func test_up_and_down_step_through_all_ten_rows_and_clamp() -> void:
+func test_up_and_down_step_through_all_eleven_rows_and_clamp() -> void:
 	if not require_cache():
 		return
 	var creation := _job_page(_flow(), "CorKeys01")
@@ -135,14 +135,16 @@ func test_up_and_down_step_through_all_ten_rows_and_clamp() -> void:
 	creation._input(_key(KEY_DOWN))
 	assert_eq(creation.job_id, 412, "Down from Bowmaster is Night Lord")
 	creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 512, "Down from Night Lord is Buccaneer")
+	assert_eq(creation.job_id, 422, "Down from Night Lord is Shadower")
+	creation._input(_key(KEY_DOWN))
+	assert_eq(creation.job_id, 512, "Down from Shadower is Buccaneer")
 	creation._input(_key(KEY_DOWN))
 	assert_eq(creation.job_id, 522, "Down from Buccaneer is Corsair")
 	creation._input(_key(KEY_DOWN))
 	assert_eq(creation.job_id, 522, "Down at the last row stays")
 	creation._input(_key(KEY_UP))
 	assert_eq(creation.job_id, 512, "Up from Corsair is Buccaneer")
-	for i in 9:
+	for i in 10:
 		creation._input(_key(KEY_UP))
 	assert_eq(creation.job_id, 112)
 	creation._input(_key(KEY_UP))

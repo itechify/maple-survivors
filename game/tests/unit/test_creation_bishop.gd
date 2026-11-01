@@ -68,7 +68,7 @@ func _row(creation: Control, id: int) -> Button:
 func test_shipped_bishop_is_playable_in_canonical_order() -> void:
 	var mirrored := _tree()
 	assert_true(mirrored.job(232).playable)
-	assert_eq(mirrored.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 412, 512, 522] as Array[int])
+	assert_eq(mirrored.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 412, 422, 512, 522] as Array[int])
 	assert_eq(mirrored.name_of(232), "Bishop", "the name is the canonical job list's")
 	assert_eq(mirrored.default_job(), 212, "F/P stays the default")
 	assert_eq(mirrored.creation_weapon(232), 1372005, "the Wooden Wand")

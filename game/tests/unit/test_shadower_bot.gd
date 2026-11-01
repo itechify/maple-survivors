@@ -1,7 +1,7 @@
 extends TestCase
 ## The autoplay bot's Shadower scoring, reach and presses (spec #425, SH13 #438). The data checks run on the shipped files; the
 ## card, reach and press checks run in a synthetic Shadower world (all nine pool skills, Assaulter and Assassinate defined, a dagger
-## worn), so they need no cache. Shadower ships `playable: false` until SH14: the fixtures flip it in the test's data copy only.
+## worn), so they need no cache. Shadower is playable since SH14 #439 (shipped data).
 
 const SF := preload("res://tests/fixtures/shadower_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")

@@ -1,7 +1,6 @@
 extends TestCase
 ## Shadower's data seam (spec #425, ticket SH2 #427): the `shadower` line (discovered by its files; ruling D15 keeps it out of
-## CLASS_LINES until its redesign merge) loads from its files, its job entry `survivor/jobs/shadower.json` (422, not playable
-## until SH14 #439) names the nine-key pool, Assaulter, the dagger family, the Razor and the meso charge meter (no decay), its AP row,
+## CLASS_LINES until its redesign merge) loads from its files, its job entry `survivor/jobs/shadower.json` (422, playable since SH14 #439) names the nine-key pool, Assaulter, the dagger family, the Razor and the meso charge meter (no decay), its AP row,
 ## bot card scores and status-bonus catalogue entry come from the line file (nothing in the shared balance), and its drops are
 ## daggers only (Thief-bit gear, Thief shields beside a dagger). The pool keys and Assaulter stay inert until SH6-SH12 define them.
 ## Seeded RNG, fixed dt; item info is synthetic unless a test says "real cache".
@@ -115,7 +114,7 @@ func test_no_other_line_file_names_shadower_rows() -> void:
 
 # --- the job entry ----------------------------------------------------------------------------------------------------
 
-func test_job_422_has_the_spec_fields_and_is_not_playable() -> void:
+func test_job_422_has_the_spec_fields_and_is_playable() -> void:
 	var jobs := _jobs(_data())
 	var rec := jobs.job(422)
 	assert_eq(String(rec.name), "Shadower")
@@ -127,18 +126,20 @@ func test_job_422_has_the_spec_fields_and_is_not_playable() -> void:
 	assert_false("assassinate" in jobs.skill_pool(422), "Assassinate is a Dark Sight sub-skill, not a pool entry")
 	assert_eq(jobs.weapon_families(422), ["dagger"])
 	assert_eq(jobs.creation_weapon(422), RAZOR)
-	assert_false(bool(rec.playable), "SH14 #439 flips playable")
-	assert_true(jobs.job_error(422).contains("not playable"), jobs.job_error(422))
-	assert_false(422 in jobs.playable_jobs(), "not selectable yet")
+	assert_true(bool(rec.playable), "SH14 #439 flipped playable")
+	assert_eq(jobs.job_error(422), "")
+	assert_true(422 in jobs.playable_jobs(), "selectable")
+	assert_eq(jobs.playable_jobs().find(422), jobs.playable_jobs().find(412) + 1, "after Night Lord, before Buccaneer")
 
 
-func test_default_job_is_212_and_shadower_stays_unreachable_until_playable() -> void:
+func test_default_job_is_212_and_the_playable_flag_alone_makes_shadower_selectable() -> void:
 	var data := _data()
-	assert_eq(_jobs(data).default_job(), 212)
-	assert_false(422 in _jobs(data).playable_jobs())
-	data.jobs_survivor.jobs["422"]["playable"] = true
-	assert_true(422 in _jobs(data).playable_jobs(), "the flag alone makes it selectable")
 	assert_eq(_jobs(data).default_job(), 212, "the pin, not the first playable job")
+	assert_true(422 in _jobs(data).playable_jobs())
+	data.jobs_survivor.jobs["422"]["playable"] = false
+	assert_false(422 in _jobs(data).playable_jobs(), "the flag alone makes it unreachable")
+	assert_true(_jobs(data).job_error(422).contains("not playable"))
+	assert_eq(_jobs(data).default_job(), 212)
 
 
 ## Double Stab and Assaulter, in that order, once both are defined; Assaulter never enters the pool.

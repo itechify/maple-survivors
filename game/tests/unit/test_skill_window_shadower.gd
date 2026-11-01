@@ -3,7 +3,7 @@ extends TestCase
 ## Shadower 422, after the Common tab), every skill sits on the tab of its own job (Assaulter on Chief Bandit with Band of Thieves and
 ## Meso Explosion; Smokescreen and Ninja Ambush on the Shadower tab), and a test fails if a skill the run owns is on no tab. Assaulter
 ## has its Key Config row and quick-slot cell. The model tests use the synthetic books of the Shadower fixtures and the canonical job
-## names (no cache); the RunScene test (SKIP without the cache) drives the real window through its hotkeys with the playable mirror.
+## names (no cache); the RunScene test (SKIP without the cache) drives the real window through its hotkeys on the shipped (playable) data.
 
 const SF := preload("res://tests/fixtures/shadower_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -12,7 +12,6 @@ const DT := 1.0 / 60.0
 const TABS := {400: ["dark_sight", "double_stab"], 420: ["steal", "savage_blow"],
 	421: ["assaulter", "band_of_thieves", "meso_explosion"],
 	422: ["ninja_ambush_shadower", "smokescreen", "boomerang_step"]}
-const PLAYABLE := {"jobs_survivor": {"jobs": {"422": {"playable": true}}}}
 
 var lib: AssetLibrary
 var scene: RunScene
@@ -182,7 +181,6 @@ func test_assaulter_has_a_key_config_row_labelled_by_its_name_and_a_quick_slot_c
 func test_a_422_run_opens_the_skill_window_on_the_shadower_tab_and_every_tab_has_rows() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	s.library = lib
 	s.configure("henesys", 13, {"use_flow": false, "autoplay": true, "autopick": true, "job": 422})

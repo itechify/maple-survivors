@@ -5,8 +5,8 @@ extends TestCase
 ## the hidden form and its sub-skill, the safe zone, the meso charge and its finisher, Ninja Ambush, Assaulter, bot picks) so later
 ## work (SH14 QA, the balance pass, a Marksman line) cannot move it unnoticed. The recipe is the Night Lord oracle's: the pre-#241
 ## opening, whole-round pool curve, the same bot and `var_to_bytes` digest, initial player stats included.
-## Taken "the T7 way": job 422's `playable` flag is set ONLY in the test's data copy (the shipped flag flips in SH14 #439), so
-## shipping the flip does not move GOLDEN. A change to any Shadower skill, shared combat mechanics or the bot must either leave
+## Shadower is playable since SH14 #439; the flip itself moves nothing (no code reads the flag inside a round). SH14's HP baseline
+## (Hero's melee 600 start / 65 growth, `jobs/shadower.json`) DID move both goldens: see the cause next to each. A change to any Shadower skill, shared combat mechanics or the bot must either leave
 ## GOLDEN alone or re-capture it with the cause written next to the constant.
 
 const SF := preload("res://tests/fixtures/shadower_fixtures.gd")
@@ -14,11 +14,17 @@ const DT := 1.0 / 60.0
 const TICKS := 21600 # six minutes of run time, the length of the Night Lord and Corsair oracles
 ## The shipped pool, as the bot takes it at seed 1: Double Stab, Assaulter, Steal, Band of Thieves, Ninja Ambush, Meso Explosion and
 ## Dark Sight fill the six actives; Boomerang Step, Savage Blow and Smokescreen are never offered in time.
-const GOLDEN := "4a7a6a0e705ad262721d92019fe1d66d48fa47c42a0180f96b60172cfcd30a72"
+## Recaptured by SH14 #439 (was 4a7a6a0e705ad262721d92019fe1d66d48fa47c42a0180f96b60172cfcd30a72). Cause: the HP baseline only
+## (`balance.player.ap["422"].hp` 600 and `balance.growth["422"].hp` 65, Hero's melee numbers, tier C #346): the initial
+## `player_state` is hashed and the round's hits, regen and potions change with the pool of HP. With the two HP rows removed from
+## the data the old hash reproduced exactly, so neither the `playable` flip nor anything else moved it.
+const GOLDEN := "1d6313f323a30b6c6c75b5e0537f98c3f3198b2950a8a150dcdd6e6bde6ec910"
 ## Second oracle: the pool frozen to the three skills the first one leaves out (Boomerang Step, Savage Blow, Smokescreen), so the
 ## stun line, the five-line Savage Blow and the safe zone with its negated hits are pinned too.
 const OUTSIDERS := ["boomerang_step", "savage_blow", "smokescreen"]
-const GOLDEN_OUTSIDERS := "38eac8d13529543734a706e0ab4955db57d50c43253e4e10b6956032eaab313f"
+## Recaptured by SH14 #439 for the same cause (was 38eac8d13529543734a706e0ab4955db57d50c43253e4e10b6956032eaab313f; the old hash
+## reproduced exactly with the HP rows removed).
+const GOLDEN_OUTSIDERS := "9405eac0a78bc0b476efabfe2cc3f766297bc531dd1c1e785c3a4b11b3a537a6"
 
 
 ## {"digest": hex, "skills": {skill key: hits}, "casts": int, "picked": [keys the bot learned], "assaults": int, "forms": int,

@@ -2,7 +2,7 @@ extends RefCounted
 ## Synthetic assets for a whole Shadower (422) round with no asset cache (spec #425, SH13 #438): Skill.wz-shaped books for all nine
 ## pool skills, Assaulter and Assassinate (shapes and mapped-level endpoints are the v83 values the SH6-SH12 tests record; the art
 ## is bare frames) and a setup that wears a dagger. Used by the Shadower bot-scoring tests, the Skill-window test and the Shadower
-## baseline oracle. 422 ships `playable: false` until SH14 #439; `setup` flips it in the caller's data copy only.
+## baseline oracle. 422 is playable since SH14 #439 (the shipped data).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BOOK := preload("res://tests/fixtures/dark_sight_book.gd")
@@ -74,9 +74,8 @@ static func skill_imgs() -> Dictionary:
 
 
 ## `RF.setup` for a Shadower round on `stage` with all four books, a dagger in `equipment_info`, the stances the Shadower skills
-## use, and job 422 made playable in `data` (the caller's copy). `data` defaults to the real survivor data.
+## use, and job 422 as `job`. `data` is the caller's copy of the real survivor data.
 static func setup(stage: String, p_seed: int, data: Dictionary) -> Dictionary:
-	data.jobs_survivor.jobs["422"]["playable"] = true # in this copy only: SH14 ships the flip
 	var out := RF.with_basic_attack(RF.setup(stage, p_seed, data))
 	out.skill_imgs = skill_imgs()
 	out.equipment_info.merge({DAGGER: {"incPAD": 20, "attackSpeed": 4, "tuc": 7, "afterImage": "swordOS", "sfx": "swordS"}}, true)

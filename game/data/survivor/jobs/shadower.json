@@ -1,5 +1,5 @@
 {
-	"_doc": "Shadower line (spec #425, ticket SH2 #427). The second thief line after Night Lord, and the first dagger job: its job entry, its meso charge meter, its AP row, its bot card scores and its status-bonus catalogue entry. Skill definitions are in skills/shadower.json (SH6-SH12 append to it). An undefined skill key is never offered or learned. 422 is not playable yet (`playable` false; SH14 #439 flips it) and JobTree.default_job() stays 212 (survivor/jobs.json default_job). Ruling D15: the line is not in DataRepo.CLASS_LINES during the spec; DataRepo.lines() discovers it by its files and it is appended to CLASS_LINES at its redesign merge.",
+	"_doc": "Shadower line (spec #425, ticket SH2 #427). The second thief line after Night Lord, and the first dagger job: its job entry, its meso charge meter, its AP row, its bot card scores and its status-bonus catalogue entry. Skill definitions are in skills/shadower.json (SH6-SH12 append to it). An undefined skill key is never offered or learned. 422 is playable since SH14 #439 (QA ticket) and JobTree.default_job() stays 212 (survivor/jobs.json default_job). Ruling D15: the line is not in DataRepo.CLASS_LINES during the spec; DataRepo.lines() discovers it by its files and it is appended to CLASS_LINES at its redesign merge.",
 	"jobs": {
 		"422": {
 			"starting_skill": "double_stab",
@@ -39,6 +39,8 @@
 				"art": "Item.wz/Special/0900.img/09000002/iconRaw"
 			},
 			"_meter": "tier C: spec #425 SH-10: the meso charge, a counter filled by meso pickups and never a currency (D7). 1 pip per 600 mesos picked up (Night Lord: 1000), max 10, NO decay (the finisher spends the charge, so a decay would be a race against a clock the player cannot see), +2% damage per held pip on every pool cast (Hero's Combo is +5%). Tier A fact: the art is the meso coin's animation frame, already imported for pickups. Read by PlayerMeter's meso_picked rule (NL4 #403).",
+			"playable": true,
+			"_playable": "tier C: spec #425 SH14 #439: Shadower is playable alongside the other jobs after its QA (flow scenario, playtests, smoke); 212 remains the default.",
 			"hub_kit": {
 				"fixture": "res://tests/fixtures/characters/shadower_t2.json",
 				"scrolls": [
@@ -63,6 +65,8 @@
 		"player": {
 			"ap": {
 				"422": {
+					"hp": 600,
+					"_hp": "tier C #346 (SH14 #439): Hero's melee starting HP, a first pass as the Paladin and Dark Knight specs do (a dagger Shadower fights in contact range); training seeds only, GAME_DESIGN 4.2. The balance pass owns it.",
 					"primary": "luk",
 					"secondary": "dex",
 					"keyframes": [
@@ -79,7 +83,7 @@
 							"target": 200
 						}
 					],
-					"_ap": "tier C: spec #425: the Thief (400) row copied verbatim (the Thief gear pattern, no new tuning); explicit so 422 no longer falls back through 421/420/400. The HP baseline (decision SH-14) is added by the QA ticket, not here."
+					"_ap": "tier C: spec #425: the Thief (400) row copied verbatim (the Thief gear pattern, no new tuning); explicit so 422 no longer falls back through 421/420/400. Starting HP and HP growth are Hero's (hp 600, growth 65 below), SH14 #439."
 				}
 			}
 		},
@@ -93,6 +97,12 @@
 				"meso_explosion_rank": 74
 			},
 			"_card_scores": "tier C: spec #425: the numbers BotInput's pool default gives every curated skill (learn 100, rank 74), written out for the three skills BotInput._base_score would not score as attacks: Dark Sight (a Form) and Smokescreen (a placed safe zone, damage none) are not projectile / instant / box skills, and Meso Explosion is the meter-gated finisher. The other six pool skills score as attacks by default."
+		},
+		"growth": {
+			"422": {
+				"hp": 65,
+				"_hp": "tier C #346 (SH14 #439): Hero's melee HP growth per level, copied from jobs/hero.json; GAME_DESIGN 4.2. The Thief line's 22 stays in the 400 row."
+			}
 		},
 		"status_bonuses": {
 			"venomous_stab": {
