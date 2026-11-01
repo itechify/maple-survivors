@@ -175,6 +175,11 @@ _Avoid_: transformation, disguise
 A Form whose `buff` block carries a `morph_field`, so it also draws the character as a Morph and gives the buff's defence,
 speed and jump while it lasts (Buccaneer's Transformation and Super Transformation). It needs no Form effect key.
 
+**Hidden form**:
+A Form whose `buff` block sets `hidden`, so the character is Hidden for the Form's window (Shadower's Dark Sight). Its
+sub-skills that carry `ignores_hidden` still attack while every other attack is silenced. It needs no Form effect key.
+_Avoid_: stealth form
+
 **Reaction skill**:
 A skill that nothing casts on a timer or a key: the world triggers it when something happens to the character. Resurrection
 is the first: it catches a lethal hit (its cast rule is `reaction`, so the auto-caster and the bot never use it).
