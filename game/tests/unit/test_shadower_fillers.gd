@@ -108,12 +108,14 @@ func test_the_three_fillers_live_in_the_shadower_file_only_and_the_legacy_cards_
 	for key: String in KEYS:
 		assert_true(shadower.has(key), key + " is in skills/shadower.json")
 		assert_false(thief.has(key), key + " is no longer in skills/thief.json (a repeated key is a load error)")
-	for key in ["nimble_body", "keen_eyes", "disorder", "dark_sight", "dagger_mastery", "dagger_booster"]:
-		assert_true(thief.has(key), key + " stays in skills/thief.json (Dark Sight is SH11's)")
+	for key in ["nimble_body", "keen_eyes", "disorder", "dagger_mastery", "dagger_booster"]:
+		assert_true(thief.has(key), key + " stays in skills/thief.json")
+	# Dark Sight moved too, by SH11 #436 (a hidden Form in the Shadower file).
+	assert_true(shadower.has("dark_sight") and not thief.has("dark_sight"), "dark_sight lives in skills/shadower.json only")
 	var cards: Array = DataRepo.load_json("res://data/survivor/upgrades/thief.json").cards
 	for card: Dictionary in cards:
 		assert_false(String(card.get("skill", "")) in KEYS, "no legacy card is left: %s" % card.id)
-	assert_true(cards.any(func(c: Dictionary) -> bool: return c.get("skill", "") == "dark_sight"), "Dark Sight's cards stay until SH11")
+	assert_false(cards.any(func(c: Dictionary) -> bool: return c.get("skill", "") == "dark_sight"), "Dark Sight's legacy cards went with SH11")
 	var w := _world(STAB)
 	for key: String in KEYS:
 		for suffix in ["_targets", "_hits", "_damage", "_cooldown", "_reach", "_count", "_pierce", "_range"]:
