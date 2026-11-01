@@ -607,6 +607,103 @@
 			},
 			"_rarity": "Tier C: first-pass SH12 #437 bonuses (spec #425): Wide Smoke and Thick Smoke are flavour names and Haste is the 420 passive's; Wide Smoke widens the box (`area`, the cloud has no damage), Haste shortens the cooldown, Thick Smoke lengthens the cloud (`zone_time`, a 9 s cloud); Legendary shares the Unique's id (and its repeat counter) plus `area` x1.2; Mastery repeats shrink x0.8, and Normal Mastery on this `damage: none` skill is cooldown x0.95 (#346). GAME_DESIGN 7.136.",
 			"_provenance": "Tier A: Skill.wz 4221006 (30 levels; rank 1 = level 4) lt / rb box +-120 x +-90 at rank 1, (-150,-112)..(150,113) at rank 4 and +-200 x +-150 at rank 8, read as given (the y edges are not symmetric at some levels), the smokeshell action, the 11-frame `effect` (the cast: a dust ring and the green shell) and the `tile` (eleven two-frame puffs, each fading in and out) as the cloud, the Use sound. Tier C: the 6.0 s life (WZ `time` 34 to 60 s is session scale and is not read), the 24 s cooldown (WZ `cooltime` 600 is a session value and is not read), admission at three monsters within 250 px, the 0.6 s action hold, the default 30-level rank table, the cloud's look (SafeZoneView). Docs: GAME_DESIGN 7.136."
+		},
+		"ninja_ambush_shadower": {
+			"skill_id": 4221004,
+			"book": "422",
+			"job": 422,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Ninja Ambush",
+			"desc": "Hides ninjas where you stand; they strike the monsters in the zone every second.",
+			"text": {
+				"desc": "Leave an ambush at your feet. Its ninjas strike up to 6 monsters in the zone every second. Needs a monster in the zone's box.",
+				"h": "Damage {damage}% per strike, up to {mob_count|monster|monsters}, for {time} sec."
+			},
+			"icon": "Skill.wz/422.img/skill/4221004/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 14.0,
+			"action": "alert3",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/422.img/skill/4221004/mob0",
+			"effect": "Skill.wz/422.img/skill/4221004/effect",
+			"rotate": false,
+			"ground": {
+				"strike": {
+					"interval": 1.0,
+					"first_delay": 0.3
+				}
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4221004/Use"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "shadow_shifter",
+						"text": "Shadow Shifter",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_ambush",
+						"text": "Wide Ambush",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "ambush_squad",
+						"text": "Ambush Squad",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "ambush_squad",
+						"text": "Ambush Squad",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass SH9 #434 bonuses (spec #425): Shadow Shifter (the lineage passive 4220002) and Wide Ambush; Ambush Squad adds two monsters to every strike (`count` raises mobCount); Legendary shares the Unique's id plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.135 (SH9).",
+			"_provenance": "Tier A: Skill.wz 4221004 equals 4121004 in every field of all 30 levels (SH1 scan, re-checked by test_shadower_ninja_ambush): damage 62 to 100 % per strike (rank 1 = level 4: 68 %), mobCount 6, time 4 / 8 / 12 s, the symmetric box +-110 -> +-200 by (-130, 70) (rank 1 +-120), the alert3 action, the 19-frame effect, the mob0 strike art on each struck monster; the Use sound is a UOL into 4121004. Tier C (a data copy of Night Lord's, spec SH-16): the 14 s cooldown, min_targets 1, `ground.strike` {interval 1.0, first_delay 0.3} anchored at the cast, the 0.6 s action hold, no tile art, the default 30-level rank table, no weapon gate; Shadow Shifter level 5 (the WZ req) is ignored. GAME_DESIGN 7.135 (SH9)."
 		}
-	}
+	},
+	"_sh9_region": "SH9 #434: ninja_ambush_shadower is the last key of the SH9 region (a data copy of Night Lord's ninja_ambush, owner data and Shadower bonuses only)."
 }
