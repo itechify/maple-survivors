@@ -9725,6 +9725,10 @@ from the line file, dagger-only drops synthetic / shipped / seeded / real cache 
   Lv40 dagger 1332011).
 - *Job page.* Eleven rows with 422 playable (Shadower between Night Lord and Buccaneer, 15 px pitch, the last row ends above the message strip); ten rows today. Layout, selection, keyboard step
   and the weapon box (the Razor) are tested on the shipped list, the eleven-row list and a two-row list the patch seam makes.
+- *Job-page row size fix (found on the eleven-row screenshot).* The row Buttons were given their size before they had a theme and joined the tree, so each took the default font's
+  31 px height and kept it: the chosen row's plate was twice the pitch tall and a click at a row's centre (the flow driver's) landed on the row below once the pitch fell to 15 px.
+  `character_create.gd` now sets the row size (190 x pitch - 2) after the row is in the tree; the creation tests pass unchanged (they assert positions and widths, a headless Button measures
+  differently), and `flow_driver creation --jobs=212,422` (Shadower made playable locally) selects 212 and 422 correctly.
 - *Skill window.* Tabs Common / Thief / Bandit / Chief Bandit / Shadower (400 / 420 / 421 / 422): `dark_sight` and `double_stab` on 400, `steal` and `savage_blow` on 420, `assaulter`,
   `band_of_thieves` and `meso_explosion` on 421, `ninja_ambush_shadower`, `smokescreen` and `boomerang_step` on 422; Assassinate is Dark Sight's sub-skill and has no row. Assaulter has one
   Key Config row on the `rush` action labelled "Assaulter" and the quick-slot cell.

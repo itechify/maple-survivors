@@ -200,7 +200,6 @@ func _build_job_surface() -> void:
 		row.text = _jobs.name_of(job_ids[i])
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT # tier C: names share a left edge whatever their length
 		row.position = Vector2(ROW_AT.x - 4.0, ROW_AT.y + i * job_pitch)
-		row.size = Vector2(JOB_ROW_SIZE.x, job_pitch - 2.0)
 		row.add_theme_font_override("font", MapleText.font())
 		row.add_theme_font_size_override("font_size", MapleText.SMALL)
 		for color: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
@@ -210,6 +209,10 @@ func _build_job_surface() -> void:
 		var job := job_ids[i]
 		row.pressed.connect(func() -> void: select_job(job))
 		_job_surface.add_child(row)
+		# The size is set once the row is in the tree with its theme: a Control never shrinks below the size it was given, and set
+		# before that the row took the default font's 31 px height, so the chosen row's plate and its click box overlapped the next
+		# rows (visible with the eleven-row page's 15 px pitch: a click at a row's centre hit the row below).
+		row.size = Vector2(JOB_ROW_SIZE.x, job_pitch - 2.0)
 		_job_rows.append(row)
 	_job_blurb = _label_on(_job_surface, "", WEAPON_BOX.position, WEAPON_BOX.size)
 	_job_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
