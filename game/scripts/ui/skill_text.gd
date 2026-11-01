@@ -156,7 +156,7 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 			number(float(cadence.interval)), number(book.canonical(key, level, "time"))])
 	if FinishingStrike.is_active(stats):
 		# tier C (ours, SH5): the last line's crit chance and bonus, the numbers FinishingStrike.line_stats applies.
-		mechanics.append("The last strike has a %s%% chance of +%s%% critical damage" % [
+		mechanics.append("The last strike has a %s%% chance of +%s%% on top of a critical hit" % [
 			number(float(stats[FinishingStrike.CHANCE_KEY])), number(float(stats.get(FinishingStrike.BONUS_KEY, 0.0)))])
 	if def.has("pierce_field"):
 		var through := int(stats.get("pierce", 0))

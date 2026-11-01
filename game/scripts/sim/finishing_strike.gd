@@ -44,13 +44,19 @@ static func is_last(line: int, lines: int) -> bool:
 
 ## The stats the damage roll of line `line` of `lines` uses: `st` itself for a skill without a finishing strike and for every line
 ## but the last (no copy), otherwise a shallow copy whose `crit` (a 0..1 chance) is raised by `finish_chance` percent, capped at 1,
-## and whose `crit_damage_bonus` gains `finish_bonus` points.
+## and whose `crit_damage_bonus` makes a crit multiply like an ordinary crit of the same stats and then add `finish_bonus` points
+## (D19): ProjectileSystem.roll_damage multiplies a bonus crit by `damage_pct + bonus / 100`, so the stored bonus is
+## `(ordinary crit multiplier - damage_pct) x 100 + finish_bonus`, where the ordinary crit multiplier is `damage_pct x crit_mult`
+## (or `damage_pct + crit_damage_bonus / 100` when the skill already crits by points). tier C: owner ruling D19.
 static func line_stats(st: Dictionary, line: int, lines: int) -> Dictionary:
 	if not is_active(st) or not is_last(line, lines):
 		return st
 	var out := st.duplicate()
 	out["crit"] = minf(1.0, float(st.get("crit", 0.0)) + float(st[CHANCE_KEY]) / 100.0)
-	out["crit_damage_bonus"] = float(st.get("crit_damage_bonus", 0.0)) + float(st.get(BONUS_KEY, 0.0))
+	var pct := float(st.get("damage_pct", 1.0))
+	var own := float(st.get("crit_damage_bonus", 0.0))
+	var ordinary := pct + own / 100.0 if own > 0.0 else pct * float(st.get("crit_mult", 1.0))
+	out["crit_damage_bonus"] = (ordinary - pct) * 100.0 + float(st.get(BONUS_KEY, 0.0))
 	return out
 
 

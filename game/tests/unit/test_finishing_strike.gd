@@ -72,21 +72,34 @@ func test_only_the_last_line_is_the_finisher_and_a_one_line_cast_is_its_own_last
 
 
 func test_line_stats_raises_chance_and_adds_bonus_on_the_last_line_only() -> void:
-	var st := {"crit": 0.3, "crit_damage_bonus": 25.0, "finish_chance": 38.0, "finish_bonus": 120.0, "damage_min": 7.0}
+	var st := {"crit": 0.3, "crit_damage_bonus": 25.0, "finish_chance": 38.0, "finish_bonus": 120.0, "damage_min": 7.0,
+		"damage_pct": 2.0, "crit_mult": 1.5}
 	assert_true(FinishingStrike.line_stats(st, 0, 3) == st, "the first line is the stats themselves")
 	assert_true(FinishingStrike.line_stats(st, 1, 3) == st)
 	var last := FinishingStrike.line_stats(st, 2, 3)
 	assert_near(float(last.crit), 0.68, 1e-9, "30% + 38%")
-	assert_near(float(last.crit_damage_bonus), 145.0, 1e-9, "25 + 120 points")
+	assert_near(float(last.crit_damage_bonus), 145.0, 1e-9, "a skill already crit-by-points: its own 25 + the 120 points")
 	assert_eq(last.damage_min, 7.0, "everything else is copied")
 	assert_near(float(st.crit), 0.3, 1e-9, "the shared dictionary is not edited")
 	assert_near(float(st.crit_damage_bonus), 25.0, 1e-9)
 
 
 func test_the_chance_is_capped_at_certain() -> void:
-	var st := {"crit": 0.8, "crit_damage_bonus": 0.0, "finish_chance": 90.0, "finish_bonus": 250.0}
+	var st := {"crit": 0.8, "crit_damage_bonus": 0.0, "finish_chance": 90.0, "finish_bonus": 250.0, "damage_pct": 1.0, "crit_mult": 1.5}
 	assert_near(float(FinishingStrike.line_stats(st, 0, 1).crit), 1.0, 1e-9, "min(100%, 80% + 90%)")
-	assert_near(float(FinishingStrike.line_stats(st, 0, 1).crit_damage_bonus), 250.0, 1e-9)
+
+
+func test_the_finishing_bonus_goes_on_top_of_an_ordinary_crit() -> void:
+	# D19: roll_damage multiplies a bonus crit by damage_pct + bonus / 100, so the stored bonus is made to equal
+	# pct x crit_mult + finish_bonus / 100 (rank 8 Assassinate: 6.0 x 1.5 + 2.5 = 11.5 against the old 8.5).
+	var st := {"crit": 0.3, "crit_damage_bonus": 0.0, "finish_chance": 90.0, "finish_bonus": 250.0, "damage_pct": 6.0, "crit_mult": 1.5}
+	var last := FinishingStrike.line_stats(st, 2, 3)
+	assert_near(6.0 + float(last.crit_damage_bonus) / 100.0, 11.5, 1e-9, "the multiplier of a finishing crit")
+	var rank_one := {"crit": 0.3, "crit_damage_bonus": 0.0, "finish_chance": 38.0, "finish_bonus": 120.0, "damage_pct": 2.3, "crit_mult": 1.5}
+	assert_near(2.3 + float(FinishingStrike.line_stats(rank_one, 2, 3).crit_damage_bonus) / 100.0, 2.3 * 1.5 + 1.2, 1e-9)
+	assert_true(2.3 * 1.5 + 1.2 > 2.3 * 1.5, "never weaker than an ordinary crit")
+	var plain := {"crit": 0.3, "crit_damage_bonus": 0.0, "damage_pct": 6.0, "crit_mult": 1.5}
+	assert_true(FinishingStrike.line_stats(plain, 2, 3) == plain, "a skill without the block is untouched")
 
 
 func test_a_skill_without_the_keys_takes_the_unchanged_path() -> void:
@@ -151,7 +164,7 @@ func _expected_lines(draws: Array, with_finish: bool, count: int, base: float) -
 		var crit: bool = draws[i] < chance
 		var damage := 10.0
 		if crit:
-			damage = 10.0 * (1.0 + bonus / 100.0) if bonus > 0.0 else 10.0 * 1.5
+			damage = 10.0 * (1.5 + bonus / 100.0)
 		out.append({"crit": crit, "damage": roundi(damage)})
 	return out
 
@@ -195,7 +208,7 @@ func test_a_three_line_cast_rolls_two_lines_at_base_and_the_last_at_the_finishin
 	assert_true(seen_branch.base_only, "and the branch where even the base chance crits")
 
 
-func test_the_finishing_crit_adds_skill_percent_points_and_a_normal_crit_keeps_the_multiplier() -> void:
+func test_the_finishing_crit_adds_skill_percent_points_on_top_of_the_ordinary_multiplier() -> void:
 	var got := {}
 	for s in range(1, 200):
 		var w := _world({"finish_strike": BLOCK})
@@ -207,7 +220,7 @@ func test_the_finishing_crit_adds_skill_percent_points_and_a_normal_crit_keeps_t
 			got["first"] = hits[0].damage
 		if got.size() == 2:
 			break
-	assert_eq(got.last, 22, "10 x (1 + 120/100): the bonus points replace the 1.5 multiplier on the last line")
+	assert_eq(got.last, 27, "10 x (1 x 1.5 + 120/100): the bonus points go on top of the ordinary 1.5 multiplier (D19)")
 	assert_eq(got.first, 15, "an ordinary line's crit is still x1.5")
 
 
@@ -280,9 +293,9 @@ func test_the_hit_carries_the_crit_flag_the_numbers_use() -> void:
 func test_the_skill_window_names_the_last_strike_only_for_a_skill_with_the_block() -> void:
 	var with_block := _world({"finish_strike": BLOCK})
 	var line := SkillText.new(with_block.book).level_line("finisher", 1, with_block.loadout.stats("finisher", 1))
-	assert_true(line.contains("The last strike has a 38% chance of +120% critical damage"), line)
+	assert_true(line.contains("The last strike has a 38% chance of +120% on top of a critical hit"), line)
 	var rank_two := SkillText.new(with_block.book).level_line("finisher", 2, with_block.loadout.stats("finisher", 2))
-	assert_true(rank_two.contains("60% chance of +175%"), rank_two)
+	assert_true(rank_two.contains("60% chance of +175% on top of a critical hit"), rank_two)
 	var without := _world()
 	assert_false(SkillText.new(without.book).level_line("finisher", 1, without.loadout.stats("finisher", 1)).contains("last strike"))
 
