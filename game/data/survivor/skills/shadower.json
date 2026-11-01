@@ -46,6 +46,8 @@
 			"_provenance": "Tier A: Skill.wz 4211002 (book 421; rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16 by the shared balance.mobility_rank_levels rule, the same rank as Hero's Rush at every level): damage 240 / 350 / 450 % at ranks 1 / 4 / 8, prop (the stun chance) 28 / 50 / 80 %, time (the stun seconds) 2 / 3 / 4, mobCount 1, the box lt (-200,-120) rb (0,0) at every level, whose reach is also the dash distance (field lt.x, 200 px), the assaulter action, the hit/0 art and the Use sound; the node has no effect. Tier C: the 2.0 s cooldown (the balance lever, Rush's), the stun replaces Rush's always-on knock-back (no knockback block), the first monster along the path (bosses first, then nearest to where the dash began, the charge's ordering), hold-to-repeat, no start while climbing, no meter gain or bonus, never a card (no rarity bonuses), the bot dashes away from a mob within 60 px at most every 3 s (BotInput.RUSH_MIN_INTERVAL), the 0.6 s action hold (the body's two 600 ms frames are not both played), the `mob` stun stars are the generic stun cue (the node is not wired). GAME_DESIGN 7.135 (SH7 #432)."
 		},
 		"boomerang_step": {
+			"capture_delay": 0.3,
+			"_capture_delay": "tier C: playtest screenshot timing only (not read by the sim; SH14 #439): the first-cast shot is taken 0.3 s after the cast so the effect it shows (zone, cloud, hit numbers, fade) is on screen.",
 			"skill_id": 4221007,
 			"book": "422",
 			"job": 422,
@@ -142,6 +144,8 @@
 			"_provenance": "Tier A: Skill.wz 4221007 damage 290 to 500 % (rank 1 = level 4: 290 %), attackCount 2, mobCount 2 to 4, prop (stun chance 38 to 90 %), time (stun seconds 2 to 4), the forward box lt (-300,-110) rb (0,0), the alert5 action, effect (15 frames), hit/0 (hit/1 is identical), the Use and Hit sounds; the stray masterLevel 10 is ignored. Tier C: the 3.0 s cooldown, min_targets 1, the 0.6 s action hold (the body's three 300 ms frames are not all played), the default 30-level rank table, no weapon gate, the stun stars are the generic cue (the `mob` node is not wired). GAME_DESIGN 7.135."
 		},
 		"band_of_thieves": {
+			"capture_delay": 0.3,
+			"_capture_delay": "tier C: playtest screenshot timing only (not read by the sim; SH14 #439): the first-cast shot is taken 0.3 s after the cast so the effect it shows (zone, cloud, hit numbers, fade) is on screen.",
 			"skill_id": 4211004,
 			"book": "421",
 			"job": 421,
@@ -241,6 +245,8 @@
 			"_provenance": "Tier A: Skill.wz 4211004 damage 110 to 210 % per line (rank 1 = level 4: 140 %; it DROPS at levels 7, 13, 19 and 25 where `x` steps up, the totals never fall), x 1 to 5 (\"N other selves will attack\"), mobCount 2 to 6, the symmetric box +-130 to +-150 by +-50, the effect (5 frames) and hit/0..5 art (hit/1..5 are the thief figures, 5 of the 6 nodes carry hitAfter), the Use sound; the node has no action. Tier C: `attack_count_field x` (each other self lands one line on every struck monster, SH-8), the 8.0 s cooldown, min_targets 1, action `weapon` (the held dagger's first stance, the swingO1 fallback of the asset notes) held 0.6 s, hit/1..5 by line (hit/0, the common strike, is the fallback), hitAfter is not modelled (every line lands on the cast tick), no weapon gate, no status. GAME_DESIGN 7.135."
 		},
 		"meso_explosion": {
+			"capture_delay": 0.6,
+			"_capture_delay": "tier C: playtest screenshot timing only (not read by the sim; SH14 #439): the first-cast shot is taken 0.6 s after the cast so the effect it shows (zone, cloud, hit numbers, fade) is on screen.",
 			"skill_id": 4211006,
 			"book": "421",
 			"job": 421,
@@ -637,6 +643,8 @@
 			}
 		},
 		"smokescreen": {
+			"capture_delay": 0.6,
+			"_capture_delay": "tier C: playtest screenshot timing only (not read by the sim; SH14 #439): the first-cast shot is taken 0.6 s after the cast so the effect it shows (zone, cloud, hit numbers, fade) is on screen.",
 			"skill_id": 4221006,
 			"book": "422",
 			"job": 422,
@@ -733,6 +741,8 @@
 			"_provenance": "Tier A: Skill.wz 4221006 (30 levels; rank 1 = level 4) lt / rb box +-120 x +-90 at rank 1, (-150,-112)..(150,113) at rank 4 and +-200 x +-150 at rank 8, read as given (the y edges are not symmetric at some levels), the smokeshell action, the 11-frame `effect` (the cast: a dust ring and the green shell) and the `tile` (eleven two-frame puffs, each fading in and out) as the cloud, the Use sound. Tier C: the 6.0 s life (WZ `time` 34 to 60 s is session scale and is not read), the 24 s cooldown (WZ `cooltime` 600 is a session value and is not read), admission at three monsters within 250 px, the 0.6 s action hold, the default 30-level rank table, the cloud's look (SafeZoneView). Docs: GAME_DESIGN 7.136."
 		},
 		"ninja_ambush_shadower": {
+			"capture_delay": 0.7,
+			"_capture_delay": "tier C: playtest screenshot timing only (not read by the sim; SH14 #439): the first-cast shot is taken 0.7 s after the cast so the effect it shows (zone, cloud, hit numbers, fade) is on screen.",
 			"skill_id": 4221004,
 			"book": "422",
 			"job": 422,
@@ -829,6 +839,8 @@
 			"_provenance": "Tier A: Skill.wz 4221004 equals 4121004 in every field of all 30 levels (SH1 scan, re-checked by test_shadower_ninja_ambush): damage 62 to 100 % per strike (rank 1 = level 4: 68 %), mobCount 6, time 4 / 8 / 12 s, the symmetric box +-110 -> +-200 by (-130, 70) (rank 1 +-120), the alert3 action, the 19-frame effect, the mob0 strike art on each struck monster; the Use sound is a UOL into 4121004. Tier C (a data copy of Night Lord's, spec SH-16): the 14 s cooldown, min_targets 1, `ground.strike` {interval 1.0, first_delay 0.3} anchored at the cast, the 0.6 s action hold, no tile art, the default 30-level rank table, no weapon gate; Shadow Shifter level 5 (the WZ req) is ignored. GAME_DESIGN 7.135 (SH9)."
 		},
 		"dark_sight": {
+			"capture_delay": 1.0,
+			"_capture_delay": "tier C: playtest screenshot timing only (not read by the sim; SH14 #439): the first-cast shot is taken 1.0 s after the cast so the effect it shows (zone, cloud, hit numbers, fade) is on screen.",
 			"skill_id": 4001003,
 			"book": "400",
 			"job": 400,
@@ -938,6 +950,8 @@
 			}
 		},
 		"assassinate": {
+			"capture_delay": 0.9,
+			"_capture_delay": "tier C: playtest screenshot timing only (not read by the sim; SH14 #439): the first-cast shot is taken 0.9 s after the cast so the effect it shows (zone, cloud, hit numbers, fade) is on screen.",
 			"skill_id": 4221001,
 			"book": "422",
 			"job": 422,
