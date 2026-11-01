@@ -5,6 +5,7 @@ extends TestCase
 ## the bosses' skills and sounds) are cache-backed and SKIP without the asset cache.
 
 const CAL := preload("res://tests/calibrated_levels.gd")
+const RC := preload("res://tests/region_checks.gd")
 const KEY := "phantom_forest"
 const MAPS := [610010005, 610020014, 610010103]
 const BOSSES := [9400549, 9400594, 9400575]
@@ -40,7 +41,7 @@ func before_each() -> void:
 func test_the_stage_follows_leafre_in_the_progression() -> void:
 	var progression: Array = data.stages.progression
 	assert_true(progression.has(KEY), "listed in the progression")
-	assert_true(progression.find(KEY) > progression.find("leafre"), "after Leafre (step 13)")
+	assert_eq(RC.neighbours(progression, KEY), ["leafre", "clocktower"], "step 14 sits between leafre and clocktower")
 	assert_eq(String(stage.get("region", "")), "Phantom Forest")
 	assert_eq(String(stage.get("continent", "")), "Masteria", "String.wz group MasteriaGL")
 	assert_eq(stage.get("drop_band"), [90.0, 100.0], "#447's drop band")

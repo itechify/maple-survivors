@@ -6,7 +6,10 @@ extends RefCounted
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
 
-static func setup(id: int = 6130101, p_seed: int = 2302, area: Rect2 = Rect2(-250, -150, 500, 150)) -> Dictionary:
+## `attacks` are the scheduled stances (default attack1); `seconds` maps a stance to its total length in seconds (stretches
+## its last frame; default the 1.85 s of the first). Every scheduled stance is a copy of attack1 (#476).
+static func setup(id: int = 6130101, p_seed: int = 2302, area: Rect2 = Rect2(-250, -150, 500, 150),
+		attacks: Array = ["attack1"], seconds: Dictionary = {}) -> Dictionary:
 	var data := RF.quiet_data()
 	var shipped := shipped_entry(data, id)
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
@@ -14,7 +17,7 @@ static func setup(id: int = 6130101, p_seed: int = 2302, area: Rect2 = Rect2(-25
 	data.balance.player.stats.dex = 0
 	data.balance.player.stats.luk = 0
 	RF.set_bosses(data.stages.stages.quiet, [{"mob_id": id, "time": 0.5, "hp_mult": 0.6,
-		"dmg_mult": float(shipped.dmg_mult), "attacks": ["attack1"],
+		"dmg_mult": float(shipped.dmg_mult), "attacks": attacks,
 		"attack_interval": float(shipped.attack_interval), "attack_dmg_mult": float(shipped.attack_dmg_mult)}])
 	var out := RF.setup("quiet", p_seed, data)
 	out.map_img = RF.map_from_segments([{"x1": -2000, "y1": 0, "x2": 2000, "y2": 0}], [Vector2.ZERO])
@@ -28,6 +31,16 @@ static func setup(id: int = 6130101, p_seed: int = 2302, area: Rect2 = Rect2(-25
 		var frame: Dictionary = img.move["0"].duplicate(true)
 		frame.delay = [800.0, 200.0, 50.0, 50.0, 750.0][i]
 		img.attack1[str(i)] = frame
+	for attack: String in attacks:
+		if attack == "attack1":
+			continue
+		img[attack] = img.attack1.duplicate(true)
+	for attack: String in seconds:
+		var stance: Dictionary = img[attack]
+		var total := 0.0
+		for i in 5:
+			total += float(stance[str(i)].delay) / 1000.0
+		stance["4"].delay = float(stance["4"].delay) + (float(seconds[attack]) - total) * 1000.0
 	return out
 
 

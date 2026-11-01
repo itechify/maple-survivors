@@ -5,6 +5,7 @@ extends TestCase
 ## cache-backed and SKIP without the asset cache.
 
 const CAL := preload("res://tests/calibrated_levels.gd")
+const RC := preload("res://tests/region_checks.gd")
 const KEY := "mu_lung"
 const MAPS := [250010300, 250010301, 250010700]
 const BOSSES := [5220004, 7220000, 7220002]
@@ -28,7 +29,7 @@ func before_each() -> void:
 func test_the_stage_follows_ludibrium_in_the_progression() -> void:
 	var order: Array = data.stages.progression
 	assert_true(order.has(KEY), "mu_lung is in the progression")
-	assert_true(order.find(KEY) > order.find("ludibrium"), "Mu Lung comes after Ludibrium (step 9 of the final order)")
+	assert_eq(RC.neighbours(order, KEY), ["korean_folk_town", "el_nath"], "step 9 sits between korean_folk_town and el_nath")
 	assert_eq(String(stage.get("region", "")), "Mu Lung")
 	assert_eq(String(stage.get("continent", "")), "Ossyria", "String.wz group ossyria")
 	assert_eq(stage.get("drop_band"), [50.0, 60.0], "#447's drop band")
