@@ -1,5 +1,5 @@
 {
-	"_doc": "Shadower skill definitions (spec #425). Empty until the skill tickets land; each appends inside its own region, and a key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). SH6 #431 moves Double Stab, Steal and Savage Blow here from skills/thief.json (ported, no explicit ranks); SH7 #432 Assaulter (mobility); SH8 #433 Boomerang Step and Band of Thieves; SH9 #434 Ninja Ambush (key ninja_ambush_shadower); SH10 #435 Meso Explosion; SH11 #436 Dark Sight (moved from skills/thief.json and rewritten as a hidden Form) and Assassinate (form_sub); SH12 #437 Smokescreen (safe_zone). The pool is in jobs/shadower.json.",
+	"_doc": "Shadower skill definitions (spec #425), complete: eleven skills, from the tickets named below. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). Key order is the order the tickets landed: ninja_ambush_shadower is SH9's last key and dark_sight / assassinate (SH11) close the file. SH6 #431 moves Double Stab, Steal and Savage Blow here from skills/thief.json (ported, no explicit ranks); SH7 #432 Assaulter (mobility); SH8 #433 Boomerang Step and Band of Thieves; SH9 #434 Ninja Ambush (key ninja_ambush_shadower); SH10 #435 Meso Explosion; SH11 #436 Dark Sight (moved from skills/thief.json and rewritten as a hidden Form) and Assassinate (form_sub); SH12 #437 Smokescreen (safe_zone). The pool is in jobs/shadower.json.",
 	"skills": {
 		"assaulter": {
 			"skill_id": 4211002,
@@ -997,7 +997,5 @@
 				"hit": ""
 			}
 		}
-	},
-	"_sh9_region": "SH9 #434: ninja_ambush_shadower is the last key of the SH9 region (a data copy of Night Lord's ninja_ambush, owner data and Shadower bonuses only).",
-	"_sh11_region": "SH11 #436 owns dark_sight and assassinate (the last two keys); other tickets append their own entries above them."
+	}
 }
