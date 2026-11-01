@@ -6556,6 +6556,8 @@ cards never enter an advancement draw; carried learn cards also stay out of bran
 | Double Stab | `_cooldown` | cooldown ×0.88 | 3 |
 | Double Stab | `_reach` | skill swing envelope ×1.2 on both axes (`area`) | 2 |
 
+**Superseded (SH6 #431, 7.135):** Double Stab's behaviour cards above, and Steal's and Savage Blow's standalone cards, were deleted when the three moved to the Shadower line; their steps survive only as the rarity bonuses and Mastery of 7.135.
+
 `attack_count` modifiers add to the canonical `attackCount`, independently of target count. The extra-hit card
 previews Hits before/after. A weapon-reach skill applies its own `area` modifier to a copy of the held weapon's
 feet-relative swing envelope; target admission, the short-MP probe and the bot's reach all use that scale.
@@ -9881,6 +9883,38 @@ Tests: `test_shadower_boomerang_band` (forward line follows the facing, nearest-
 exemption, Band lines / monsters / box by rank, totals rising across the non-monotone percents, per-line hit art, every rarity
 bonus changing the resolved cast, card flow, bot scores, Skill window text, and the real-cache numbers of all eight ranks).
 
+#### 7.135 (SH6 #431): Shadower dagger fillers
+
+Constants: "Shadower SH6 constants (#431)". Double Stab (4001334), Steal (4201004) and Savage Blow (4201005) moved from
+`skills/thief.json` to `skills/shadower.json` (a repeated key is a load error, so they left the Thief file in the same change; Disorder,
+Dark Sight until SH11, the passives and the boosters stay). The numbers, cast rules (`weapon_reach` for Double Stab and Savage Blow,
+`range_around` 100 px for Steal, one base target each), the 1.2 s cooldown, art, sounds and Steal's `steal` block (retry until success,
+one extra loot per monster, bosses included, #167) are unchanged; only the rank table and the cards changed:
+
+- **Default rank tables.** The explicit 20- and 30-entry `ranks` are gone. The default table `ceil(r x maxLevel / 8)` gives eight
+  ranks: Double Stab reads levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20 (102 / 116 / 140% at ranks 1 / 4 / 8), Steal and Savage Blow
+  levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 (Steal 48 / 70 / 100% with a steal chance of 14 / 25 / 40%; Savage Blow 52 x4 / 68 x5 /
+  80 x6, and across all eight ranks 4 / 4 / 5 / 5 / 5 / 6 / 6 / 6 lines at 52 / 68 / 62 / 68 / 76 / 73 / 77 / 80%, the node's own
+  numbers). Rank 1 therefore reads level 3 or 4, not level 1 (Double Stab 102%, not 98%; the Steal chance 14%, not 11%).
+- **Legacy cards deleted.** `double_stab_*`, `steal_*` and `savage_blow_*` (new, rank, targets, hits, damage, cooldown, reach) and the
+  `requires.jobs [400]` / `[420]` gates they carried are gone from `upgrades/thief.json` (Dark Sight's cards stay until SH11). A
+  playable Shadower's new / rank cards come from `UpgradePool.add_pool_skills`; the +1 target, +1 line, damage, cooldown and reach
+  steps live on as the rarity bonuses below.
+- **Rarity bonuses** (tier C, first pass; each changes the resolved cast): Double Stab Rare Dagger Mastery (damage x1.2), Epic
+  Venomous Stab (**grants poison**), Unique Triple Stab (`attack_count` +1); Steal Rare Dagger Mastery, Epic Dagger Booster (cooldown
+  x0.88), Unique Pickpocket (`count` +2: two more monsters per strike); Savage Blow Rare Dagger Mastery, Epic Venomous Stab (grants
+  poison), Unique Savage Flurry (`attack_count` +1). Legendary is the Unique's effect under the same id (one shared repeat counter)
+  plus damage x1.2. The two grants are `{"stat": "status", "op": "grant", "status": "venomous_stab"}` (NL3's `StatusBonus`) and name the
+  `balance.status_bonuses.venomous_stab` catalogue entry of SH2 (7.130): poison, chance 14..30% by rank, 2..4 s, poison level by rank;
+  a hit of the skill rolls it per monster hit and the poison ticks as Night Lord's Venomous Star does (bosses reject it).
+
+Tests: `test_shadower_fillers` (the move and the deleted cards, the default tables, Double Stab twice on one monster at every rank, Steal
+one target and its chance by rank, Savage Blow 4 / 5 / 6 lines by rank with the node's percent, the rarity tables, every bonus
+changing the resolved cast, a poisoned monster in a seeded run with the Epic Double Stab, one rank plus the bonus, Legendary's shared
+counter, Mastery repeats x0.8, and the eight WZ levels of each skill against the real cache); Steal's rules (stream 15, extra loot,
+bosses, relocation) stay in `test_bandit_attacks` unchanged; `test_thief` and `test_thief_parity` lost only what asserted the old rank
+lists and cards.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -12097,6 +12131,21 @@ Mount art (GAME_DESIGN 7.120.11). The art numbers (canvases, origins, navels, de
 ### Buccaneer review corrections (#412)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
+### Shadower SH6 constants (#431)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Rank tables of Double Stab, Steal, Savage Blow | the default `ceil(r x maxLevel / 8)` (ranks 1..8 = levels 3 5 8 10 13 15 18 20 / 4 8 12 15 19 23 27 30), no `ranks` list | tier C: spec #425 (the levels, the numbers and the line counts are tier A, Skill.wz) |
+| Cadence and cast rules | 1.2 s each, `weapon_reach` / `range_around` 100 px, one base target, Steal's block and retry rules | tier C: unchanged from #167 / #207 / #214 |
+| Rare (all three): `dagger_mastery` | damage x1.2 | tier C: spec #425, first pass (lineage passive name) |
+| Double Stab Epic / Savage Blow Epic: `venomous_stab` | grant `venomous_stab` (poison, the SH2 catalogue entry) | tier C: spec #425 |
+| Double Stab Unique: `triple_stab` | `attack_count` +1 | tier C: spec #425 (flavour name) |
+| Steal Epic: `dagger_booster` | cooldown x0.88 | tier C: spec #425 (the existing booster magnitude) |
+| Steal Unique: `pickpocket` | `count` +2 | tier C: spec #425 |
+| Savage Blow Unique: `savage_flurry` | `attack_count` +1 | tier C: spec #425 (flavour name) |
+| Legendary (all three) | the Unique's effect and id, plus damage x1.2 | tier C: spec #425 |
+| Legacy `double_stab_*`, `steal_*`, `savage_blow_*` cards and their `requires.jobs` gates | deleted | tier C: ADR 0006 / spec #425 |
 
 ### Shadower SH5 constants (#430)
 

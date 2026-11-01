@@ -239,6 +239,278 @@
 			},
 			"_rarity": "Tier C: first-pass SH8 #433 bonuses (spec #425): Band Mastery, Wide Band and Bigger Band are flavour names; Bigger Band adds one more thief (a line on every struck monster); Legendary shares the Unique's id (and its repeat counter) plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.135.",
 			"_provenance": "Tier A: Skill.wz 4211004 damage 110 to 210 % per line (rank 1 = level 4: 140 %; it DROPS at levels 7, 13, 19 and 25 where `x` steps up, the totals never fall), x 1 to 5 (\"N other selves will attack\"), mobCount 2 to 6, the symmetric box +-130 to +-150 by +-50, the effect (5 frames) and hit/0..5 art (hit/1..5 are the thief figures, 5 of the 6 nodes carry hitAfter), the Use sound; the node has no action. Tier C: `attack_count_field x` (each other self lands one line on every struck monster, SH-8), the 8.0 s cooldown, min_targets 1, action `weapon` (the held dagger's first stance, the swingO1 fallback of the asset notes) held 0.6 s, hit/1..5 by line (hit/0, the common strike, is the fallback), hitAfter is not modelled (every line lands on the cast tick), no weapon gate, no status. GAME_DESIGN 7.135."
+		},
+		"double_stab": {
+			"skill_id": 4001334,
+			"book": "400",
+			"job": 400,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Double Stab",
+			"desc": "Stabs one monster twice within your dagger's reach.",
+			"icon": "Skill.wz/400.img/skill/4001334/icon",
+			"damage": "physical",
+			"_tier": "Tier A: WZ weapon 33, damage, attackCount 2, mpCon, stabO1 action and CharLevel hit art. Tier C: weapon_reach auto-cast, one base target, cooldown 1.2s, action hold 0.6s; untuned. SH6 #431 (GAME_DESIGN 7.135): ported from thief.json with the default rank table (no explicit `ranks`: 20 levels, ranks 1..8 read levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20), same numbers, cast rule, 1.2 s cooldown, art and sounds; rarity bonuses (tier C, spec #425). Untuned.",
+			"cast": {
+				"rule": "weapon_reach"
+			},
+			"cooldown": 1.2,
+			"action": "stabO1",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/400.img/skill/4001334/hit/0",
+			"effect": "",
+			"char_level": {
+				"thresholds": [
+					10,
+					15,
+					20,
+					25
+				],
+				"hit": "Skill.wz/400.img/skill/4001334/CharLevel/{cl}/hit/0"
+			},
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4001334/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "dagger_mastery",
+						"text": "Dagger Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "venomous_stab",
+						"text": "Venomous Stab",
+						"effects": [
+							{
+								"stat": "status",
+								"op": "grant",
+								"status": "venomous_stab"
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "triple_stab",
+						"text": "Triple Stab",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "triple_stab",
+						"text": "Triple Stab",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"steal": {
+			"skill_id": 4201004,
+			"book": "420",
+			"job": 420,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Steal",
+			"desc": "A melee strike that can take one extra item from each monster, including bosses.",
+			"icon": "Skill.wz/420.img/skill/4201004/icon",
+			"damage": "physical",
+			"_tier": "Tier A: canonical damage, mpCon, prop, swingO2 action, effect and sound; no weapon gate. Owner #167: retry until success, one extra loot per logical mob, bosses included. Tier C: range_around auto-cast within 100px, one base target, cooldown 1.2s, action hold 0.6s; extra loot uses ordinary equipment chance/pool, else a normal meso bundle; untuned. SH6 #431 (GAME_DESIGN 7.135): ported from thief.json with the default rank table (no explicit `ranks`: 30 levels, ranks 1..8 read levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30), same numbers, cast rule, 1.2 s cooldown, art and sounds; rarity bonuses (tier C, spec #425). Untuned.",
+			"text": {
+				"desc": "Strikes nearby monsters and tries to take an extra item. Each monster, including a boss, can be stolen from once; failed attempts can be retried.",
+				"h": "{damage}% damage, {prop}% chance to steal one extra item."
+			},
+			"steal": {
+				"chance_field": "prop"
+			},
+			"cast": {
+				"rule": "range_around"
+			},
+			"range": 100,
+			"cooldown": 1.2,
+			"action": "swingO2",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/420.img/skill/4201004/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4201004/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "dagger_mastery",
+						"text": "Dagger Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "dagger_booster",
+						"text": "Dagger Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "pickpocket",
+						"text": "Pickpocket",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "pickpocket",
+						"text": "Pickpocket",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"savage_blow": {
+			"skill_id": 4201005,
+			"book": "420",
+			"job": 420,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Savage Blow",
+			"desc": "Strikes a monster up to six times with a dagger.",
+			"icon": "Skill.wz/420.img/skill/4201005/icon",
+			"damage": "physical",
+			"_tier": "Tier A: canonical weapon 33, attackCount, damage, mpCon, savage action, effect, hit art and sounds. Tier C: weapon_reach auto-cast, one base target, cooldown 1.2s, action hold 1.0s; untuned. SH6 #431 (GAME_DESIGN 7.135): ported from thief.json with the default rank table (no explicit `ranks`: 30 levels, ranks 1..8 read levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30), same numbers, cast rule, 1.2 s cooldown, art and sounds; rarity bonuses (tier C, spec #425). Untuned.",
+			"cast": {
+				"rule": "weapon_reach"
+			},
+			"cooldown": 1.2,
+			"action": "savage",
+			"action_time": 1,
+			"ball": "",
+			"hit": "Skill.wz/420.img/skill/4201005/hit/0",
+			"effect": "Skill.wz/420.img/skill/4201005/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4201005/Use",
+				"hit": "Sound.wz/Skill.img/4201005/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "dagger_mastery",
+						"text": "Dagger Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "venomous_stab",
+						"text": "Venomous Stab",
+						"effects": [
+							{
+								"stat": "status",
+								"op": "grant",
+								"status": "venomous_stab"
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "savage_flurry",
+						"text": "Savage Flurry",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "savage_flurry",
+						"text": "Savage Flurry",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
 		}
 	}
 }

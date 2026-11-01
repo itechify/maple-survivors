@@ -3,9 +3,7 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-const LINES := {
-	"double_stab": {"targets": 3, "hits": 2, "damage": 3, "cooldown": 3, "reach": 2},
-}
+const LINES := ["double_stab"]
 
 
 func _world(path := "dagger") -> RunWorld:
@@ -87,24 +85,15 @@ func test_reach_modifier_expands_only_this_skills_envelope_on_both_sides() -> vo
 	assert_true(_hits(far.drain_events()).is_empty(), "the expanded box still has a far edge")
 
 
-func test_each_path_has_thirteen_steps_across_five_behaviour_lines() -> void:
+## SH6 #431 deleted Double Stab's five standalone behaviour cards (`double_stab_targets/hits/damage/cooldown/reach`, thirteen steps;
+## the old "thirteen steps across five behaviour lines" test went with them). The modifier stats those cards applied are still
+## the ones the rarity bonuses and Mastery use, so this checks the modifiers directly.
+func test_the_legacy_double_stab_cards_are_gone() -> void:
 	var w := _world()
-	for key: String in LINES:
-		var cards := w.upgrades.cards.filter(func(c: Dictionary) -> bool:
-			return c.get("skill", "") == key and c.kind == "skill_mod")
-		assert_eq(cards.size(), 5, key)
-		var steps := 0
-		for line: String in LINES[key]:
-			var c := w.upgrades.card(key + "_" + line)
-			assert_false(c.is_empty(), key + "_" + line)
-			assert_eq(int(c.get("max_rank", 0)), LINES[key][line], key + "_" + line)
-			assert_true(UpgradePool.is_power(c), "every attack modifier counts for pity")
-			steps += int(c.get("max_rank", 0))
-		assert_eq(steps, 13, key)
+	assert_true(w.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.get("skill", "") == "double_stab").is_empty())
 
 
-
-func test_damage_and_cooldown_cards_scale_effective_stats_and_cast_cadence() -> void:
+func test_damage_and_cooldown_modifiers_scale_effective_stats_and_cast_cadence() -> void:
 	for key: String in LINES:
 		var casts: Array[int] = []
 		for upgraded in [false, true]:
@@ -112,8 +101,9 @@ func test_damage_and_cooldown_cards_scale_effective_stats_and_cast_cadence() -> 
 			w.learn_skill(key)
 			var before := w.loadout.stats(key)
 			if upgraded:
-				RF.add_modifier_effects(w, w.upgrades.card(key + "_damage"), 2)
-				RF.add_modifier_effects(w, w.upgrades.card(key + "_cooldown"), 2)
+				for step in 2:
+					w.loadout.add_skill_mod(key, "damage", "mul", 1.2)
+					w.loadout.add_skill_mod(key, "cooldown", "mul", 0.88)
 				var after := w.loadout.stats(key)
 				assert_near(after.damage_min / before.damage_min, 1.44)
 				assert_near(after.damage_max / before.damage_max, 1.44)
