@@ -12168,3 +12168,4 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Bot scores `dark_sight`, `smokescreen`, `meso_explosion` (`_new` / `_rank`) | 100 / 74 | tier C: spec #425 (the number the pool default gives every curated skill) |
 | `balance.status_bonuses.venomous_stab` | poison; chance 14 16 18 20 24 26 28 30; time 2 2 3 3 3 4 4 4; level 4 8 12 15 19 23 27 30; element `s` | tier A: Venomous Stab 4220005 `prop`, `time` and the rank -> poison level map, equal level for level to 4120005 |
 | `repeat_chance` of `venomous_stab` | 3 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #425 SH-13 |
+| `test_late_equipment_bands` Shadower row | job 422, `["dagger"]`, shield check off (the shipped Thief shield list has no piece in bands 1, 2, 14, 15; SH2 changes no equipment data) | tier C: test table, spec #425 |
