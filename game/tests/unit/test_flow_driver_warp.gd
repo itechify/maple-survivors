@@ -31,7 +31,6 @@ class HeadlessDriver extends "res://scenes/debug/flow_driver.gd":
 func test_diagnostic_warp_delivers_clear_from_final_answer_with_and_without_swept_levels() -> void:
 	for sweep in [false, true]:
 		var w := RF.quiet_world(400.0, 71)
-		w.balance.player.skills = []
 		w.loadout.order.clear()
 		w.bosses = BossDirector.new([{"mob_id": 2220000, "time": 0.0}])
 		w.bosses.records[0].dead = true

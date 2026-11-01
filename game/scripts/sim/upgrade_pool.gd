@@ -2,48 +2,47 @@ class_name UpgradePool
 extends RefCounted
 ## Data-driven upgrade cards (`data/survivor/upgrades.json`, docs/GAME_DESIGN.md section 8): eligibility, seeded
 ## weighted draws and applying a card to a run. `state` is the RunWorld (its loadout, progression, jobs and player).
-##
-## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (exact current job id, or one of
-## `requires.carry_jobs`: later jobs that keep a card on offer but never in the advancement draw),
-## `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
-## needs the skill unowned; skill_rank / skill_mod need the skill owned (skill_rank also below its max rank).
-## There are no job-neutral cards: potions upgrade by level (PotionSchedule), the Power Elixir is the only filler.
-## Draws pick distinct eligible cards with seeded weights.
-## Cards of a skill (any kind with a `skill`) are eligible only while the weapon held when the draw rolls can use the
-## skill (SkillBook.usable_with with RunWorld.held_weapon_family); the advancement draw goes through the same check.
-## An accepted job opens a separate roll_advancement_choices draw before the normal level draw.
-## Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
-## "power" card (cards flagged `"power": true`: new attack skills, attack skill ranks, more shots / targets / damage),
-## the next draw's first card is drawn among the eligible power cards, so a run's damage cannot stall on bad offers.
-## RunWorld.power_dry counts those draws. A sparse draw adds one separate `fallback` card (Power Elixir, full HP/MP),
-## never weighted; an exhausted pool offers it alone. Tier C: survivor reward rule, preserving earlier-job skills.
-## Each scalable offer rolls a Potential tier with the same seeded RNG. Fortune shifts only tier odds; magnitude
-## tables resolve the skill ranks / modifier steps. Tiers in magnitudes.clamp clamp to remaining headroom; other
-## tiers drop to the highest fitting tier. Equal gains wear the lowest label, before preview and application.
+## Pool membership replaces job-line card filtering. Only new/rank cards for pool actives and common passives
+## are drawn, with their rarity bonuses; capped pool actives keep offering Mastery (#288).
+
+const SKILL_NEW := "skill_new"
+const SKILL_RANK := "skill_rank"
+const FILLER := "filler"
+const MASTERY := "mastery"
+const NEW_ACTIVE := "new_active"
+const OWNED_ACTIVE := "owned_active"
+const NEW_PASSIVE := "new_passive"
+const PASSIVE_RANK := "passive_rank"
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
-const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp",
+const PREVIEW_FIELDS := ["mad", "mastery", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp",
 	"damage", "hpCon", "prop"]
 ## Preview keys of passive skills whose canonical number means something else than its field name (the Warrior
 ## passives, #163): Max HP per level-up for Improved MaxHP Increase (field x), HP per regeneration pulse for Improved HP
 ## Recovery (field hp, which is a percent for Heal).
 const PASSIVE_MAX_HP := Loadout.MAX_HP_PER_LEVEL
 const PASSIVE_REGEN_HP := "regen_hp"
-const PASSIVE_PREVIEW_KEYS := [Loadout.MAX_MP_PERCENT, PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
+const PASSIVE_PREVIEW_KEYS := [PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 ## Effective opt-in mechanic values; fall-off is displayed as percentage points per later target.
-const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff"]
-## Skill modifier stats a skill_mod card previews. Each is its own skill_mod_changes key, except "count", which is
-## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
-const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff"]
+## `fixed_share` previews the rank's share of max HP in percent (Snipe, #368).
+const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep", "form_time", "form_power",
+	"fixed_share"]
+## How a bonus effect on a healing or revive stat reads on its card: [name, scale of an added value, unit of an added
+## value]. tier C: wording from spec #372 story 11 ("Greater Heal: recovery x1.2", "Holy Shield: guard +1.5 s").
+const CARD_STAT_TEXT := {"heal_power": ["recovery", 1.0, ""], "heal_threshold": ["heals below", 100.0, "% HP"],
+	"revive_hp": ["revive HP", 100.0, "%"], "revive_guard": ["guard", 1.0, " s"]}
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "hp_cost", "self_damage", "low_hp_damage", "support_heal", "support_rate", "form_time", "form_power", "mark_power", "mark_time", "hull", "heal_power", "heal_threshold", "revive_hp", "revive_guard", "zone_time"]
+## Modifier previews: label, unit and base multiplier. Add another multiplier here only (tier C: UI wording).
+const MODIFIER_PREVIEW := {"burn_damage": ["Burn", "%", 1.0]}
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
+const STAT_LABELS := {"form_time": "Form duration", "form_power": "Form power", "zone_time": "Cloud duration", "attack_count": "Hits"}
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
 var cards: Array = []
-## Draws in a row without a power card after which a power card is guaranteed (0 = no pity).
-var pity_draws := 0
 var _rarity := {}
-var _magnitudes := {}
+var _mastery_bonus := {}
 var _by_id := {}
+var _draw_weights := {}
 var _fallback_id := ""
 
 
@@ -59,10 +58,8 @@ static func empty_tier_counts() -> Dictionary:
 static func from_data(root: Dictionary) -> UpgradePool:
 	var p := UpgradePool.new()
 	p._rarity = root.get("rarity", {})
-	p._magnitudes = root.get("magnitudes", {})
-	var pity: Variant = root.get("pity", {})
-	if pity is Dictionary:
-		p.pity_draws = maxi(0, int(pity.get("draws", 0)))
+	p._draw_weights = root.get("draw_weights", {})
+	p._mastery_bonus = root.get("mastery_bonus", {})
 	for c: Dictionary in root.get("cards", []):
 		var id := String(c.get("id", ""))
 		if id == "" or p._by_id.has(id):
@@ -82,7 +79,7 @@ func card(id: String) -> Dictionary:
 	return _by_id.get(id, {})
 
 
-## Consumed rank/modifier steps of card `id`; a one-time learn card consumes one.
+## Number of picks consumed by card `id`, including repeat Mastery picks.
 func rank(id: String, state: RunWorld) -> int:
 	return int(state.loadout.card_ranks.get(id, 0))
 
@@ -104,15 +101,15 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	if max_rank > 0 and rank(id, state) >= max_rank:
 		return false
 	var req: Dictionary = c.get("requires", {}) if c.get("requires") is Dictionary else {}
-	var jobs: Array = req.get("jobs", [])
-	if not jobs.is_empty():
-		var ok := false
-		# carry_jobs (spec #165 #180): later jobs that keep offering the card; the advancement draw reads `jobs` only.
-		for j: Variant in jobs + req.get("carry_jobs", []):
-			if state.progression.job_id == int(j):
-				ok = true
-				break
-		if not ok:
+	var skill_key := String(c.get("skill", ""))
+	var slot := lo.book.slot(skill_key)
+	if String(c.get("kind", "")) != FILLER:
+		if not String(c.get("kind", "")) in [SKILL_NEW, SKILL_RANK]:
+			return false
+		if slot == "passive":
+			if not bool(lo.book.def(skill_key).get("common_passive", false)):
+				return false
+		elif slot != "active" or not skill_key in state.jobs.skill_pool(state.job_id()):
 			return false
 	for s: Variant in req.get("skills", []):
 		if not lo.has(String(s)):
@@ -124,18 +121,12 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	if state.progression.level < int(req.get("min_level", 0)):
 		return false
 	var skill := String(c.get("skill", ""))
-	# Spec #151 (#156): a skill's cards are offered only while the held weapon can use the skill.
-	if skill != "" and not lo.book.usable_with(skill, state.held_weapon_family()):
-		return false
 	match String(c.get("kind", "")):
-		"skill_new":
-			if not lo.book.has(skill) or lo.has(skill):
+		SKILL_NEW:
+			if not lo.book.has(skill) or lo.has(skill) or not lo.has_free_slot(lo.book.slot(skill)):
 				return false
-		"skill_rank":
-			if not lo.has(skill) or lo.rank(skill) >= lo.book.max_rank(skill):
-				return false
-		"skill_mod":
-			if not lo.has(skill):
+		SKILL_RANK:
+			if not lo.has(skill) or (lo.rank(skill) >= lo.book.max_rank(skill) and slot != "active"):
 				return false
 	return true
 
@@ -143,67 +134,56 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 ## Draws up to n distinct eligible cards, adding one fallback alternative when short (see choice_card for fields).
 func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Array:
 	var pool := eligible(state)
-	if state.choice_bonus:
-		# tier C: an almost-maxed rank card that cannot sustain Rare is omitted from boss rewards. The
-		# Power Elixir filler is an always-Normal exception to the boss floor, so an exhausted reward still opens a window.
-		pool = pool.filter(func(id: String) -> bool:
-			return _always_normal(card(id)) or _honest_tier(card(id), state, "rare") != "normal")
 	var picked: Array = []
-	if pity_draws > 0 and state.power_dry >= pity_draws:
-		var gpool: Array = []
-		for id: String in pool:
-			var c := card(id)
-			if is_power(c):
-				gpool.append(id)
-		var gid := _weighted_pick(gpool, rng)
-		if gid != "":
-			picked.append(gid)
-			pool.erase(gid)
 	while picked.size() < n and not pool.is_empty():
-		var id := _weighted_pick(pool, rng)
+		var id := _weighted_pick(pool, rng, state)
 		picked.append(id)
 		pool.erase(id)
 	if picked.size() < n and _fallback_id != "":
 		picked.append(_fallback_id)
 	var out: Array = []
-	var power := false
 	for id: String in picked:
-		var offered := choice_card(id, state, "normal" if _always_normal(card(id)) else _roll_tier(state, rng))
+		var offered := choice_card(id, state, "normal" if state.book.slot(String(card(id).get("skill", ""))) != "active" else _roll_tier(state, rng))
 		out.append(offered)
 		state.card_tiers_offered[String(offered.tier)] += 1
-		power = power or is_power(card(id))
-	state.power_dry = 0 if power else state.power_dry + 1
 	return out
 
 
-## Extra job draw: every eligible new power skill, then seeded new-skill choices of that exact job up to n.
-## Tier C: no slot caps or prerequisites; a sparse draw includes the usual Elixir alternative.
-func roll_advancement_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Array:
-	var picked: Array = []
-	var other: Array = []
-	for id: String in eligible(state):
-		var c := card(id)
-		if String(c.get("kind", "")) != "skill_new" or not _lists_job(c, state.progression.job_id):
-			continue
-		if is_power(c):
-			picked.append(id)
-		else:
-			other.append(id)
-	while picked.size() < n and not other.is_empty():
-		var id := _weighted_pick(other, rng)
-		picked.append(id)
-		other.erase(id)
-	if picked.size() < n and _fallback_id != "":
-		picked.append(_fallback_id)
-	var out: Array = []
-	var power := false
-	for id: String in picked:
-		var offered := choice_card(id, state, "normal" if _always_normal(card(id)) else _roll_tier(state, rng))
-		out.append(offered)
-		state.card_tiers_offered[String(offered.tier)] += 1
-		power = power or is_power(card(id))
-	state.power_dry = 0 if power else state.power_dry + 1
-	return out
+## Stable draw category, independent of card encoding; capped pool actives become Mastery.
+func card_kind(c: Dictionary, state: RunWorld) -> String:
+	var skill := String(c.get("skill", ""))
+	if String(c.get("kind", "")) == FILLER:
+		return FILLER
+	if state.book.slot(skill) == "passive":
+		return PASSIVE_RANK if state.loadout.has(skill) else NEW_PASSIVE
+	if String(c.get("kind", "")) == SKILL_RANK and state.book.slot(skill) == "active" and skill in state.jobs.skill_pool(state.job_id()) and state.loadout.has(skill) and state.loadout.rank(skill) >= state.book.max_rank(skill):
+		return MASTERY
+	return OWNED_ACTIVE if state.loadout.has(skill) else NEW_ACTIVE
+
+
+## Per-card sampling weight from survivor data; Fortune changes rarity only.
+func draw_weight(c: Dictionary, state: RunWorld) -> float:
+	return maxf(0.0, float(_draw_weights.get(card_kind(c, state), 1.0)))
+
+
+## Add standard new/rank cards for newly implemented pool definitions; explicit data cards may override text.
+func add_pool_skills(book: SkillBook, jobs: JobTree) -> void:
+	if cards.is_empty():
+		return # explicit empty card catalog (tools and synthetic worlds)
+	for job in jobs.playable_jobs():
+		for key: String in jobs.skill_pool(job):
+			if not book.has(key):
+				continue
+			for kind: String in [SKILL_NEW, SKILL_RANK]:
+				var id := key + ("_new" if kind == SKILL_NEW else "_rank")
+				if _by_id.has(id):
+					continue
+				var d := book.def(key)
+				var c := {"id": id, "kind": kind, "skill": key, "name": d.get("name", key),
+					"icon": d.get("icon", book.wz_path(key) + "/icon"), "desc": "+1 rank", "max_rank": 0,
+					"effects": [], "power": true}
+				cards.append(c)
+				_by_id[id] = c
 
 
 ## True for a card flagged `"power": true` (it raises an attack skill's damage output).
@@ -218,17 +198,26 @@ static func is_power(c: Dictionary) -> bool:
 ## does not change the level: skill_new and skill_rank cards only), skill_level_max (the skill's canonical level cap, 0
 ## for cards without a skill), skill_changes (rank cards: canonical field ->
 ## {before, after} for PREVIEW_FIELDS; mastery is a percent, other values are original WZ numbers; a survivor per-level
-## passive shows only its own stat in percent, e.g. Loadout.MAX_MP_PERCENT), skill_effect_stat (the skill's
-## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills),
-## skill_mod_changes (skill_mod cards on an owned skill: effective value -> {before, after} once all the card's steps
+## passive shows only its own stat in percent), skill_effect_stat (the skill's
+## skills.json buff `stat`, e.g. "hp" for Recovery; "" for other skills),
+## skill_mod_changes (rarity bonuses: effective value -> {before, after} once the bonus effects
 ## are taken, keys as MOD_PREVIEW names them: shots / targets / attack_count / pierce / speed / range (whole numbers), cooldown
-## (seconds between casts as SkillRunner.restart_cooldown counts them, two decimals), area / damage / crit (percent);
+## (seconds between casts as SkillRunner.restart_cooldown counts them, two decimals), area / damage / crit / revive_hp (percent),
+## revive_guard (seconds, two decimals);
 ## {} otherwise)}.
 func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictionary:
 	var c := card(id)
+	var category := card_kind(c, state)
 	tier = _honest_tier(c, state, tier)
-	var magnitude := _magnitude(c, state, tier)
+	var magnitude := 0 if category == MASTERY else 1
+	var bonus := rarity_bonus(c, state, tier, category)
 	var desc := describe(id, magnitude)
+	if state.book.def(String(c.get("skill", ""))).has("rarity_bonuses"):
+		desc = "Learn at rank 1." if String(c.get("kind", "")) == SKILL_NEW else "+1 rank."
+	if category == MASTERY:
+		desc = "Mastery: no rank gained."
+	if not bonus.is_empty():
+		desc += " " + String(bonus.text) + "."
 	var kind := String(c.get("kind", ""))
 	var skill := String(c.get("skill", ""))
 	var skill_name := ""
@@ -254,15 +243,18 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 			effect_stat = String(lo.book.def(skill).cast.get("status", "slow")) # the status the crowd cast inflicts
 		var r := lo.rank(skill) if lo.has(skill) else 0
 		level = lo.book.canonical_level(skill, r) if r > 0 else 0
-		if kind == "skill_new":
+		if kind == SKILL_NEW:
 			level_next = lo.book.canonical_level(skill, magnitude)
-		elif kind == "skill_rank" and r > 0:
+		elif kind == SKILL_RANK and r > 0:
 			level_next = lo.book.canonical_level(skill, r + magnitude)
 			var before := lo.book.level_node(skill, level)
 			var after := lo.book.level_node(skill, level_next)
 			for field: String in PREVIEW_FIELDS:
 				# `prop` is previewed for Final Attack only (#181): other skills' cards (Poison Breath) keep their events.
 				if field == "prop" and not lo.book.def(skill).has("final_attack"):
+					continue
+				# A fixed-share skill (Snipe, #368) never reads its WZ cooltime (a session value): the card must not show it.
+				if field == "cooltime" and lo.book.def(skill).has("fixed_share"):
 					continue
 				if before.has(field) and after.has(field):
 					var a := int(lo.book.canonical(skill, level, field))
@@ -274,7 +266,7 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 			var old_stats := lo.stats(skill, r)
 			var new_stats := lo.stats(skill, r + magnitude)
 			for field: String in MECHANIC_PREVIEW_KEYS:
-				if old_stats[field] != new_stats[field]:
+				if old_stats.get(field, 0) != new_stats.get(field, 0):
 					changes[field] = {"before": _preview_value(field, old_stats, lo, skill),
 						"after": _preview_value(field, new_stats, lo, skill)}
 			var damage_field := String(lo.book.def(skill).get("impact_blast", {}).get("damage_field", "damage"))
@@ -286,9 +278,10 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 				changes[renamed[1]] = changes[renamed[0]]
 				changes.erase(renamed[0])
 			var passive: Dictionary = lo.book.def(skill).get("passive", {})
-			if passive.has("per_level"):
-				# tier C: a survivor per-level passive (Improved MaxMP Increase) previews its own fraction as a percent,
-				# not the canonical fields it reinterprets.
+			if passive.has("per_level") and not bool(lo.book.def(skill).get("common_passive", false)):
+				# tier C: a survivor per-level passive previews its own fraction as a percent,
+				# not the canonical fields it reinterprets. A common passive (#289) has no canonical fields and states
+				# its per-rank value in its own unit: its card text (SkillText) shows it.
 				changes = {String(passive.stat): {"before": roundi(lo.passive_value(skill, level, passive) * 100.0),
 					"after": roundi(lo.passive_value(skill, level_next, passive) * 100.0)}}
 	return {
@@ -296,10 +289,15 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"tier": tier,
 		"magnitude": magnitude,
 		"kind": kind,
-		"name": String(c.get("name", id)),
+		"card_kind": category,
+		"slots": lo.slot_summary(),
+		"skill_rank_before": lo.rank(skill),
+		"skill_rank_max": lo.book.max_rank(skill),
+		"name": String(c.get("name", id)) + (" Mastery" if category == MASTERY else ""),
+		"rarity_bonus": bonus,
 		"desc": desc,
 		"icon": String(c.get("icon", "")),
-		"rank": rank(id, state) + _consumed_steps(c, magnitude),
+		"rank": rank(id, state) + maxi(1, _consumed_steps(c, magnitude)),
 		"rank_before": rank(id, state),
 		"max_rank": int(c.get("max_rank", 1)),
 		"skill": skill,
@@ -309,8 +307,80 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"skill_level_max": level_max,
 		"skill_changes": changes,
 		"skill_effect_stat": effect_stat,
-		"skill_mod_changes": _mod_changes(c, lo, magnitude) if kind == "skill_mod" and lo.has(skill) else {},
+		"skill_mod_changes": _bonus_changes({"skill": skill, "effects": bonus.get("effects", [])}, lo, 1) if not bonus.is_empty() else {},
 	}
+
+
+## Resolves the next data-only bonus without consuming RNG; preview and application use the same entry.
+## Lists cycle in data order. A shared id across rarities shares its repeat count.
+func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String = "") -> Dictionary:
+	if category == "":
+		category = card_kind(c, state)
+	var skill := String(c.get("skill", ""))
+	if state.book.slot(skill) != "active" or not String(c.get("kind", "")) in [SKILL_NEW, SKILL_RANK]:
+		return {}
+	if tier == "normal" and category != MASTERY:
+		return {}
+	var entries: Array = state.book.def(skill).get("rarity_bonuses", {}).get(tier, [])
+	# tier C (#346): Normal Mastery gives damage, or cooldown x0.95 for damage:none skills.
+	if tier == "normal" and category == MASTERY and not _mastery_bonus.is_empty():
+		var normal := _mastery_bonus.duplicate(true)
+		if String(state.book.def(skill).get("damage", "")) == "none":
+			normal.effects = [{"stat": "cooldown", "op": "mul", "value": 0.95}]
+		entries = [normal]
+	if entries.is_empty():
+		return {}
+	var count := 0
+	for entry: Dictionary in entries:
+		count += int(state.loadout.card_ranks.get("bonus:" + skill + ":" + String(entry.id), 0))
+	var bonus: Dictionary = entries[count % entries.size()].duplicate(true)
+	var counter := "bonus:" + skill + ":" + String(bonus.id)
+	# tier C: repeated bonuses shrink x0.8, including awards received before Mastery.
+	var scale := pow(0.8, int(state.loadout.card_ranks.get(counter, 0)))
+	var labels: Array[String] = []
+	for effect: Dictionary in bonus.effects:
+		var op := String(effect.get("op", "add"))
+		if op == "grant":
+			effect["scale"] = scale
+			var preview := state.loadout.clone()
+			preview.add_status_grant(skill, String(effect.status), scale)
+			var r := state.loadout.rank(skill)
+			if category != MASTERY:
+				r += 1
+			for grant: Dictionary in preview.stats(skill, maxi(1, r)).get("status_grants", []):
+				if String(grant.id) == String(effect.status):
+					labels.append(StatusBonus.line(grant, state.loadout.status_bonuses))
+			continue
+		var value := float(effect.value)
+		effect.value = 1.0 + (value - 1.0) * scale if op == "mul" else value * scale
+		if String(effect.stat) == "meter_keep":
+			var before := state.loadout.skill_stat(skill, "meter_keep", 0.0)
+			var kept := before * float(effect.value) if op == "mul" else before + float(effect.value)
+			labels.append("Keeps %d %s" % [maxi(0, roundi(kept)), state.book.meter_unit(skill)])
+			continue
+		if HpRisk.LABELS.has(String(effect.stat)):
+			labels.append(String(HpRisk.LABELS[String(effect.stat)]) + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
+			continue
+		labels.append(effect_label(String(effect.stat), op, float(effect.value)))
+	# tier C (spec #360, MS5): an optional `text_by_family` renames the bonus for the held weapon family (Arrow Blow's
+	# "Crossbow Mastery"); the text only, never a number.
+	var by_family: Dictionary = bonus.get("text_by_family", {})
+	var shown := String(by_family.get(state.loadout.weapon_family, bonus.get("text", bonus.id)))
+	bonus.erase("text_by_family") # resolved: the card dictionary (and the event stream that carries it) holds the one name only
+	bonus.text = shown + ": " + ", ".join(labels)
+	bonus.counter = counter
+	return bonus
+
+
+## A bonus effect's card text, "<stat> x1.2" for a multiplier and "<stat> +3" for an addition. The healing and revive stats
+## read in the player's words (CARD_STAT_TEXT: "recovery x1.2", "guard +1.5 s"); the others are their capitalized key.
+static func effect_label(stat: String, op: String, value: float) -> String:
+	var text: Array = CARD_STAT_TEXT.get(stat, [])
+	if text.is_empty():
+		return String(STAT_LABELS.get(stat, stat)).capitalize() + (" x" if op == "mul" else " +") + _fmt(snappedf(value, 0.001))
+	# A modifier stored as a share of a bar (0.15 of max HP) reads as percent when it adds; a multiplier reads as a factor.
+	var shown := value * float(text[1]) if op == "add" else value
+	return "%s%s%s%s" % [text[0], " x" if op == "mul" else " +", _fmt(snappedf(shown, 0.001)), "" if op == "mul" else text[2]]
 
 
 ## [canonical field, preview key] for a Warrior passive whose number a rank card shows under another name (see
@@ -331,20 +401,22 @@ func describe(id: String, magnitude: int) -> String:
 	var c := card(id)
 	var desc := String(c.get("desc", "")).replace("{magnitude}", str(magnitude))
 	if c.has("value"):
-		desc = desc.replace("{value}", _fmt(_description_value(c, magnitude)))
+		desc = desc.replace("{value}", _fmt(float(c.value) * magnitude))
 	return desc
 
 
-## The effective values a skill_mod card's `magnitude` steps change, measured on a scratch copy of the loadout with
-## the steps stacked exactly as apply() stacks them.
-static func _mod_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictionary:
+## Preview an active rarity bonus on an independent loadout copy.
+static func _bonus_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictionary:
 	var skill := String(c.get("skill", ""))
 	var preview := lo.clone()
 	var touched := []
 	for e: Dictionary in c.get("effects", []):
 		var stat := String(e.get("stat", ""))
 		var op := String(e.get("op", "add"))
-		if not stat in MOD_PREVIEW:
+		if op == "grant":
+			preview.add_status_grant(skill, String(e.status), float(e.get("scale", 1.0)))
+			continue
+		if not stat in MOD_PREVIEW and not stat in MODIFIER_PREVIEW:
 			continue
 		var value := float(e.get("value", 0.0))
 		preview.add_skill_mod(skill, stat, op, pow(value, magnitude) if op == "mul" else value * magnitude)
@@ -363,13 +435,43 @@ static func _mod_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictiona
 
 
 static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: String) -> Variant:
+	if MODIFIER_PREVIEW.has(stat):
+		return roundi(lo.skill_stat(skill, stat, float(MODIFIER_PREVIEW[stat][2])) * 100.0)
 	match stat:
+		"support_heal", "support_rate":
+			return SupportSummons.preview(st, stat)
+		"form_time":
+			return snappedf(float(st.get("duration", 0.0)), 0.01)
+		"form_power":
+			return snappedf(lo.skill_stat(skill, "form_power", 0.0) * 100.0, 0.01)
+		"zone_time":
+			return snappedf(float(st.get("safe_zone_duration", 0.0)), 0.01) # seconds of cloud (6 -> 9)
+		"mark_power":
+			return roundi(lo.mark_multipliers(skill).x * 100.0) # the non-boss multiplier, as a percent (150% -> 175%)
+		"mark_time":
+			return snappedf(float(st.get("mark_time", 0.0)), 0.01)
+		"hull":
+			return roundi(float(st.get("hull_share", 0.0)) * 100.0) # percent of max HP (the Battleship's hull, 50% -> 75%)
+		"meter_keep":
+			return maxi(0, roundi(lo.skill_stat(skill, "meter_keep", 0.0)))
 		"pierce_falloff":
 			return snappedf(float(st.pierce_falloff) * 100.0, 0.01)
+		"fixed_share":
+			return roundi(float(st.fixed_share.share) * 100.0)
+		"self_damage":
+			return snappedf(float(st.self_damage), 0.01) # percent of the damage dealt
+		"low_hp_damage":
+			return roundi(float(st.low_hp_damage) * 100.0)
 		"cooldown":
 			return snappedf(SkillRunner.restart_cooldown(st), 0.01)
+		"revive_hp":
+			return roundi(float(st.revive.hp) * 100.0)
+		"revive_guard":
+			return snappedf(float(st.revive.guard), 0.01)
 		"area":
 			return roundi(float(st.area) * 100.0)
+		"heal_power", "heal_threshold":
+			return roundi(float(st[stat]) * 100.0)
 		"damage":
 			return roundi(lo.skill_stat(skill, "damage", 1.0) * 100.0)
 		"crit":
@@ -377,89 +479,13 @@ static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: Str
 	return roundi(float(st[stat]))
 
 
-## Survivor ranks a skill_rank card adds (the sum of its "rank" effects, at least 1).
-static func _rank_step(c: Dictionary) -> int:
-	var n := 0
-	for e: Dictionary in c.get("effects", []):
-		if String(e.get("stat", "")) == "rank":
-			n += int(e.get("value", 0))
-	return maxi(1, n)
-
-
-func _magnitude(c: Dictionary, state: RunWorld, tier: String) -> int:
-	if _always_normal(c):
-		return 1
-	var headroom := _headroom(c, state)
-	var value := _requested_magnitude(c, state, tier)
-	return mini(headroom, value) if headroom >= 0 else value
-
-
-func _tier_value(c: Dictionary, tier: String) -> Variant:
-	var kind := String(c.get("kind", ""))
-	var defaults: Dictionary = _magnitudes.get("stacking" if _is_stacking(c) else kind, {})
-	var table: Dictionary = c.get("magnitudes", {})
-	return table.get(tier, defaults.get(tier, _rank_step(c) if kind == "skill_rank" else 1))
-
-
-func _headroom(c: Dictionary, state: RunWorld) -> int:
-	var kind := String(c.get("kind", ""))
-	var max_rank := int(c.get("max_rank", 0))
-	var card_left := maxi(0, max_rank - rank(String(c.get("id", "")), state)) if max_rank > 0 else -1
-	if kind == "skill_rank":
-		var skill_left := state.book.max_rank(String(c.get("skill", ""))) - state.loadout.rank(String(c.get("skill", "")))
-		return mini(skill_left, card_left) if card_left >= 0 else skill_left
-	if kind == "skill_new":
-		return state.book.max_rank(String(c.get("skill", "")))
-	return card_left
-
-
-func _requested_magnitude(c: Dictionary, state: RunWorld, tier: String) -> int:
-	var value := maxi(1, int(_tier_value(c, tier)))
-	# tier C: owner #173 (2026-10-18): configured tiers clamp their fixed gain; -1 headroom means unlimited.
-	var headroom := _headroom(c, state)
-	return mini(value, headroom) if tier in _magnitudes.get("clamp", []) and headroom >= 0 else value
-
-
 func _honest_tier(c: Dictionary, state: RunWorld, tier: String) -> String:
-	if _always_normal(c):
-		return "normal"
-	var headroom := _headroom(c, state)
-	var index := maxi(0, TIERS.find(tier))
-	while index > 0:
-		var requested := _requested_magnitude(c, state, TIERS[index])
-		if requested < 1 or (headroom >= 0 and requested > headroom):
-			index -= 1
-			continue
-		# tier C: a tier that merely equals a lower one (a jackpot spending the last few steps, or an equal per-card
-		# table entry) wears the lowest tier giving the same gain, so a label never overstates the card.
-		var label := index
-		for lower in range(index - 1, -1, -1):
-			if _requested_magnitude(c, state, TIERS[lower]) == requested:
-				label = lower
-		return TIERS[label]
-	return "normal"
+	return tier if String(c.get("kind", "")) in [SKILL_NEW, SKILL_RANK] and state.book.slot(String(c.get("skill", ""))) == "active" else "normal"
 
 
-static func _always_normal(c: Dictionary) -> bool:
-	return String(c.get("kind", "")) == "filler"
-
-
-static func _is_stacking(c: Dictionary) -> bool:
-	return String(c.get("kind", "")) in ["skill_mod", "stat", "passive"]
-
-
-## A pick consumes its tier's ranks/modifier steps, while learn and filler cards consume one.
-static func _consumed_steps(c: Dictionary, magnitude: int) -> int:
-	return magnitude if String(c.get("kind", "")) == "skill_rank" or _is_stacking(c) else 1
-
-
-static func _description_value(c: Dictionary, magnitude: int) -> float:
-	if _is_stacking(c):
-		for effect: Dictionary in c.get("effects", []):
-			if String(effect.get("op", "add")) == "mul":
-				# tier C: show the compounded percentage to two decimals; application keeps full precision.
-				return snappedf(absf(pow(float(effect.value), magnitude) - 1.0) * 100.0, 0.01)
-	return float(c.value) * magnitude
+## New, rank and filler cards each consume one pick, including Mastery.
+static func _consumed_steps(_c: Dictionary, _magnitude: int) -> int:
+	return 1
 
 
 func _roll_tier(state: RunWorld, rng: RandomNumberGenerator) -> String:
@@ -480,63 +506,63 @@ func _roll_tier(state: RunWorld, rng: RandomNumberGenerator) -> String:
 ## upgrade_applied (and skill_learned for skill_new) and returns the card's new rank (0 when the card is unknown).
 func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 	var c := card(id)
-	if c.is_empty():
+	if c.is_empty() or not String(c.get("kind", "")) in [SKILL_NEW, SKILL_RANK, FILLER]:
 		return 0
+	var category := card_kind(c, state)
 	tier = _honest_tier(c, state, tier)
 	var kind := String(c.get("kind", ""))
 	var lo: Loadout = state.loadout
-	var magnitude := _magnitude(c, state, tier)
-	if magnitude <= 0:
+	var magnitude := 0 if category == MASTERY else 1
+	var bonus := rarity_bonus(c, state, tier, category)
+	if (kind == SKILL_NEW and (lo.has(String(c.skill)) or not lo.has_free_slot(lo.book.slot(String(c.skill))))) \
+			or (kind == SKILL_RANK and (not lo.has(String(c.skill)) or (lo.rank(String(c.skill)) >= lo.book.max_rank(String(c.skill)) and category != MASTERY))):
 		return 0
-	var r := rank(id, state) + _consumed_steps(c, magnitude)
+	if magnitude <= 0 and category != MASTERY:
+		return 0
+	var r := rank(id, state) + maxi(1, _consumed_steps(c, magnitude))
 	lo.card_ranks[id] = r
 	var skill := String(c.get("skill", ""))
-	if kind == "skill_new":
+	if kind == SKILL_NEW:
 		state.learn_skill(skill)
 		lo.set_rank(skill, magnitude)
-	elif kind == "skill_rank":
+	elif kind == SKILL_RANK:
 		lo.set_rank(skill, lo.rank(skill) + magnitude)
 	for e: Dictionary in c.get("effects", []):
 		var stat := String(e.get("stat", ""))
 		var op := String(e.get("op", "add"))
 		var value := float(e.get("value", 0.0))
-		if _is_stacking(c):
-			value = pow(value, magnitude) if op == "mul" else value * magnitude
-		if kind == "filler" and op == "heal":
+		if kind == FILLER and op == "heal":
 			state.heal_fraction(stat, value)
-		elif kind in ["skill_new", "skill_rank", "skill_mod"] and skill != "":
-			if stat == "rank" and kind != "skill_rank":
+		elif kind in [SKILL_NEW, SKILL_RANK] and skill != "":
+			if stat == "rank" and kind != SKILL_RANK:
 				lo.set_rank(skill, lo.rank(skill) + int(value))
+			elif op == "grant":
+				lo.add_status_grant(skill, String(e.status))
 			elif stat != "rank":
 				lo.add_skill_mod(skill, stat, op, value)
-		else:
-			lo.add_player_mod(stat, op, value)
+	if not bonus.is_empty():
+		for effect: Dictionary in bonus.effects:
+			if String(effect.op) == "grant":
+				lo.add_status_grant(skill, String(effect.status), float(effect.get("scale", 1.0)))
+			else:
+				lo.add_skill_mod(skill, String(effect.stat), String(effect.op), float(effect.value))
+		lo.card_ranks[String(bonus.counter)] = int(lo.card_ranks.get(String(bonus.counter), 0)) + 1
 	state.refresh_player_stats()
 	state.emit("upgrade_applied", {"id": id, "rank": r, "tier": tier, "magnitude": magnitude})
 	return r
 
 
-func _lists_job(c: Dictionary, job: int) -> bool:
-	var req: Variant = c.get("requires", {})
-	if not (req is Dictionary):
-		return false
-	for j: Variant in req.get("jobs", []):
-		if int(j) == job:
-			return true
-	return false
-
-
-func _weighted_pick(ids: Array, rng: RandomNumberGenerator) -> String:
+func _weighted_pick(ids: Array, rng: RandomNumberGenerator, state: RunWorld) -> String:
 	if ids.is_empty():
 		return ""
 	var total := 0.0
 	for id: String in ids:
-		total += maxf(0.0, float(card(id).get("weight", 1.0)))
+		total += draw_weight(card(id), state)
 	if total <= 0.0:
 		return ids[rng.randi_range(0, ids.size() - 1)]
 	var r := rng.randf() * total
 	for id: String in ids:
-		r -= maxf(0.0, float(card(id).get("weight", 1.0)))
+		r -= draw_weight(card(id), state)
 		if r < 0.0:
 			return id
 	return ids[ids.size() - 1]

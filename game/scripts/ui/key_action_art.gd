@@ -4,18 +4,16 @@ extends RefCounted
 ## and the HUD quick slot, so both always show the same picture for an action.
 ##
 ## Icons: tier A v83 KeyConfig icons for jump (53 JUMP), Equip (0 EQUIPMENT), Item (1 ITEMS), Stat (2 ABILITY, the v83
-## Stat window key), Skill (3 SKILL) and NPC Chat (54 NPC CHAT); the potions show Red / Blue Potion (Item.wz 2000000 /
-## 2000003). A learned manual skill (Teleport, Dash) shows its own skill icon and name, given as a skill-key info
+## Stat window key), Skill (3 SKILL) and NPC Chat (54 NPC CHAT); the HP potion shows the Red Potion (Item.wz 2000000). A learned manual skill (Teleport, Dash) shows its own skill icon and name, given as a skill-key info
 ## `{action, name, icon}` (RunWorld.manual_skill_keys, tier C: a skill key follows the skill, #188).
 
 const ART := "UI.wz/UIWindow.img/KeyConfig/"
 ## Action -> icon path (see the class doc).
 const ICONS := {"jump": ART + "icon/53", "drink_hp": "Item.wz/Consume/0200.img/02000000/info/icon",
-	"drink_mp": "Item.wz/Consume/0200.img/02000003/info/icon",
 	"equip_window": ART + "icon/0", "item_window": ART + "icon/1", "stat_window": ART + "icon/2",
 	"skill_window": ART + "icon/3", "npc_chat": ART + "icon/54"}
 ## Action -> tooltip name.
-const NAMES := {"jump": "Jump", "drink_hp": "HP Potion", "drink_mp": "MP Potion",
+const NAMES := {"jump": "Jump", "drink_hp": "HP Potion",
 	"equip_window": "Equip", "item_window": "Item", "stat_window": "Stat", "skill_window": "Skill",
 	"npc_chat": "NPC Chat"}
 

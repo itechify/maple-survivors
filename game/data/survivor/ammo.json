@@ -1,6 +1,6 @@
 {
-	"format": 1,
-	"_doc": "Endless ammo of the ranged basic attack (spec #151 #155, docs/GAME_DESIGN.md 'Ranged basic attack and endless ammo'). Ammo is never consumed and never an item: a ranged weapon family (WeaponInfo.RANGED_FAMILIES) always has one current ammo item, and its Item.wz incPAD (tier A) adds to W.Att for ranged attacks and its `bullet` animation is the projectile sprite. `families.<family>.start` is the ammo every character of that weapon family starts with and keeps unless a schedule upgrades it (tier A ids: the Beginner Thief's Throwing Stars, Arrow for Bow, Arrow for Crossbow, Bullet). `schedules` upgrade it by character level for one specialist branch (the branch job and its advancements): the highest step whose level is reached applies, also when the character advances into the branch already past it. Each step carries its provenance tier (A = the item's own v83 reqLevel; C = our level pacing; the item ids and the incPAD in Item.wz are tier A). A schedule only upgrades ammo of its own `family`. `projectile` is the shot of the family's basic attack: speed in px/s, radius in px, whether the sprite turns to its direction (arrows and bullets do; stars spin in their own animation), and `overshoot`, the px a shot flies past the family's reach (WeaponInfo.RANGED_REACH) so a target at the edge of the reach is still hit. All projectile numbers are tier C (ours); `noun` is what the upgrade notice calls the ammo.",
+	"format": 2,
+	"_doc": "Endless ammo of the ranged basic attack (spec #151 #155, docs/GAME_DESIGN.md 'Ranged basic attack and endless ammo'). Ammo is never consumed and never an item: a ranged weapon family (WeaponInfo.RANGED_FAMILIES) always has one current ammo item, and its Item.wz incPAD (tier A) adds to W.Att for ranged attacks and its `bullet` animation is the projectile sprite. `families.<family>.start` is the ammo every character of that weapon family starts with and keeps unless a schedule upgrades it (tier A ids: the Beginner Thief's Throwing Stars, Arrow for Bow, Arrow for Crossbow, Bullet). `schedules` upgrade it by the round's level for one exact job (spec #332, ruling D9: ADR 0006 has no branches and a round starts at Lv1, so a schedule names the character's own 4th `job` and its levels are round levels; a schedule that carries `branch` is a format-1 data error): the highest step whose level is reached applies, and the family's `start` covers Lv1. Each step carries its provenance tier (A = the item's own v83 reqLevel; C = our level pacing; the item ids and the incPAD in Item.wz are tier A). A schedule only upgrades ammo of its own `family`. `projectile` is the shot of the family's basic attack: speed in px/s, radius in px, whether the sprite turns to its direction (arrows and bullets do; stars spin in their own animation), and `overshoot`, the px a shot flies past the family's reach (WeaponInfo.RANGED_REACH) so a target at the edge of the reach is still hit. All projectile numbers are tier C (ours); `noun` is what the upgrade notice calls the ammo.",
 	"families": {
 		"claw": {"start": 2070015, "noun": "throwing stars", "tier": "A",
 			"projectile": {"speed": 800.0, "radius": 8.0, "rotate": false, "overshoot": 80.0}},
@@ -12,23 +12,23 @@
 			"projectile": {"speed": 1200.0, "radius": 5.0, "rotate": true, "overshoot": 80.0}}
 	},
 	"schedules": [
-		{"branch": 410, "family": "claw", "steps": [
-			{"level": 30, "item": 2070001, "tier": "C"},
-			{"level": 35, "item": 2070002, "tier": "C"},
-			{"level": 40, "item": 2070003, "tier": "C"},
-			{"level": 45, "item": 2070004, "tier": "C"},
+		{"job": 312, "family": "bow", "steps": [
+			{"level": 15, "item": 2060001, "tier": "C"},
+			{"level": 30, "item": 2060002, "tier": "C"},
+			{"level": 45, "item": 2060003, "tier": "C"}]},
+		{"job": 322, "family": "crossbow", "steps": [
+			{"level": 15, "item": 2061001, "tier": "C"},
+			{"level": 30, "item": 2061002, "tier": "C"},
+			{"level": 45, "item": 2061003, "tier": "C"}]},
+		{"job": 412, "family": "claw", "steps": [
+			{"level": 10, "item": 2070001, "tier": "C"},
+			{"level": 20, "item": 2070002, "tier": "C"},
+			{"level": 30, "item": 2070003, "tier": "C"},
+			{"level": 40, "item": 2070004, "tier": "C"},
 			{"level": 50, "item": 2070005, "tier": "C"},
-			{"level": 55, "item": 2070006, "tier": "C"}]},
-		{"branch": 310, "family": "bow", "steps": [
-			{"level": 30, "item": 2060001, "tier": "C"},
-			{"level": 40, "item": 2060002, "tier": "C"},
-			{"level": 50, "item": 2060003, "tier": "C"}]},
-		{"branch": 320, "family": "crossbow", "steps": [
-			{"level": 30, "item": 2061001, "tier": "C"},
-			{"level": 40, "item": 2061002, "tier": "C"},
-			{"level": 50, "item": 2061003, "tier": "C"}]},
-		{"branch": 520, "family": "gun", "steps": [
-			{"level": 30, "item": 2330001, "tier": "A"},
-			{"level": 50, "item": 2330002, "tier": "A"}]}
+			{"level": 60, "item": 2070006, "tier": "C"}]},
+		{"job": 522, "family": "gun", "steps": [
+			{"level": 18, "item": 2330001, "tier": "C"},
+			{"level": 35, "item": 2330002, "tier": "C"}]}
 	]
 }

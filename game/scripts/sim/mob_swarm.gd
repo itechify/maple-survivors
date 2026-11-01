@@ -30,7 +30,7 @@ extends RefCounted
 ##   hidden: bool (the character is Hidden, #194): nothing chases it; ground mobs patrol their platform as if it had no route
 ##     to the character and flyers hover in place (tier C)
 ##   boss_actions: action_snapshot() arrays; nonempty actions hold grounded movement and captured facing
-##   events: Array receiving status expiry and poison mob_hit events (RunWorld's current event list)
+##   events: Array receiving status expiry and poison/burn mob_hit events (RunWorld's current event list)
 ## Both graphs must be built with the same gravity/fall_speed/jump_speed as `physics`.
 ## `kinds` must hold the MobKind of every `kind` index used (RunWorld shares its mob_kinds array). Their fields are
 ## re-read at every step(), so replacing or editing a kind (elite or speed overrides) takes effect on the next tick.
@@ -56,12 +56,52 @@ const POISON := 1
 const FREEZE := 2
 const THREATENED := 3
 const STUN := 4
-const STATUS_COUNT := 5
-## Status names used by apply_status and the mob_status_* events, in table order.
-const STATUS_NAMES := ["slow", "poison", "freeze", "threatened", "stun"]
-## tier A: the element a status shares with its applying v83 skill (Slow none, Poison Breath elemAttr s, Cold Beam i).
-## Stun has none and never reads an element, not even one passed in `params` (tier C, #187).
-const STATUS_ELEMENTS := ["", "S", "I", "", ""]
+const ICE_WEAK := 5
+const FIRE_WEAK := 6
+## tier C: status registry order is persistent within a run; append new rows, preserving existing IDs.
+const STATUS_TABLE := [
+	{"name": "slow", "element": ""},
+	{"name": "poison", "element": "S"},
+	{"name": "freeze", "element": "I"},
+	{"name": "threatened", "element": ""},
+	{"name": "stun", "element": ""},
+	{"name": "ice_weak", "element": "", "vulnerable": "i"},
+	{"name": "fire_weak", "element": "", "vulnerable": "f"},
+	# tier C: burn is fire (Inferno elemAttr f), so F-immune, strong and neutral kinds reject it.
+	{"name": "burn", "element": "F"},
+	# tier C: the Corsair mark (spec #384 C7): every hit, elemental or not, through `_mark_mult` rather than the VULNERABLE
+	# table; unlike the other vulnerabilities a boss accepts it ("marks_bosses"), at the weaker boss multiplier.
+	{"name": "all_weak", "element": "", "marks_bosses": true},
+]
+## tier C: appended after fire_weak (the Ice/Lightning spec took 6 first); the Bowmaster burn-over-time status (B5, #337).
+const BURN := 7
+## tier C: appended after burn; the Corsair Homing Beacon mark (C7, #391). Refer to it by this name, never the literal.
+const ALL_WEAK := 8
+const STATUS_COUNT := ALL_WEAK + 1
+## tier A: applying skill elements (Poison Breath S, Cold Beam I); stun ignores incoming elements (tier C, #187).
+static var STATUS_NAMES: Array = STATUS_TABLE.map(func(row: Dictionary) -> String: return row.name)
+static var STATUS_ELEMENTS: Array = STATUS_TABLE.map(func(row: Dictionary) -> String: return row.element)
+## Status index -> element made weak, tier A: Demon descriptions; tier C: registry mechanism.
+static var VULNERABLE: Dictionary = _vulnerabilities()
+
+
+static func _vulnerabilities() -> Dictionary:
+	var out := {}
+	for i in STATUS_TABLE.size():
+		if STATUS_TABLE[i].has("vulnerable"):
+			out[i] = STATUS_TABLE[i].vulnerable
+	return out
+
+
+## The weakness multiplier of a vulnerability mark. tier A: Fire Demon "weak against ice".
+const VULNERABLE_MULT := 1.5
+## The all-element mark (ALL_WEAK) multiplies every damaging hit by this on a non-boss and by MARK_BOSS_MULT on a boss
+## (scheduled or canonical); `mark_power` adds to both. tier C: ours (spec #384 CS-9), so a 10 s mark cannot delete a boss.
+const MARK_MULT := 1.5
+const MARK_BOSS_MULT := 1.25
+## Element compositions: a composite letter pair -> its constituents; a hit's multiplier is the mean of their live
+## multipliers (tier C: equal split; the WZ nodes carry no elemAttr).
+const COMPOSITIONS := {"fs": ["f", "s"], "il": ["i", "l"]}
 
 ## Tunables (keys of the `tuning` Dictionary given to _init).
 const TUNING_DEFAULTS := {
@@ -84,8 +124,6 @@ var vx := PackedFloat32Array()
 var vy := PackedFloat32Array()
 var hp := PackedInt32Array()
 var max_hp := PackedInt32Array()
-## Remaining canonical monster MP; fresh spawns reset it, relocation preserves it.
-var mp := PackedInt32Array()
 ## Steal has taken this logical mob's extra loot; not a status. Relocation preserves it, fresh spawns reset it.
 var stolen := PackedByteArray()
 var state := PackedInt32Array()
@@ -125,8 +163,16 @@ var _slow_cast_streak := PackedByteArray()
 var _poison_pulse := PackedFloat64Array()
 var _poison_damage := PackedInt32Array()
 var _poison_skill := PackedStringArray()
+## Burn: seconds to the next pulse, the pulse size snapshotted at application, and the skill key its events carry.
+var _burn_pulse := PackedFloat64Array()
+var _burn_damage := PackedInt32Array()
+var _burn_skill := PackedStringArray()
+## The ALL_WEAK multiplier snapshotted at application (boss or not, `mark_power` included); 1 while the slot is unmarked.
+var _mark_mult := PackedFloat64Array()
 ## Actual nonlethal poison damage, included in RunWorld's player damage credit.
 var poison_dealt := 0
+## Actual nonlethal burn damage, included in RunWorld's player damage credit beside poison's.
+var burn_dealt := 0
 ## Slots carrying at least one status, unordered (the status tick visits only these); _status_at[slot] is the slot's
 ## index in it, or -1.
 var _status_slots := PackedInt32Array()
@@ -199,7 +245,7 @@ func is_settled(i: int) -> bool:
 	return is_live(i) and alpha[i] >= 1.0
 
 
-## Seconds left on status `s` (SLOW, POISON, FREEZE, THREATENED or STUN) of slot i; 0 when it is not active.
+## Seconds left on status `s` (SLOW, POISON, FREEZE, THREATENED, STUN, ICE_WEAK or BURN) of slot i; 0 when it is not active.
 func status_time(i: int, s: int) -> float:
 	return status_left[i * STATUS_COUNT + s]
 
@@ -251,7 +297,6 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	vy[i] = 0.0
 	hp[i] = h
 	max_hp[i] = h
-	mp[i] = kinds[k].max_mp if k >= 0 and k < kinds.size() else 0
 	stolen[i] = 0
 	state[i] = STAND if f >= 0 else JUMP
 	state_t[i] = 0.0
@@ -292,7 +337,7 @@ func despawn(i: int) -> bool:
 	return true
 
 
-## Relocates the same live mob through despawn/spawn, preserving identity, HP/MP, Stolen and Slow cast history.
+## Relocates the same live mob through despawn/spawn, preserving identity, HP, Stolen and Slow cast history.
 ## Active statuses and movement reset as on a fresh spawn. Returns the new slot, or -1 when not live.
 func relocate(i: int, pos: Vector2, f: int) -> int:
 	if not is_live(i):
@@ -303,7 +348,6 @@ func relocate(i: int, pos: Vector2, f: int) -> int:
 	var slow_streak := _slow_cast_streak[i]
 	var old_hp := hp[i]
 	var old_max_hp := max_hp[i]
-	var old_mp := mp[i]
 	var old_stolen := stolen[i]
 	despawn(i)
 	var j := spawn(k, pos.x, pos.y, f, old_max_hp)
@@ -311,7 +355,6 @@ func relocate(i: int, pos: Vector2, f: int) -> int:
 	_slow_cast_serial[j] = slow_serial
 	_slow_cast_streak[j] = slow_streak
 	hp[j] = old_hp
-	mp[j] = old_mp
 	stolen[j] = old_stolen
 	return j
 
@@ -367,8 +410,10 @@ func _threat_cut(i: int, value: float, cuts: PackedFloat32Array) -> float:
 
 
 ## Applies "slow" (canonical signed x/time), "freeze" or "stun" (time) or "threatened" (flat signed x/y and time), or "poison" (canonical level/time, optional skill
-## key); `params.element` overrides the status's own element (STATUS_ELEMENTS; "stun" ignores it). Refreshes without
-## stacking (tier C, issue #54; a stun keeps the longer of the remaining and the new time, #187); poison snapshots the slot's max HP at application. Bosses and kinds immune, strong or neutral (Mob.wz
+## key), or "burn" (time, `pulse` = whole damage per second from the cast, optional skill key); `params.element` overrides the status's own element (STATUS_ELEMENTS; "stun" ignores it). Refreshes without
+## stacking; poison preserve_pulse refreshes the snapshot without restarting a pending pulse (ground areas only); a burn
+## refresh always keeps the running pulse clock (review #282 C1: overlapping sources must not starve the pulse).
+## (tier C, issue #54; a stun keeps the longer of the remaining and the new time, #187); poison snapshots the slot's max HP at application. Bosses and kinds immune, strong or neutral (Mob.wz
 ## digit 4) against the status element reject it. Appends application/expiry events to the supplied simulation event list. Removal/death/
 ## relocation clears silently; mob_died/mob_spawned and the arrays describe those transitions.
 func apply_status(i: int, status: String, params: Dictionary, events: Array) -> bool:
@@ -382,9 +427,27 @@ func apply_status(i: int, status: String, params: Dictionary, events: Array) -> 
 		var level := int(params.get("level", 0))
 		if level <= 0 or level >= POISON_LEVEL_BASE:
 			return false
-		_poison_pulse[i] = POISON_INTERVAL
+		if status_left[j] <= 0.0 or not bool(params.get("preserve_pulse", false)):
+			_poison_pulse[i] = POISON_INTERVAL
 		_poison_damage[i] = mini(POISON_DAMAGE_CAP, ceili(float(max_hp[i]) / (POISON_LEVEL_BASE - level)))
+		# tier C: survivor ground-skill damage bonuses scale canonical poison after its cap, still nonlethal.
+		_poison_damage[i] = roundi(float(_poison_damage[i]) * maxf(0.0, float(params.get("damage_mult", 1.0))))
 		_poison_skill[i] = String(params.get("skill", STATUS_NAMES[POISON]))
+	elif s == BURN:
+		var pulse := int(params.get("pulse", 0))
+		if pulse <= 0:
+			return false
+		# tier C: a new burn waits one interval for its first pulse; a refresh keeps the pulse clock running and replaces the
+		# snapshot (size and skill) and the timer, like a ground poison refresh.
+		if status_left[j] <= 0.0:
+			_burn_pulse[i] = POISON_INTERVAL
+		_burn_damage[i] = pulse
+		_burn_skill[i] = String(params.get("skill", STATUS_NAMES[BURN]))
+	elif s == ALL_WEAK:
+		# tier C: the caller passes both multipliers (mark_power included); the boss one applies to scheduled and canonical bosses.
+		var boss := mob_kind(i).boss or steady[i] != 0
+		_mark_mult[i] = maxf(0.0, float(params.get("boss_mult", MARK_BOSS_MULT)) if boss \
+			else float(params.get("mult", MARK_MULT)))
 	elif s == SLOW:
 		# tier C: a canonical positive x would speed the monster up; only slowing is applied.
 		slow_factor[i] = clampf(1.0 + float(params.get("x", 0.0)) / 100.0, 0.0, 1.0)
@@ -407,6 +470,11 @@ func apply_status(i: int, status: String, params: Dictionary, events: Array) -> 
 	return true
 
 
+## Canonical boss kinds and scheduled bosses (`steady`), the one boss predicate of status admission and fixed-share damage.
+func is_boss(i: int) -> bool:
+	return mob_kind(i).boss or steady[i] != 0
+
+
 ## Non-mutating status eligibility, shared by cast admission and application. Duration/value checks stay in apply_status.
 func accepts_status(i: int, status: String, params: Dictionary = {}) -> bool:
 	var s := STATUS_NAMES.find(status)
@@ -414,7 +482,7 @@ func accepts_status(i: int, status: String, params: Dictionary = {}) -> bool:
 		return false
 	var mk := mob_kind(i)
 	# tier C: v83 server reference rejects boss statuses and immune/strong/neutral status elements.
-	if mk.boss or steady[i] != 0:
+	if is_boss(i) and not bool(STATUS_TABLE[s].get("marks_bosses", false)):
 		return false
 	# tier C: stun is elementless; elemental resistance only gates the other statuses.
 	return s == STUN or not mk.resists_status(String(params.get("element", STATUS_ELEMENTS[s])))
@@ -456,15 +524,33 @@ func apply_hit(i: int, dmg: int, dir: int) -> bool:
 
 
 ## Skill knock-back along the current platform, without changing statuses; canonical and scheduled bosses resist.
-## Airborne mobs and flyers have no supporting foothold to slide along (tier C).
-func knockback(i: int, origin_x: float, distance: float, map: FootholdMap, limits: Rect2) -> void:
-	if not is_live(i) or mob_kind(i).boss or steady[i] != 0 or fh[i] < 0:
+## Airborne mobs and flyers have no supporting foothold to slide along (tier C). The push is away from `origin_x`,
+## or toward `force_side` (-1 / 1) when that is not 0 (a dash shoving everything along its own direction).
+func knockback(i: int, origin_x: float, distance: float, map: FootholdMap, limits: Rect2, force_side := 0) -> void:
+	if not is_live(i) or mob_kind(i).boss or steady[i] != 0 or fh[i] < 0 or fh[i] >= map.count():
 		return
-	var side := 1 if x[i] >= origin_x else -1
+	var side := force_side if force_side != 0 else (1 if x[i] >= origin_x else -1)
 	var stop := map.slide_along(fh[i], x[i], side, distance, limits.position.x, limits.end.x)
 	x[i] = float(stop.x)
 	y[i] = float(stop.y)
 	fh[i] = int(stop.fh)
+
+
+## Skill pull toward x `origin_x` along the current platform (the mirror of knockback): slides mob i until it is `min_gap`
+## px from the origin, the platform ends or a wall stops it, never past the origin. Bosses, scheduled bosses, airborne mobs
+## and flyers stay put (tier C); statuses survive. Returns the horizontal px actually covered.
+func pull(i: int, origin_x: float, min_gap: float, map: FootholdMap, limits: Rect2) -> float:
+	if not is_live(i) or mob_kind(i).boss or steady[i] != 0 or fh[i] < 0 or fh[i] >= map.count():
+		return 0.0
+	var gap := absf(x[i] - origin_x) - maxf(min_gap, 0.0)
+	if gap <= 0.0:
+		return 0.0
+	var side := -1 if x[i] > origin_x else 1
+	var stop := map.slide_along(fh[i], x[i], side, gap, limits.position.x, limits.end.x)
+	x[i] = float(stop.x)
+	y[i] = float(stop.y)
+	fh[i] = int(stop.fh)
+	return float(stop.moved)
 
 
 ## Advances every mob by dt seconds (see the class comment for ctx).
@@ -564,8 +650,9 @@ func step(dt: float, ctx: Dictionary) -> void:
 			continue
 		if alpha[i] < 1.0:
 			alpha[i] = minf(1.0, alpha[i] + dt / regen)
-		if i < actions.size() and actions[i] != "" and fh[i] >= 0:
-			# tier C: an authored boss stance holds its ground anchor; airborne art comes from canonical origins.
+		if i < actions.size() and actions[i] != "" and (fh[i] >= 0 or _k_fly[k] != 0):
+			# tier C: an authored boss stance holds its ground anchor (a flying boss hovers where it is, #461); airborne
+			# art comes from canonical origins.
 			vx[i] = 0.0
 			if i < action_facings.size():
 				facing[i] = action_facings[i]
@@ -746,6 +833,12 @@ func _step_statuses(dt: float, events: Array) -> void:
 			while _poison_pulse[i] <= STATUS_EPSILON:
 				_poison_pulse[i] += POISON_INTERVAL
 				_poison_tick(i, events)
+		var burn := status_left[base + BURN]
+		if burn > 0.0:
+			_burn_pulse[i] -= minf(dt, burn)
+			while _burn_pulse[i] <= STATUS_EPSILON:
+				_burn_pulse[i] += POISON_INTERVAL
+				_burn_tick(i, events)
 		for s in STATUS_COUNT:
 			var left := status_left[base + s]
 			if left <= 0.0:
@@ -774,6 +867,18 @@ func _poison_tick(i: int, events: Array) -> void:
 		"pos": Vector2(x[i], y[i] + mk.hitbox.position.y), "hit_visual": "", "skill": _poison_skill[i]})
 
 
+## One burn pulse on slot i: its snapshot damage, never below 1 HP and without stun/push.
+func _burn_tick(i: int, events: Array) -> void:
+	var damage := BurnStatus.tick_damage(_burn_damage[i], hp[i])
+	if damage <= 0:
+		return
+	hp[i] -= damage
+	burn_dealt += damage
+	var mk := mob_kind(i)
+	events.append({"type": "mob_hit", "mob": i, "mob_id": mk.id, "damage": damage, "crit": false,
+		"pos": Vector2(x[i], y[i] + mk.hitbox.position.y), "hit_visual": "", "skill": _burn_skill[i]})
+
+
 ## Resets the side data of status `s` of slot i, whose timer already reads 0, and drops the slot from the status
 ## list once it carries none.
 func _end_status(i: int, s: int) -> void:
@@ -786,6 +891,12 @@ func _end_status(i: int, s: int) -> void:
 		_poison_pulse[i] = 0.0
 		_poison_damage[i] = 0
 		_poison_skill[i] = ""
+	elif s == BURN:
+		_burn_pulse[i] = 0.0
+		_burn_damage[i] = 0
+		_burn_skill[i] = ""
+	elif s == ALL_WEAK:
+		_mark_mult[i] = 1.0
 	var base := i * STATUS_COUNT
 	for other in STATUS_COUNT:
 		if status_left[base + other] > 0.0:
@@ -937,7 +1048,6 @@ func _set_state(i: int, s: int) -> void:
 
 func _release(i: int) -> void:
 	_clear_statuses(i)
-	mp[i] = 0
 	state[i] = FREE
 	active[i] = 0
 	fh[i] = -1
@@ -976,7 +1086,6 @@ func _grow(n: int) -> void:
 	vy.resize(n)
 	hp.resize(n)
 	max_hp.resize(n)
-	mp.resize(n)
 	stolen.resize(n)
 	state.resize(n)
 	identity.resize(n)
@@ -1003,9 +1112,14 @@ func _grow(n: int) -> void:
 	_poison_pulse.resize(n)
 	_poison_damage.resize(n)
 	_poison_skill.resize(n)
+	_burn_pulse.resize(n)
+	_burn_damage.resize(n)
+	_burn_skill.resize(n)
+	_mark_mult.resize(n)
 	_status_at.resize(n)
 	for i in range(old, n):
 		slow_factor[i] = 1.0
+		_mark_mult[i] = 1.0
 		_status_at[i] = -1
 	for i in range(n - 1, old - 1, -1):
 		state[i] = FREE
@@ -1017,3 +1131,31 @@ func _grow(n: int) -> void:
 		platform[i] = -1
 		facing[i] = -1
 		_free.append(i)
+
+
+## Live damage multiplier for a hit of `element` on slot i, with the ALL_WEAK mark's multiplier on top while it is marked.
+## A composition (`COMPOSITIONS`: fs, il) is the mean of its constituents' live multipliers; a single element is 1.5 while a
+## matching vulnerability timer runs (`VULNERABLE`: Fire Demon's ice mark, Ice Demon's fire mark), else the kind's own attribute.
+func element_multiplier(i: int, element: String) -> float:
+	var e := element.to_lower()
+	var parts: Variant = COMPOSITIONS.get(e)
+	var base: float
+	if parts == null:
+		base = _live_multiplier(i, element, e)
+	else:
+		var sum := 0.0
+		for part: String in parts:
+			sum += _live_multiplier(i, part, part)
+		base = sum * (1.0 / parts.size())
+	# The ALL_WEAK mark multiplies on top of the element, elemental hit or not: the one place the damage paths read.
+	var mark := _mark_mult[i]
+	return base if mark == 1.0 else base * mark
+
+
+## One element's multiplier on slot i: x1.5 under a running vulnerability timer for it, else the kind's own value.
+## `element` is passed on to MobKind as given; `lower` is its lower-case form.
+func _live_multiplier(i: int, element: String, lower: String) -> float:
+	for s: int in VULNERABLE:
+		if VULNERABLE[s] == lower and status_left[i * STATUS_COUNT + s] > 0.0:
+			return VULNERABLE_MULT
+	return mob_kind(i).element_multiplier(element)

@@ -3,15 +3,13 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-const LINES := {
-	"lucky_seven": {"count": 3, "pierce": 2, "damage": 3, "cooldown": 3, "range": 2},
-	"double_stab": {"targets": 3, "hits": 2, "damage": 3, "cooldown": 3, "reach": 2},
-}
+const LINES := ["double_stab"]
 
 
 func _world(path := "dagger") -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
+	data.balance.player.hp = 50 + 125 # the removed first-job grant (+125/+37), folded into the base pools (#284)
 	var setup := RF.with_basic_attack(RF.setup("quiet", 208, data))
 	setup.equipment_info.merge({
 		1472061: {"incPAD": 11, "attackSpeed": 5, "tuc": 7},
@@ -19,7 +17,7 @@ func _world(path := "dagger") -> RunWorld:
 	}, true)
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
-	w.change_job(400, path)
+	RF.as_job(w, 400, path)
 	w.heal_fraction("mp", 1.0)
 	w.player.facing = 1
 	w.god = true
@@ -62,8 +60,8 @@ func test_reach_modifier_expands_only_this_skills_envelope_on_both_sides() -> vo
 	for side in [-1, 1]:
 		var w := _world()
 		assert_true(w.learn_skill("double_stab"))
-		var basic_box := w.basic.envelope(w)
-		assert_near(w.basic.reach(w), 88)
+		var basic_box := w.weapon_reach.envelope(w)
+		assert_near(w.weapon_reach.reach(w), 88)
 		_targets(w, [Vector2(100 * side, 0)])
 		w.runner.step(DT, w)
 		assert_true(_hits(w.drain_events()).is_empty(), "base envelope cannot reach 100px")
@@ -74,8 +72,8 @@ func test_reach_modifier_expands_only_this_skills_envelope_on_both_sides() -> vo
 		w.runner.step(DT, w)
 		assert_eq(_hits(w.drain_events()).size(), 2)
 		assert_eq(w.player.facing, side)
-		assert_eq(w.basic.envelope(w), basic_box, "basic swing envelope stays canonical")
-		assert_near(w.basic.reach(w), 88)
+		assert_eq(w.weapon_reach.envelope(w), basic_box, "the weapon swing envelope stays canonical")
+		assert_near(w.weapon_reach.reach(w), 88)
 		assert_near(SkillRunner.reach_of(w.loadout.stats("power_strike"), w), 88, 0.001, "another skill keeps base reach")
 	var far := _world()
 	far.learn_skill("double_stab")
@@ -87,120 +85,32 @@ func test_reach_modifier_expands_only_this_skills_envelope_on_both_sides() -> vo
 	assert_true(_hits(far.drain_events()).is_empty(), "the expanded box still has a far edge")
 
 
-func test_each_path_has_thirteen_steps_across_five_behaviour_lines() -> void:
+## SH6 #431 deleted Double Stab's five standalone behaviour cards (`double_stab_targets/hits/damage/cooldown/reach`, thirteen steps;
+## the old "thirteen steps across five behaviour lines" test went with them). The modifier stats those cards applied are still
+## the ones the rarity bonuses and Mastery use, so this checks the modifiers directly.
+func test_the_legacy_double_stab_cards_are_gone() -> void:
+	# SH14 #439: a Shadower is playable, so the pool generates Double Stab's plain new / rank cards; the explicit legacy cards
+	# (targets, hits, damage, cooldown, reach) stay gone.
 	var w := _world()
-	for key: String in LINES:
-		var cards := w.upgrades.cards.filter(func(c: Dictionary) -> bool:
-			return c.get("skill", "") == key and c.kind == "skill_mod")
-		assert_eq(cards.size(), 5, key)
-		var steps := 0
-		for line: String in LINES[key]:
-			var c := w.upgrades.card(key + "_" + line)
-			assert_false(c.is_empty(), key + "_" + line)
-			assert_eq(int(c.get("max_rank", 0)), LINES[key][line], key + "_" + line)
-			assert_true(UpgradePool.is_power(c), "every attack modifier counts for pity")
-			steps += int(c.get("max_rank", 0))
-		assert_eq(steps, 13, key)
+	var cards: Array = w.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.get("skill", "") == "double_stab")
+	var ids := cards.map(func(c: Dictionary) -> String: return String(c.id))
+	ids.sort()
+	assert_eq(ids, ["double_stab_new", "double_stab_rank"], "only the pool-generated cards of the playable Shadower")
+	for c: Dictionary in cards:
+		assert_eq(String(c.get("desc", "")), "+1 rank", "%s is the generic pool card" % c.id)
 
 
-func test_extra_hit_card_previews_and_applies_rarity_steps_per_target() -> void:
-	for tier: String in ["normal", "rare", "legendary"]:
-		var w := _world()
-		w.learn_skill("double_stab")
-		var offer := w.upgrades.choice_card("double_stab_hits", w, tier)
-		var extra := 1 if tier == "normal" else 2
-		assert_eq(offer.magnitude, extra)
-		assert_eq(offer.skill_mod_changes.get("attack_count", {}), {"before": 2, "after": 2 + extra})
-		assert_has(LevelUpWindow.change_lines(offer), "Hits: 2 → " + str(2 + extra))
-		assert_true(w.upgrades.apply("double_stab_hits", w, tier))
-		assert_eq(w.upgrades.rank("double_stab_hits", w), extra)
-		assert_true(w.upgrades.apply("double_stab_targets", w))
-		_targets(w, [Vector2(35, 0), Vector2(45, 0)])
-		w.runner.step(DT, w)
-		assert_eq(_hits(w.drain_events()).size(), 6 if tier == "normal" else 8)
-		assert_eq("double_stab_hits" in w.upgrades.eligible(w), tier == "normal")
-
-
-func test_all_attack_cards_follow_the_held_weapon_at_each_carried_job_and_skip_advancement() -> void:
-	for job in [0, 200, 400, 410, 420]:
-		for path: String in ["claw", "dagger"]:
-			var w := _world(path)
-			w.change_job(job)
-			# The branch tracer may hand a new weapon; this test deliberately covers either family at either job.
-			w.equipment.worn.weapon = Equipment.create(1472061 if path == "claw" else 1332063,
-				w.setup.equipment_info[1472061 if path == "claw" else 1332063])
-			w.refresh_player_stats()
-			for owned in [false, true]:
-				if owned:
-					w.learn_skill("lucky_seven")
-					w.learn_skill("double_stab")
-				var eligible := w.upgrades.eligible(w)
-				for key: String in LINES:
-					var allowed: bool = job in [400, 410, 420] and path == ("claw" if key == "lucky_seven" else "dagger")
-					assert_eq(key + "_new" in eligible, allowed and not owned)
-					assert_eq(key + "_rank" in eligible, allowed and owned)
-					for line: String in LINES[key]:
-						var id := key + "_" + line
-						assert_eq(id in eligible, allowed and owned, str(job) + ":" + path + ":" + id)
-						assert_eq(w.upgrades.card(id).requires, {"jobs": [400.0], "carry_jobs": [410.0, 420.0]})
-				var rng := RandomNumberGenerator.new()
-				rng.seed = 208
-				var draw := w.upgrades.roll_advancement_choices(w, rng)
-				for offer: Dictionary in draw:
-					assert_false(offer.kind == "skill_mod", "advancement never offers behaviour cards")
-					if job in [410, 420]:
-						assert_false(String(offer.skill) in LINES, "carried attacks never enter a branch advancement draw")
-
-
-func test_lucky_seven_extra_star_and_pierce_reach_more_monsters_in_seeded_combat() -> void:
-	for upgraded in [false, true]:
-		var w := _world("claw")
-		w.learn_skill("lucky_seven")
-		for mk: MobKind in w.mob_kinds:
-			mk.hitbox = Rect2(-2, -40, 4, 40)
-		if upgraded:
-			assert_eq(w.upgrades.apply("lucky_seven_count", w), 1)
-			assert_eq(w.upgrades.apply("lucky_seven_pierce", w), 1)
-		_targets(w, [Vector2(100, 0), Vector2(150, 0)])
-		w.runner.step(DT, w)
-		assert_eq(w.projectiles.active_count(), 3 if upgraded else 2)
-		w.drain_events()
-		for tick in 25:
-			w.step(DT, MoveInput.new())
-		var hits := _hits(w.drain_events(), "lucky_seven")
-		assert_eq(hits.size(), 6 if upgraded else 2, "each upgraded star hits both monsters once")
-
-
-func test_range_and_reach_cards_compound_and_respect_their_two_step_cap() -> void:
-	for key: String in LINES:
-		var w := _world("claw" if key == "lucky_seven" else "dagger")
-		w.learn_skill(key)
-		var id := key + ("_range" if key == "lucky_seven" else "_reach")
-		var offer := w.upgrades.choice_card(id, w, "rare")
-		assert_eq(offer.magnitude, 2)
-		assert_eq(offer.skill_mod_changes, {"range": {"before": 250, "after": 360}} if key == "lucky_seven"
-			else {"area": {"before": 100, "after": 144}})
-		assert_eq(w.upgrades.apply(id, w, "rare"), 2)
-		assert_false(id in w.upgrades.eligible(w))
-		assert_eq(w.upgrades.apply(id, w), 0, "cap cannot be exceeded")
-		assert_near(SkillRunner.reach_of(w.loadout.stats(key), w), 360 if key == "lucky_seven" else 126.72, 0.001)
-		_targets(w, [Vector2(330 if key == "lucky_seven" else 120, 0)])
-		w.runner.step(DT, w)
-		var events := w.drain_events()
-		assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "cast" and e.skill == key).size(), 1)
-		assert_eq(w.projectiles.active_count() if key == "lucky_seven" else _hits(events).size(), 2)
-
-
-func test_damage_and_cooldown_cards_scale_effective_stats_and_cast_cadence() -> void:
+func test_damage_and_cooldown_modifiers_scale_effective_stats_and_cast_cadence() -> void:
 	for key: String in LINES:
 		var casts: Array[int] = []
 		for upgraded in [false, true]:
-			var w := _world("claw" if key == "lucky_seven" else "dagger")
+			var w := _world("dagger")
 			w.learn_skill(key)
 			var before := w.loadout.stats(key)
 			if upgraded:
-				assert_eq(w.upgrades.apply(key + "_damage", w, "rare"), 2)
-				assert_eq(w.upgrades.apply(key + "_cooldown", w, "rare"), 2)
+				for step in 2:
+					w.loadout.add_skill_mod(key, "damage", "mul", 1.2)
+					w.loadout.add_skill_mod(key, "cooldown", "mul", 0.88)
 				var after := w.loadout.stats(key)
 				assert_near(after.damage_min / before.damage_min, 1.44)
 				assert_near(after.damage_max / before.damage_max, 1.44)

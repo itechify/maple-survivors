@@ -125,6 +125,24 @@ func test_fx_one_shot_and_hold() -> void:
 	assert_eq(fx.get("_active").size(), 2, "the pool did not grow")
 
 
+func test_fx_plays_one_pooled_animation_per_area_column() -> void:
+	var fx := FxRenderer.new()
+	fx.library = lib
+	root.add_child(fx)
+	var anchors := PackedVector2Array([Vector2(0, 0), Vector2(80, 0), Vector2(240, 0)])
+	assert_eq(fx.play_at_all("Mob.wz/0100100.img/move", anchors, 1.0), 3)
+	assert_eq(fx.active_count(), 3, "one pooled slot per warned column")
+	assert_eq(root.get_child_count(), 1, "no node per column")
+	fx.advance(0.37)
+	assert_eq(fx.active_count(), 3, "fitted to one second, the 360 ms animation is still playing")
+	fx.advance(0.7)
+	assert_eq(fx.active_count(), 0, "and ends with the wait")
+	assert_eq(fx.play_at_all("Mob.wz/0100100.img/none", anchors), 0, "a missing animation plays nothing")
+	assert_eq(fx.play_at_all("Mob.wz/0100100.img/move", anchors), 3)
+	fx.advance(0.37)
+	assert_eq(fx.active_count(), 0, "unfitted columns play at the WZ delays")
+
+
 func test_fx_negative_z_goes_behind() -> void:
 	var front := FxRenderer.new()
 	var back := FxRenderer.new()
@@ -179,3 +197,32 @@ func test_one_renderer_per_foothold_layer() -> void:
 	assert_eq(r3.visible_count(), 0)
 	r0.update_from(s, ids)
 	assert_eq(r0.visible_count(), 3, "no filter: every live slot")
+
+
+func test_delayed_fx_waits_then_plays_for_its_full_duration() -> void:
+	var fx := FxRenderer.new()
+	fx.library = lib
+	root.add_child(fx)
+	fx.set_process(false)
+	var slot := fx.play_delayed("Mob.wz/0100100.img/move", 0.45, Vector2.ZERO)
+	assert_true(slot >= 0)
+	assert_eq(fx.get("_pool").get("_shown")[slot], 0, "hidden before body frame two")
+	fx.advance(0.46)
+	assert_eq(fx.get("_pool").get("_shown")[slot], 1, "visible after delay")
+	fx.advance(0.34)
+	assert_eq(fx.active_count(), 1, "delay does not consume animation time")
+	fx.advance(0.02)
+	assert_eq(fx.active_count(), 0)
+	fx.queue_free()
+
+
+func test_mob_numeric_string_delay_keeps_its_millisecond_timing() -> void:
+	var img := lib.img("Mob.wz/0100100.img")
+	img.root.move["0"].delay = "180"
+	var r := MobRenderer.new()
+	r.library = lib
+	root.add_child(r)
+	var anim := r.anim_for(100100, MobRenderer.MOVE)
+	assert_eq(anim.index_at(0.179, true), 0)
+	assert_eq(anim.index_at(0.181, true), 1)
+	assert_near(anim.duration(), 0.36, 1e-6)

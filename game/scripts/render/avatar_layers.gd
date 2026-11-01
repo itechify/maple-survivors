@@ -19,6 +19,11 @@ extends RefCounted
 const WEAPON_CATEGORY_FIRST := 130
 const WEAPON_CATEGORY_LAST := 169
 const WEAPON_TYPE_OFFSET := 100
+## Body stance -> the stance a weapon draws when it has no art for it, at the same frame index. tier C (#327): a one-handed
+## stab pair; every imported staff has stabO1, 9 of the 14 lack stabO2 (Skill.wz/222.img chainlightning plays stabO2.1).
+## tier C (#420): a knuckle has no swingTF (Barrage's `fist` frame 8 and Dragon Strike's `dragonstrike` frames 4-7 draw it)
+## and would vanish; its two-handed swingT3 is the nearest hand pose.
+const STANCE_FALLBACKS := {"stabO2": "stabO1", "swingTF": "swingT3"}
 
 
 ## The two-letter slot codes of a smap/vslot string ("CpH1H5" -> Cp, H1, H5).
@@ -159,6 +164,15 @@ static func stance_frame(w: WzImg, stance: String, index: int, back: bool = fals
 	if has_art(w, fallback):
 		return frame(w, fallback, index)
 	return [null, ""]
+
+
+## A weapon's frame for the body's stance: the stance itself, else the stance it borrows from (STANCE_FALLBACKS) at the
+## same frame index, else what any stance-keyed equip does (stance_frame). Staves borrow stabO1 for missing stabO2;
+## knuckles borrow swingT3 for missing swingTF, including frames reached by fist and dragonstrike.
+static func weapon_stance_frame(w: WzImg, stance: String, index: int, back: bool = false) -> Array:
+	if not has_art(w, stance) and STANCE_FALLBACKS.has(stance) and has_art(w, STANCE_FALLBACKS[stance]):
+		return frame(w, STANCE_FALLBACKS[stance], index)
+	return stance_frame(w, stance, index, back)
 
 
 ## A face accessory's frame for a face expression ("default", "blink", "smile", ...): the same expression, else `default`.

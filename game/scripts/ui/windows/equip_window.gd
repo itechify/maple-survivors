@@ -21,15 +21,15 @@ extends InventoryWindow
 ## PET EQUIP / ITEM IGNORE / MOVE UP / PET RING baked in): the owned pet upgrades sit read-only in their cells and the
 ## panel beside it lists the owned pets; a double-click on a pet brings it out (RunWorld.set_pet), on the pet that is
 ## out puts it away. Upgrades belong to the account and always apply, so they cannot be taken off. tier C mapping of
-## the upgrades to the baked labels: Auto HP / Auto MP pouch -> HP POC / MP POC (the character's own potion shows in
-## PET HP / PET MP), Binocular -> POS, VAC -> PET EQUIP, Wing Boots -> MOVE UP; the base pet's Item Pouch and Meso
+## the upgrades to the baked labels: Auto HP pouch -> HP POC (the character's own potion shows in PET HP; MP POC and
+## PET MP stay empty: there is no MP, ADR 0006), Binocular -> POS, VAC -> PET EQUIP, Wing Boots -> MOVE UP; the base pet's Item Pouch and Meso
 ## Magnet fill ITEM POC and MESO MAG while a pet is out.
 ##
 ##   EquipWindow.new(world)   # world: the RunWorld whose character is shown and changed
 ##
 ## A double-click on a worn item takes it off into the inventory (RunWorld.unequip_item), so does dragging it onto
 ## the Item window; an inventory item dragged from the Item window onto this window is worn (RunWorld.equip_item,
-## v83 requirements enforced). Worn items cannot be discarded: a drag off the windows does nothing. Hovering an item
+## job class enforced). Worn items cannot be discarded: a drag off the windows does nothing. Hovering an item
 ## shows its tooltip. Without the cache the window keeps its size and draws plain slots.
 
 const ART := "UI.wz/UIWindow.img/Equip/"
@@ -62,9 +62,9 @@ const CASH_POS := {"hat": Vector2(38, 35), "face": Vector2(38, 68), "eye": Vecto
 const CASH_LABELS := {"hat": "CAP", "face": "FOREHEAD", "eye": "EYE ACC", "earrings": "EAR ACC", "top": "CLOTHES",
 	"bottom": "PANTS", "shoes": "SHOES", "gloves": "GLOVES", "cape": "MANTLE", "weapon": "WEAPON", "shield": "SHIELD"}
 ## tier C (ours, measured on Equip/pet): the pet upgrade cells (item id -> cell) and the two potion cells.
-const PET_CELLS := {1812002: Vector2(13, 11), 1812003: Vector2(79, 11), 1812001: Vector2(13, 44),
+const PET_CELLS := {1812002: Vector2(13, 11), 1812001: Vector2(13, 44),
 	1812000: Vector2(46, 44), 1812005: Vector2(79, 77), 9990000: Vector2(112, 77), 1812004: Vector2(13, 110)}
-const PET_POTION_CELLS := {"hp": Vector2(46, 11), "mp": Vector2(112, 11)}
+const PET_POTION_CELLS := {"hp": Vector2(46, 11)}
 ## The base pet's pouch and magnet, shown while a pet is out (not sold, so never owned).
 const BASE_PET_ITEMS := [1812000, 1812001]
 ## tier C (ours): the owned-items panel beside the cash and pet pages: gap to the art, width, slot pitch, columns, the
@@ -310,7 +310,7 @@ func pet_cells() -> Array:
 		if (BASE_PET_ITEMS.has(id) and world.pet > 0) or (not BASE_PET_ITEMS.has(id) and world.account_owned.has(id)):
 			out.append({"cell": PET_CELLS[id], "payload": {"kind": "pet_upgrade", "id": id}})
 	for kind: String in PET_POTION_CELLS:
-		var pouch := PetSystem.UPGRADE_AUTO_HP if kind == "hp" else PetSystem.UPGRADE_AUTO_MP
+		var pouch := PetSystem.UPGRADE_AUTO_HP
 		var stock: Dictionary = world.potions.snapshot().get(kind, {})
 		if world.account_owned.has(pouch) and int(stock.get("item_id", 0)) > 0:
 			out.append({"cell": PET_POTION_CELLS[kind], "payload": {"kind": "potion", "potion": kind,

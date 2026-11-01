@@ -1,5 +1,8 @@
 # Physical combat: weapon-gated skills, endless auto-upgrading ammo, and no MISS
 
+> **Partly superseded by ADR 0006** (2026-10-27): skills no longer follow the held weapon, and weapon paths and
+> carried attacks go away. No MISS and endless ammo still hold.
+
 The Warrior, Bowman, Thief and Pirate lines are added up to second job. They are built on one shared physical-combat
 foundation, so the four class specs can run in parallel. Three rules in that foundation go beyond "behave like
 v83". The owner decided them in the 2026-10-17 grilling:

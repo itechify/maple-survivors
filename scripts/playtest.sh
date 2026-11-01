@@ -13,7 +13,12 @@
 # Options (all optional): --stage=<key> (stages.json, default henesys), --seed=<n> (2026), --speed=<k> sim ticks
 # per 60 Hz frame (4), --minutes=<m> absolute run time to stop at (30; a death or clear ends earlier), --shot-every=<s> run
 # seconds between screenshots (60), --out=<dir> (default evidence/playtest/<stage>_s<seed>_x<speed>_<time>), --warp=<s>,
-# --job=<id>[:<family>] (force a job/family, e.g. 100:spear or 120:blunt; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
+
+# --job=<id> (the character's job, e.g. 212, 112 for Hero, 122 for Paladin, 132 for Dark Knight, 222 for the I/L Arch Mage, 232 for the Bishop, 312 for the Bowmaster (give it a bow: --character=game/tests/fixtures/characters/bowmaster_t2.json), 322 for the Marksman, 512 for the Buccaneer or 522 for the Corsair (give it `--character=game/tests/fixtures/characters/corsair_t2.json` for a gun and the tier-1 kit), all playable; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
+# --job=412 is the Night Lord (spec #383, NL11 #410): with --character=game/tests/fixtures/characters/night_lord_t2.json (a claw in hand); it is playable since NL12 #411.
+# --job=422 is the Shadower (spec #425, SH13 #438; playable since SH14 #439): pass
+# --character=game/tests/fixtures/characters/shadower_t2.json (an Iron Dagger kit).
+# --job=322 is the Marksman (spec #360, MS10 #370): with --character=game/tests/fixtures/characters/marksman_t2.json (a crossbow in hand); it ships playable (MS11 #371). Bare --job=322 has no crossbow (the generic outfit), so pass the fixture.
 # --account=<abs JSON> (an account for the round, spec #34: owned cash items, worn cash equipment, pet, ALERT levels; see
 # scripts/balance.sh and game/scripts/core/account_file.gd; summary.json names the file).
 # Map fields: summary.json root and nested summary carry map_times (reached-map entry seconds, starting [0]) and
@@ -28,7 +33,7 @@
 #
 # Frame times: the game caps the frame rate at the display's refresh rate (Settings / GameSettings.apply_frame_cap), so
 # frame_ms without --vsync=off is the cap (16.7 ms at 60 Hz); pass --vsync=off for performance measurements.
-# Output files: t<s>.png every --shot-every, levelup_N / job_N / cast_<skill> (each skill's first cast) / hit_first / death_* / clear / final.png, summary.json
+# Output files: t<s>.png every --shot-every, levelup_N / cast_<skill> (each skill's first cast) / hit_first / death_* / clear / final.png, summary.json
 # (RunScene.perf_summary: frame_ms p50/p95/p99/max, frame_work_us, sim_us_per_tick, max_alive, level_by_minute, ...).
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -50,7 +55,7 @@ for a in "$@"; do
     --job=*|--branch=*)
       [[ "$a" == --branch=* ]] && echo "playtest.sh: --branch is deprecated: use --job=<id>" >&2
       JOB_ID="${a#--*=}"
-      [[ "$JOB_ID" =~ ^[0-9]+(:[a-z_]+)?$ ]] || { echo "--job must be a job id with an optional weapon family (e.g. 100:spear, 120:blunt)" >&2; exit 2; }
+      [[ "$JOB_ID" =~ ^[0-9]+$ ]] || { echo "--job must be a job id (e.g. 212)" >&2; exit 2; }
       EXTRA+=("--job=$JOB_ID") ;;
     --stage=*) STAGE="${a#--stage=}" ;;
     --seed=*) SEED="${a#--seed=}" ;;

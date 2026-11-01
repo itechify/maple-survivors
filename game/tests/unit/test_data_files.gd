@@ -16,18 +16,27 @@ func test_load_all_has_every_file() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
-	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "equipment_drops", "jobs_survivor", "scrolls", "shops", "jobs", "exp_table", "cash_items", "ammo"]:
+	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "equipment_drops", "jobs_survivor", "scrolls", "shops", "jobs", "exp_table", "cash_items", "ammo", "level_curve"]:
 		assert_true(d.has(key) and not d[key].is_empty(), "setup.data.%s" % key)
 	var bad := PackedStringArray()
 	assert_true(DataRepo.load_all("res://no_such_dir", bad).skills.is_empty())
-	assert_eq(bad.size(), 13, "every missing file reported")
+	assert_eq(bad.size(), 14, "every missing file reported")
+
+
+func test_an_ammo_schedule_keyed_by_branch_is_a_load_error() -> void:
+	assert_true(Ammo.schedule_errors(data.ammo).is_empty(), "the shipped schedules are keyed by exact job (format 2)")
+	var old: Dictionary = data.ammo.duplicate(true)
+	old.schedules[0].erase("job")
+	old.schedules[0]["branch"] = 310
+	var errors := Ammo.schedule_errors(old)
+	assert_eq(errors.size(), 2, "the branch key and the missing job: %s" % [errors])
 
 
 func test_every_stage_names_its_region_and_continent() -> void:
 	var want := {"henesys": ["Henesys", "Victoria Island"], "ellinia": ["Ellinia", "Victoria Island"],
 		"perion": ["Perion", "Victoria Island"], "kerning": ["Kerning City", "Victoria Island"],
 		"sleepywood": ["Sleepywood", "Victoria Island"]}
-	assert_eq(data.stages.stages.keys(), want.keys())
+	assert_eq(data.stages.stages.keys().slice(0, want.size()), want.keys(), "the original five come first; each later region's test checks its own labels")
 	for key: String in want:
 		var st: Dictionary = data.stages.stages[key]
 		assert_eq(String(st.get("region", "")), want[key][0], "%s region" % key)
@@ -50,9 +59,12 @@ func test_stage_labels_fall_back_to_the_old_name() -> void:
 
 
 func test_skills_reference_canonical_ids() -> void:
-	var skills: Dictionary = data.skills.skills
-	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005, "magic_guard": 2001002,
-		"magic_armor": 2001003, "recovery": 1001, "improved_max_mp": 2000001, "nimble_feet": 1002}
+	var skills: Dictionary = SkillTemplate.resolve(data.skills.skills)  # a templated child is only whole once resolved
+	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005,
+		"magic_armor": 2001003, "recovery": 1001, "nimble_feet": 1002}
+	for gone: String in ["magic_guard", "improved_max_mp", "improved_mp_recovery", "mp_eater_fp", "mp_eater_il",
+			"mp_eater_cleric", "mp_recovery"]:
+		assert_false(skills.has(gone), "%s went with MP (#285)" % gone)
 	for key: String in want:
 		assert_true(skills.has(key), key)
 		assert_eq(int(skills[key].skill_id), want[key], key)
@@ -70,7 +82,7 @@ func test_skills_reference_canonical_ids() -> void:
 
 
 func test_skill_ranks_cover_every_canonical_level_in_the_fixtures() -> void:
-	_assert_ranks_cover_canonical_levels(SkillBook.from_data(data.skills, RF.skill_imgs()))
+	_assert_ranks_cover_canonical_levels(SkillBook.from_data(data.skills, RF.skill_imgs()), true)
 
 
 func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
@@ -87,12 +99,48 @@ func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
 	lib.free()
 
 
-func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
+## Whether `key` is in the skill pool of any job (212, Hero's 112 and I/L's 222).
+## True when a playable job's pool holds `key`: an unplayable line's pool (Bishop until BS10, #374) is not shipped yet.
+## `playable_only` false also counts an unplayable line's pool (the eight-rank mapping applies as soon as a pool skill is ported, #376).
+func _in_any_job_pool(key: String, playable_only := true) -> bool:
+	for job: Dictionary in data.jobs_survivor.jobs.values():
+		if (bool(job.get("playable", false)) or not playable_only) and key in job.get("skill_pool", []):
+			return true
+	return false
+
+
+## The damaging manual dashes on the shared mobility rank rule: Hero's, Dark Knight's, Paladin's and Shadower's Assaulter (#432).
+const RUSHES := ["rush_hero", "rush_dark_knight", "rush_paladin", "assaulter"]
+
+
+## `fixtures`: the synthetic books lack some skills (the I/L 221 book, #325); those are checked by the real-cache run only.
+func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) -> void:
 	for key: String in book.defs:
+		if fixtures and book.skill_node(key).is_empty() and not bool(book.def(key).get("common_passive", false)):
+			continue
+		if bool(book.def(key).get("common_passive", false)):
+			# #289: a common passive is survivor-made: its icon skill's WZ node has no level table, rank r is level r.
+			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
+			assert_eq(book.canonical_level(key, 5), 5)
+			continue
+		if key in RUSHES and book.skill_node(key).is_empty():
+			continue # the synthetic fixtures carry no Rush node; the real-cache run covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
+		# A pool skill (rarity bonuses, listed in a job's skill_pool) has eight ranks; any other skill keeps one rank per level.
+		# Hero's Rush (#302) and Dark Knight's (#356) are no pool skills but take the same level-30 table, eight ranks that the shared
+		# mobility rule grows.
+		# A support summon's sub-skill (the Beholder's Aura and Hex, #357) ranks with its parent: eight ranks into its own table.
+		if String(book.def(key).get("slot", "")) == "summon_sub":
+			assert_eq(book.max_rank(key), 8, "%s: ranks with its parent" % key)
+			assert_eq(book.canonical_level(key, 8), top)
+			continue
+		if key in RUSHES or String(book.def(key).get("slot", "")) == "form_sub" or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key, false):
+			assert_eq(book.max_rank(key), 8)
+			assert_eq(book.canonical_level(key, 8), top)
+			continue
 		assert_eq(book.max_rank(key), top, "%s: one rank per canonical level" % key)
-		var ranks: Array = book.def(key).ranks
+		var ranks: Array = book.rank_table(key)
 		for level in range(1, top + 1):
 			if level <= ranks.size():
 				assert_eq(int(ranks[level - 1]), level, "%s rank %d is canonical level %d" % [key, level, level])
@@ -111,24 +159,26 @@ func test_cards_are_consistent() -> void:
 		if String(c.kind).begins_with("skill_"):
 			assert_true(skills.has(String(c.skill)), "%s: skill %s exists" % [c.id, c.skill])
 		if c.kind == "skill_rank":
-			assert_eq(int(c.max_rank), skills[c.skill].ranks.size(), "%s: max_rank is the canonical level cap" % c.id)
+			assert_eq(int(c.max_rank), 0 if c.skill in ["energy_bolt", "magic_claw", "fire_arrow", "poison_breath"] else skills[c.skill].ranks.size(), "%s: max_rank is the canonical level cap" % c.id)
 			assert_eq(c.effects, [{"stat": "rank", "op": "add", "value": 1.0}], "%s: one level per card" % c.id)
 		for effect: Dictionary in c.effects:
 			assert_false(effect.op == "heal", "%s cannot heal by percentage" % c.id)
 			assert_false(effect.stat == "hp_regen", "%s cannot grant the removed passive Recovery regen" % c.id)
 		if "{value}" in String(c.desc):
 			assert_true(c.has("value"), "%s fills {value}" % c.id)
-	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
-			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new",
-			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery"]:
+	for id: String in ["energy_bolt_new", "magic_claw_new", "magic_armor_new"]:
 		assert_true(ids.has(id), "card %s" % id)
+	# #284: the Beginner is gone (its cards with it) and Teleport is a start skill, not a card.
+	for c: Dictionary in data.upgrades.cards:
+		assert_false(String(c.get("skill", "")) in ["three_snails", "nimble_feet", "recovery"], "%s is a Beginner card" % c.id)
+		assert_false(String(c.get("skill", "")).begins_with("teleport_"), "%s is a Teleport card" % c.id)
+		assert_false(c.get("requires", {}).has("carry_jobs"), "%s has no carry_jobs" % c.id)
 	var fallback: Dictionary = data.upgrades.fallback
 	assert_false(ids.has(fallback.id), "fallback is outside the weighted pool")
 	assert_eq(fallback.kind, "filler")
 	assert_eq(fallback.requires, {}, "fallback is job-neutral")
 	assert_eq(int(fallback.max_rank), 0, "healing can be taken again on a later reward")
-	assert_eq(fallback.effects, [{"stat": "hp", "op": "heal", "value": 1.0},
-		{"stat": "mp", "op": "heal", "value": 1.0}], "Power Elixir fully restores both pools")
+	assert_eq(fallback.effects, [{"stat": "hp", "op": "heal", "value": 1.0}], "Power Elixir fully restores HP (no MP, #285)")
 	var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
 	assert_has(manifest.items, 2000005.0, "Power Elixir art is imported")
 
@@ -136,15 +186,15 @@ func test_cards_are_consistent() -> void:
 func test_stat_cards_are_replaced_by_owned_skills() -> void:
 	var pool := UpgradePool.from_data(data.upgrades)
 	assert_true(pool.card("max_hp").is_empty(), "the non-MapleStory Max HP card is removed")
-	for key: String in ["improved_max_mp", "nimble_feet"]:
-		assert_eq(pool.card(key).kind, "skill_new", "%s learns its skill" % key)
-		assert_eq(pool.card(key).skill, key)
-		assert_eq(pool.card(key).effects, [], "no flat stat effects remain")
-		assert_eq(pool.card(key + "_rank").kind, "skill_rank")
-		var is_mp := key == "improved_max_mp"
-		assert_eq(int(pool.card(key + "_rank").max_rank), 10 if is_mp else 3)
-		assert_eq(pool.card(key).requires.jobs, [200.0] if is_mp else [0.0])
-		assert_eq(pool.card(key + "_rank").requires.jobs, [200.0] if is_mp else [0.0])
+	var key := "magic_armor"
+	assert_eq(pool.card(key + "_new").kind, "skill_new", "%s learns its skill" % key)
+	assert_eq(pool.card(key + "_new").skill, key)
+	assert_eq(pool.card(key + "_new").effects, [], "no flat stat effects remain")
+	assert_eq(pool.card(key + "_rank").kind, "skill_rank")
+	assert_eq(pool.card(key + "_new").requires.jobs, [200.0])
+	assert_eq(pool.card(key + "_rank").requires.jobs, [200.0])
+	for gone: String in ["improved_max_mp", "nimble_feet", "recovery"]:
+		assert_true(pool.card(gone).is_empty(), "%s went with MP (#285) or the Beginner (#284)" % gone)
 
 
 func test_stages_mobs_and_manifest() -> void:
@@ -154,8 +204,9 @@ func test_stages_mobs_and_manifest() -> void:
 	assert_true(manifest is Dictionary)
 	var want_maps := {"henesys": 104040000, "ellinia": 101010100, "perion": 102010000, "kerning": 103010000,
 		"sleepywood": 105050400}
-	assert_eq(stages.keys(), want_maps.keys(), "the five distinct stages are offered")
-	assert_eq(manifest.maps, [104040000.0, 104010001.0, 100030001.0, 101010100.0, 100040100.0,
+	assert_eq(stages.keys().slice(0, want_maps.size()), want_maps.keys(), "the five original stages are offered first")
+	# Pin of the main file's own 16 maps only: each region's fragment appends its maps after them (no edit per region).
+	assert_eq(manifest.maps.slice(0, 16), [104040000.0, 104010001.0, 100030001.0, 101010100.0, 100040100.0,
 		100040105.0, 102010000.0, 101030404.0, 106000101.0, 103010000.0, 103000101.0, 107000000.0,
 		105050400.0, 105090310.0, 105090900.0, 910000000.0],
 		"the three maps of each region and the Free Market hub are imported")
@@ -231,7 +282,8 @@ func test_perion_and_kerning_mobs_have_exp_pickups_meso_ranges_and_imports() -> 
 ## Spec #253: Iron Hook and Shade cast their kits like the other scheduled bosses (unsupported skills are skipped).
 func test_iron_hook_and_shade_are_enabled_boss_kits() -> void:
 	var enabled: Array = data.balance.mob_skills.enabled_ids
-	for id: float in [2220000.0, 3220000.0, 9300003.0, 6220000.0, 4090000.0, 5090000.0]:
+	for id: float in [2220000.0, 3220000.0, 9300003.0, 6220000.0, 4090000.0, 5090000.0, 3300008.0, 3300005.0,
+			5220002.0, 5220001.0, 5220000.0]:
 		assert_has(enabled, id, "boss %d casts its kit" % int(id))
 
 
@@ -344,43 +396,48 @@ func test_jobs_and_balance() -> void:
 	var tree := JobTree.from_data(data.jobs, data.jobs_survivor)
 	for k: String in data.jobs_survivor.jobs:
 		assert_false(tree.job(int(k)).is_empty(), "survivor job %s exists in the canonical tree" % k)
-	assert_true(tree.job(200).playable)
-	assert_true(tree.job(100).playable, "the Warrior is playable since #163")
-	for id: int in [210, 220, 230]:
-		assert_true(tree.job(id).playable, "%d playable" % id)
-	assert_true(tree.job(500).playable, "Pirate first job is playable since #186")
-	for id: int in [510, 520]:
-		assert_true(tree.job(id).playable, "%d is playable since #189" % id)
-	for id: int in [300, 310, 320, 400, 410, 420]:
-		assert_true(tree.job(id).playable, "%d playable since specs #166/#167" % id)
+	# #284 (ADR 0006): one fixed job per character; Hero and F/P are playable (#306); 222 is deliberately not asserted either way
+	# (I/L flips in its last ticket, #319 I12).
+	assert_true(tree.job(212).playable, "212 is playable")
+	assert_true(tree.job(112).playable, "112 is playable")
+	assert_eq(tree.default_job(), 212)
+	for id: int in [0, 100, 110, 200, 210, 220, 230, 300, 400, 500, 510, 520]:
+		assert_false(tree.job(id).playable, "%d is not playable" % id)
+	for k: String in data.jobs_survivor.jobs:
+		for key: String in ["paths", "grants", "level"]:
+			assert_false(data.jobs_survivor.jobs[k].has(key), "job %s has no advancement %s" % [k, key])
+	for key: Variant in tree.start_skills(212):
+		assert_true(data.skills.skills.has(String(key)), "start skill %s exists" % key)
 	var b: Dictionary = data.balance
 	assert_false(b.has("invincible_time"), "replaced by the shrinking hit_window (spec #88)")
 	assert_eq(b.hit_window, {"lengths": [1.5, 1.0, 0.6, 0.4], "chain_gap": 2.5, "reset_after": 3.0})
 	assert_eq(float(b.magnet_radius), 90.0)
 	assert_eq(float(b.mob_speed_factor), 0.625)
 	assert_eq(float(b.knockback.speed), 187.5)
-	assert_eq(float(b.mp_regen), 0.0, "no per-second MP recovery")
-	assert_eq(b.regen, {"interval": 10.0, "hp": 10.0, "mp": 3.0})
-	assert_eq(float(b.level_up_refill.hp), 0.0, "level-ups add no HP (owner choice)")
-	assert_eq(float(b.level_up_refill.mp), 1.0, "level-ups refill MP to the new maximum")
-	assert_eq(b.potions.cooldown, {"hp": 20.0, "mp": 10.0}, "tier C: spec #237 per-kind cooldowns")
+	assert_false(b.has("mp_regen"), "no MP (#285)")
+	assert_eq(b.regen, {"interval": 10.0, "hp": 10.0})
+	assert_eq(b.level_up_refill, {"hp": 0.0}, "level-ups add no HP (owner choice); no MP refill (#285)")
+	assert_eq(b.potions.cooldown, {"hp": 20.0}, "tier C: spec #237 cooldown; no MP potion (#285)")
+	assert_false(b.potions.has("mp"), "no MP potion (#285)")
 	assert_false(b.potions.has("drops"))
 	assert_false(b.bosses.rewards.has("potions"))
 	assert_false(b.bosses.rewards.has("potion_spread"))
-	for kind: String in ["hp", "mp"]:
-		assert_false(b.potions[kind].has("start"))
+	assert_false(b.potions.hp.has("start"))
 	for key: String in data.stages.stages:
 		for kf: Dictionary in data.stages.stages[key].get("keyframes", []):
 			assert_false(kf.has("normal_mp_drop_chance") or kf.has("normal_hp_drop_chance"), "%s has no potion curves" % key)
 		for boss: Dictionary in DataRepo.stage_bosses(data.stages.stages[key]):
 			assert_false(boss.get("rewards", {}).has("potions"))
 	assert_eq(float(b.growth["0"].hp), 14.0)
-	assert_eq(float(b.growth["200"].mp), 22.0)
+	assert_false(b.growth["200"].has("mp"), "no MP growth (#285)")
 	assert_eq(int(b.player.ap_per_level), 5)
-	assert_eq(b.player.ap_stat, {"0": "str", "100": "str", "200": "int", "300": "dex", "400": "luk", "500:knuckle": "str", "500:gun": "dex", "510": "str", "520": "dex"})
-	assert_eq(String(b.player.ap_secondary["200"].stat), "luk", "Magician AP keeps LUK at the v83 requirement pattern")
-	assert_false(b.player.ap_secondary.has("0"), "the Beginner has no secondary stat")
-	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)
+	assert_false(b.player.has("ap_stat") or b.player.has("ap_secondary") or b.player.has("weapon_grants") \
+		or b.player.has("skills"), "#284: one AP row per job, no job weapon grant, start skills per job")
+	assert_eq([String(b.player.ap["212"].primary), String(b.player.ap["212"].secondary)], ["int", "luk"],
+		"212: INT primary, LUK secondary (spec #282)")
+	for job: String in b.player.ap:
+		assert_false(job.contains(":"), "no weapon-path AP row (%s)" % job)
+	assert_false(b.growth["200"].has("int_mp_divisor"))
 
 
 ## Code fallbacks exist only for synthetic setups without balance data; each must repeat the shipped value exactly so
@@ -410,14 +467,30 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 		"AvatarRenderer.DEFAULT_LOOK.equips is the default creation outfit without its weapon")
 	var no_drops := data.duplicate()
 	no_drops.erase("equipment_drops")
-	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1372005, 1302077, 1432000, 1322006,
-		1452051, 1462001, 1472061, 1332063, 1482000, 1492000, 1302008, 1312005, 1322014, 1432002, 1442001, 1452005, 1462000, 1472008, 1332012, 1482004, 1492004]),
-		"without MakeCharInfo the setup loads the default outfit and every playable job's advancement weapons, including every Bowman path candidate")
+	# SH14 #439: the setup also loads the creation weapon of every playable job (a bare tool round wields it; the Razor of a Shadower
+	# is in no other list). Without MakeCharInfo and drops that is the default outfit plus those weapons, each once.
+	var creation_weapons := {}
+	var job_tree := DataRepo.jobs(data)
+	for job: int in job_tree.playable_jobs():
+		creation_weapons[job_tree.creation_weapon(job)] = true
+	var no_drops_expected := {}
+	for id: Variant in Equipment.DEFAULT_OUTFIT:
+		no_drops_expected[int(id)] = true
+	for id: Variant in creation_weapons:
+		no_drops_expected[int(id)] = true
+	var no_drops_ids := DataRepo.starter_equipment_ids(no_drops)
+	assert_eq(no_drops_ids.size(), no_drops_expected.size(), "without MakeCharInfo: the default outfit and the creation weapons, once each")
+	for id: int in Equipment.DEFAULT_OUTFIT:
+		assert_true(id in no_drops_ids, "the default outfit item %d is loaded" % id)
+	for id: Variant in creation_weapons:
+		assert_true(int(id) in no_drops_ids, "the creation weapon %d is loaded" % int(id))
 	var with_drops := DataRepo.starter_equipment_ids(data)
+	var expected := {}
+	for id: Variant in Equipment.DEFAULT_OUTFIT + data.equipment_drops.items + creation_weapons.keys():
+		expected[int(id)] = true
 	for id: Variant in data.equipment_drops.items:
 		assert_true(int(id) in with_drops, "the drop list item %d has its info loaded" % int(id))
-	assert_eq(with_drops.size(), 5 + data.equipment_drops.items.size() - 4 + 5,
-		"listed items are added once (creation coat/pants/shoes, Wooden Wand and spare Bowman crossbow overlap; Warrior sword/Steel Pipe, Beginner Bowman's bow and both Thief gifts are outside the drop roster)")
+	assert_eq(with_drops.size(), expected.size(), "listed items are added once")
 
 
 func test_build_setup_and_paths() -> void:
@@ -459,7 +532,8 @@ func test_build_setup_and_paths() -> void:
 	assert_has(s.skill_imgs, "230", "Cleric attacks and Teleport book")
 	assert_eq(s.mob_imgs.size(), mob_ids.size() - 1, "all stage kinds except the loader's missing Green Mushroom")
 	assert_eq(missing, PackedStringArray(["Mob.wz/1110100.img"]))
-	assert_eq(s.ammo_info.size(), 18, "the ammo items' canonical facts are in the setup (#155)")
+	for id: int in Ammo.item_ids(DataRepo.load_all().ammo):
+		assert_true(s.ammo_info.has(id), "ammo %d canonical facts are loaded" % id)
 	assert_eq(s.ammo_info[2070001], {"incPAD": 7})
 	assert_eq(s.scroll_info.size(), Scrolls.ids(data.scrolls).size(), "every roster scroll's canonical info is loaded")
 	assert_eq(s.scroll_info[2043700], {"success": 60, "incMAD": 2})
@@ -505,23 +579,22 @@ func test_setup_carries_canonical_potion_specs() -> void:
 			var items := {}
 			for id in DataRepo.potion_item_ids(data):
 				if DataRepo.potion_img_path(id) == path:
-					items["%08d" % id] = {"spec": {"hp": float(id), "mp": float(id)}, "info": {"price": 25.0}}
+					items["%08d" % id] = {"spec": {"hp": float(id)}, "info": {"price": 25.0}}
 			return items
 		return {"info": {}}
 	var setup := DataRepo.build_setup(data, "henesys", 10, Vector2(800, 600), loader,
 		func(_id: int) -> Dictionary: return {"info": {"maxHP": 1}})
 	assert_eq(setup.get("item_info", {}).get(2000000, {}).get("spec", {}).get("hp", -1), 2000000.0,
 		"canonical potion spec reaches the pure simulation")
-	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2000003, 2000006,
-		2001001, 2001002, 2022000, 2022003]),
-		"the starters and the potions.schedule items: Red, Orange, White, Blue, Mana Elixir, Ice Cream Pop, Red Bean Sundae, Pure Water, Unagi")
+	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2001001, 2022003]),
+		"the starter and the potions.schedule items: Red, Orange, White, Ice Cream Pop, Unagi (no MP potions, #285)")
 	assert_eq(setup.get("item_info", {}).keys(), Array(DataRepo.potion_item_ids(data)), "every scheduled potion is retained")
 	assert_eq(setup.item_info[2022003].spec.hp, 2022003.0, "Unagi comes from Consume/0202.img")
-	assert_eq(setup.item_info[2001002].spec.mp, 2001002.0, "Red Bean Sundae comes from Consume/0200.img")
+	assert_eq(setup.item_info[2001001].spec.hp, 2001001.0, "Ice Cream Pop comes from Consume/0200.img")
 	assert_eq(asked.count("Item.wz/Consume/0202.img"), 1, "each potion img is read once")
 	assert_eq(asked.count("Item.wz/Consume/0200.img"), 1)
 	assert_eq(DataRepo.potion_img_path(2022000), "Item.wz/Consume/0202.img")
-	assert_eq(DataRepo.potion_img_path(2000006), "Item.wz/Consume/0200.img")
+	assert_eq(DataRepo.potion_img_path(2000002), "Item.wz/Consume/0200.img")
 	var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
 	var sounds := []
 	for entry: Dictionary in manifest.imgs:
@@ -597,7 +670,6 @@ const HIT_MORE_EXEMPT := {
 	"teleport_il": "movement: deals no damage",
 	"teleport_cleric": "movement: deals no damage",
 	"dash": "movement buff: deals no damage",
-	"mp_recovery": "support: turns HP into MP, deals no damage",
 	"threaten": "support: threatens, deals no damage",
 	"disorder": "support: threatens and interrupts, deals no damage",
 }
@@ -621,8 +693,8 @@ func test_manual_skills_name_a_skill_key_with_an_input_action() -> void:
 			"skill key %s belongs to a skill" % id)
 
 
-func test_every_attack_skill_has_a_hit_more_mobs_card() -> void:
-	var skills: Dictionary = data.skills.skills
+func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> void:
+	var skills: Dictionary = SkillTemplate.resolve(data.skills.skills)
 	var covered := {}
 	for c: Dictionary in data.upgrades.cards:
 		if String(c.kind) != "skill_mod":
@@ -632,11 +704,28 @@ func test_every_attack_skill_has_a_hit_more_mobs_card() -> void:
 				covered[String(c.skill)] = true
 	for key: String in skills:
 		var s: Dictionary = skills[key]
+		if String(s.get("slot", "")) == "summon_sub":
+			assert_true(skills.has(String(s.get("summon_sub_of", ""))), "%s: a support sub names its parent skill (#357)" % key)
+			assert_false(covered.has(key) or s.has("rarity_bonuses"), "%s: a sub is no card" % key)
+			continue # read through its parent's cast; never offered, never an attack
 		if HIT_MORE_EXEMPT.has(key):
 			assert_eq(String(s.damage), "none", "exempt %s must not be an attack skill" % key)
-			assert_eq(String(s.slot), "active", "exempt %s is an active skill" % key)
+			assert_true(String(s.slot) in ["active", "mobility"], "exempt %s is active or manual mobility" % key)
 			assert_false(covered.has(key), "%s has a hit-more-mobs card: remove its exemption" % key)
 			continue
+		if s.has("rarity_bonuses"):
+			for tier: String in ["rare", "epic", "unique", "legendary"]:
+				var entries: Array = s.rarity_bonuses.get(tier, [])
+				assert_false(entries.is_empty(), "%s needs %s rarity bonuses" % [key, tier])
+				for entry: Dictionary in entries:
+					assert_false(entry.get("effects", []).is_empty(), "%s bonus has effects" % key)
+			assert_false(covered.has(key), "%s uses rarity bonuses instead of standalone cards" % key)
+			continue
+		assert_false(_in_any_job_pool(key), "%s is a pool skill and needs rarity_bonuses (#288)" % key)
+		if int(s.get("job", -1)) == 0:
+			continue # #284: the Beginner is gone and its skills have no cards
+		if String(s.slot) in ["mobility", "form_sub"]:
+			continue # mobility and form sub-skills are never offered as cards
 		if String(s.damage) != "none" or String(s.slot) == "active":
 			assert_true(covered.has(key), "%s needs a skill_mod card with more shots, targets or pierce" % key)
 
@@ -648,7 +737,7 @@ func test_every_derived_stage_mob_is_in_the_asset_manifest() -> void:
 	lib.open()
 	var manifest: Variant = AssetManifest.load_merged("res://data/asset_manifest.json")
 	var mob_skill := lib.img(DataRepo.MOB_SKILL_IMG).root
-	for key: String in data.stages.tiers[0]:
+	for key: String in data.stages.progression.slice(0, 4):
 		var stage: Dictionary = data.stages.stages[key]
 		var imgs := {}
 		for id in StageRoster.named_ids(stage):
@@ -663,3 +752,83 @@ func test_stage_keyframe_parser_ignores_retired_potion_curve() -> void:
 	var director := SpawnDirector.create(stage, {})
 	assert_false(director.keyframes[0].has("normal_hp_drop_chance"), "retired potion curves are not parsed")
 	assert_near(director.rate_at(0.0), 1.0, 1e-6, "supported pacing fields are still parsed")
+
+func test_meter_catalog_schema() -> void:
+	for job: Dictionary in data.jobs_survivor.jobs.values():
+		if not job.has("meter"):
+			continue
+		var meter: Dictionary = job.meter
+		assert_true(meter.id is String and not String(meter.id).is_empty())
+		assert_true(float(meter.max) > 0 and float(meter.max) == floorf(float(meter.max)))
+		assert_true(String(meter.gain.event) in ["cast_landed", "hit_taken", "meso_picked"])
+		assert_true(float(meter.gain.amount) > 0 and float(meter.gain.amount) == floorf(float(meter.gain.amount)))
+		# M23 (#403): per_mesos only on a mesos-driven rule; a decay names a positive interval and a whole amount.
+		if meter.gain.has("per_mesos"):
+			assert_eq(String(meter.gain.event), "meso_picked")
+			assert_true(float(meter.gain.per_mesos) > 0 and float(meter.gain.per_mesos) == floorf(float(meter.gain.per_mesos)))
+		if meter.has("decay"):
+			assert_true(float(meter.decay.interval) > 0.0)
+			assert_true(float(meter.decay.amount) > 0 and float(meter.decay.amount) == floorf(float(meter.decay.amount)))
+		assert_true(String(meter.gain.get("exclude", "")) in ["", "finisher"])
+		assert_eq(String(meter.per_unit.stat), "damage")
+		assert_true(float(meter.per_unit.value) >= 0.0)
+		assert_true(meter.get("art", "") is String)
+		# Presentation only (B2 #414): the optional cue object names the full-bar art and sound; the sim ignores it.
+		assert_true(meter.get("cue", {}) is Dictionary, "%s: cue is an object" % meter.id)
+		if meter.has("cue"):
+			assert_true(String(meter.cue.get("effect", "")) != "" and String(meter.cue.get("sound", "")) != "")
+	for skill: Dictionary in data.skills.skills.values():
+		if not skill.has("meter"):
+			continue
+		var meter: Dictionary = skill.meter
+		if meter.has("read_per_unit") and not meter.has("role"):
+			# M23 (#403): a read-only block multiplies damage by the held units and carries nothing else.
+			assert_true(float(meter.read_per_unit) > 0.0)
+			assert_false(meter.has("min") or meter.has("spend"))
+			continue
+		assert_eq(String(meter.role), "finisher")
+		assert_true(float(meter.min) > 0 and float(meter.min) == floorf(float(meter.min)))
+		assert_eq(String(meter.spend), "all")
+		assert_true(float(meter.damage_per_unit) >= 0.0)
+		assert_true(meter.get("unit", "") is String, "%s: unit is a word" % skill.get("skill_key", ""))
+		assert_eq(String(skill.slot), "active")
+
+func test_burst_cast_and_thrown_art_keep_distinct_typed_contracts() -> void:
+	var skills: Dictionary = DataRepo.load_all().skills.skills
+	for key: String in skills:
+		var d: Dictionary = skills[key]
+		var rule := String(d.get("cast", {}).get("rule", ""))
+		if rule == "burst":
+			assert_true(d.get("burst") is Dictionary, key + " uses burst scheduling parameters")
+		elif rule == "cluster":
+			assert_true(d.get("burst", "") is String, key + " uses a thrown impact art path")
+
+
+func test_manual_skills_do_not_carry_auto_cast_hp_damage_mechanics() -> void:
+	for key: String in data.skills.skills:
+		var d: Dictionary = data.skills.skills[key]
+		if String(d.get("cast", {}).get("rule", "")) != "manual":
+			continue
+		assert_false(d.has("self_damage") or d.has("low_hp_damage"), key)
+		for bonuses: Array in d.get("rarity_bonuses", {}).values():
+			for bonus: Dictionary in bonuses:
+				for effect: Dictionary in bonus.get("effects", []):
+					assert_false(String(effect.get("stat", "")) in ["self_damage", "low_hp_damage"], key)
+
+
+func test_support_pulses_name_registered_kinds() -> void:
+	for key: String in data.skills.skills:
+		for pulse: Dictionary in data.skills.skills[key].get("summon", {}).get("support", {}).get("pulses", []):
+			assert_true(SupportSummons.KINDS.has(String(pulse.kind)), key)
+
+
+func test_form_catalog_schema_and_subs_excluded_from_pools_and_cards() -> void:
+	var errors := Array(PlayerForms.validation_errors(data.skills.skills))
+	assert_true(errors.is_empty(), " ".join(errors))
+	for key: String in data.skills.skills:
+		if String(data.skills.skills[key].get("slot", "")) != "form_sub":
+			continue
+		for job: Dictionary in data.jobs_survivor.jobs.values():
+			assert_false(key in job.get("skill_pool", []), "%s: sub never in pool" % key)
+		for card: Dictionary in data.upgrades.cards:
+			assert_false(String(card.get("skill", "")) == key, "%s: sub never a card" % key)

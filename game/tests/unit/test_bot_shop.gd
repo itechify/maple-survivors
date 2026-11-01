@@ -52,7 +52,6 @@ func _world(level := 10, mesos := 0, inventory: Array = [], scrolls: Dictionary 
 	setup.equipment_info = INFO.duplicate(true)
 	setup.scroll_info = SCROLL_INFO.duplicate(true)
 	var character := RunWorld.new(setup).character_snapshot()
-	character.level = level
 	character.job_id = 200
 	character.mesos = mesos
 	character.scrolls = scrolls
@@ -64,6 +63,9 @@ func _world(level := 10, mesos := 0, inventory: Array = [], scrolls: Dictionary 
 	next.scroll_info = SCROLL_INFO.duplicate(true)
 	next.character = character
 	var w := RunWorld.new(next)
+	# A character has no level (#286): `level` is the round's level at the start.
+	w.progression.level = level
+	w.refresh_player_stats()
 	RF.place_player(w, 400)
 	return w
 
@@ -88,12 +90,9 @@ func test_a_bot_keeps_what_it_wears_when_the_new_item_scores_lower() -> void:
 	assert_eq(_inventory_ids(w), [1372008])
 
 
-func test_a_bot_does_not_wear_an_item_it_cannot_equip_yet_until_it_levels_into_it() -> void:
+func test_a_bot_wears_an_item_whatever_its_required_level() -> void:
 	var w := _world(10, 0, [1372007])
-	assert_eq(BotShop.auto_equip(w), 0, "reqLevel 40 at Lv 10")
-	assert_eq(w.weapon_id(), 1372005)
-	w.progression.level = 40
-	assert_eq(BotShop.auto_equip(w), 1, "worn once it is Lv 40")
+	assert_eq(BotShop.auto_equip(w), 1, "reqLevel 40 at Lv 10: only the job class counts (#292)")
 	assert_eq(w.weapon_id(), 1372007)
 
 
@@ -130,34 +129,6 @@ func test_the_shield_is_a_slot_the_bot_fills_and_scores_by_its_defence() -> void
 	assert_eq(w.weapon_id(), 1302000, "beside the one-handed sword")
 
 
-func test_weapon_loyalty_follows_the_recorded_path_even_after_a_manual_swap_or_destruction() -> void:
-	for held in [1302000, 0]:
-		var w := _warrior([1402001])
-		w.progression.job_id = 110 # a Fighter line can use the axe family
-		w.weapon_path = "axe"
-		if held == 0:
-			w.equipment.worn.erase("weapon")
-		w.setup.equipment_info[1312005] = {"incPAD": 25}
-		w.equipment.inventory.append(Equipment.create(1312005, w.setup.equipment_info[1312005]))
-		assert_eq(BotShop.auto_equip(w), 1, "only the recorded family's upgrade is worn")
-		assert_eq(w.weapon_id(), 1312005, "the stronger off-path sword stays in the tab")
-
-
-func test_loyalty_ignores_a_recorded_path_the_current_job_cannot_use() -> void:
-	# tier C (#226): an unforced Bandit can keep weapon_path "claw" from Lv 10 yet only wield daggers.
-	var w := _world(10, 0, [])
-	w.progression.job_id = 420
-	w.weapon_path = "claw"
-	w.setup.equipment_info[1332063] = {"incPAD": 28, "attackSpeed": 3, "tuc": 7}
-	w.setup.equipment_info[1332064] = {"incPAD": 40, "attackSpeed": 3, "tuc": 7}
-	w.setup.equipment_info[1472061] = {"incPAD": 99, "attackSpeed": 5, "tuc": 7}
-	w.equipment.worn.weapon = Equipment.create(1332063, w.setup.equipment_info[1332063])
-	w.equipment.inventory.append(Equipment.create(1472061, w.setup.equipment_info[1472061]))
-	w.equipment.inventory.append(Equipment.create(1332064, w.setup.equipment_info[1332064]))
-	assert_eq(BotShop.auto_equip(w), 1)
-	assert_eq(w.weapon_id(), 1332064, "the held family (dagger) is upgraded, not the unusable claw")
-
-
 func test_a_two_handed_weapon_must_beat_the_sword_and_the_shield_it_displaces() -> void:
 	# Beginner weights: incPAD 10, incPDD 1.5. Sword 17 -> 170, shield 10 -> 15.
 	var strong := _warrior([1402001], [1092009])
@@ -187,10 +158,10 @@ func test_an_equip_that_does_not_fit_the_full_tab_is_skipped_without_looping() -
 	assert_false(w.equipment.worn.has("overall"))
 
 
-func test_equip_triggers_are_equipment_pickups_level_ups_and_job_changes() -> void:
+func test_equip_triggers_are_only_equipment_pickups() -> void:
 	assert_true(BotShop.equip_trigger([{"type": "pickup_collected", "kind": "equip"}]))
-	assert_true(BotShop.equip_trigger([{"type": "mob_hit"}, {"type": "level_up", "level": 5}]))
-	assert_true(BotShop.equip_trigger([{"type": "job_changed", "job_id": 200}]))
+	assert_false(BotShop.equip_trigger([{"type": "mob_hit"}, {"type": "level_up", "level": 5}]))
+	assert_false(BotShop.equip_trigger([{"type": "job_changed", "job_id": 200}]))
 	assert_false(BotShop.equip_trigger([{"type": "pickup_collected", "kind": "exp"}, {"type": "mob_died"}]))
 	assert_false(BotShop.equip_trigger([]))
 

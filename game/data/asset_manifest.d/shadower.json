@@ -1,0 +1,10 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Shadower line (spec #425 #426). The 3rd and 4th job Thief skill books Skill.wz/421.img (Chief Bandit) and 422.img (Shadower) whole, and the Sound.wz/Skill.img nodes of the Shadower skills: Assaulter 4211002, Band of Thieves 4211004, Meso Explosion 4211006, Assassinate 4221001, Ninja Ambush 4221004, Smokescreen 4221006 and Boomerang Step 4221007, plus 4121001 (Assassinate's own Use and Use2 are UOLs into it; no other fragment imports it, 4121001 is not a Night Lord skill). 4221004's Use is a UOL into 4121004, which night_lord.json imports and this file must not list again (a path in two files is an error). The character list holds the Razor 1332005, the Shadower's creation dagger (reqJob 0): spec #425 believed it was already in thief.json, but no fragment listed it. Double Stab 4001334, Dark Sight 4001003, Steal 4201004 and Savage Blow 4201005 sounds, the 400 / 420 books, the other daggers and the Thief shields are in thief.json / common.json.",
+	"imgs": [
+		{"img": "Skill.wz/421.img"},
+		{"img": "Skill.wz/422.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["4121001", "4211002", "4211004", "4211006", "4221001", "4221004", "4221006", "4221007"]}
+	],
+	"character": [1332005]
+}

@@ -1,0 +1,9 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Paladin line (spec #308 #309). The 3rd and 4th job Warrior skill books Skill.wz/121.img (White Knight) and 122.img (Paladin) whole, and the Sound.wz/Skill.img nodes of the Paladin pool, sub-skills and mobility skill: Charged Blow 1211002, Fire Charge: Sword 1211003, Flame Charge: BW 1211004, Ice Charge: Sword 1211005, Blizzard Charge: BW 1211006, Thunder Charge: Sword 1211007, Lightning Charge: BW 1211008, Monster Magnet 1221001, Holy Charge 1221003, Divine Charge 1221004, Rush 1221007, Blast 1221009 and Heaven's Hammer 1221011. Several are UOLs to a sibling (1211004/1211006/1211008/1221004 to their sword twin in this same list, 1221001 to Hero's 1121001/Use and 1221007 to Hero's 1121006/Use in hero.json). The Warrior second-job book 120.img, the sword and blunt weapons (Mace 1322000 included), afterimages and shields are in warrior.json.",
+	"imgs": [
+		{"img": "Skill.wz/121.img"},
+		{"img": "Skill.wz/122.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["1211002", "1211003", "1211004", "1211005", "1211006", "1211007", "1211008", "1221001", "1221003", "1221004", "1221007", "1221009", "1221011"]}
+	]
+}

@@ -1,36 +1,37 @@
 class_name SceneFlow
 extends Node
-## Run-of-rounds coordinator (autoload Flow): title -> character_select -> tiered stage_select -> round.
-## A non-final clear carries the character to the next tier; death/victory -> results -> character_select.
+## Round coordinator (autoload Flow): title -> character_select -> the character's Free Market (home) -> Up at out00 ->
+## map select -> round -> results -> the Free Market again (ADR 0006, #286). Every round is standalone: a clear, a death or
+## a Quit round ends it, and nothing but the character (its pickups and cleared regions) carries to the next.
 ## host owns exactly one screen. Swaps are deferred so callbacks may replace their screen safely.
 ##
-## #70 seam: character_select.gd/.tscn is a separate presentation. Use create_character(name, look, weapon),
+## #70 seam: character_select.gd/.tscn is a separate presentation. Use create_character(name, look, job),
 ## continue_character(slot), delete_character(slot) AFTER confirmation, and goto_history(). Creation returns its
-## slot or -1 with action_error; it creates a Beginner via the same sim defaults as any fresh round.
+## slot or -1 with action_error; it creates a Lv1-less character of a playable job (the sim's defaults) and opens its hub.
 ## Shared #70/#71 drawing: DataRepo.character_look(snapshot.character, DataRepo.load_all()) -> AvatarRenderer look,
-## the carried look with the character's worn equipment. Creation turns the chosen outfit and weapon into worn
-## equipment (new_character); continue_character migrates a format-1 character once (migrated_character).
-## Only snapshot.character.look is authoritative; the old wrapper look is accepted for compatibility and ignored.
-## EVERY persistent non-final clear calls _after_round_cleared(snapshot), which saves free_market before arrival.
-## Continue resumes that phase; the hub's out00 calls goto_stage_select(). No other clear route exists.
+## the carried look with the character's worn equipment. Creation turns the chosen outfit and the job's creation weapon
+## into worn equipment (new_character). Only snapshot.character.look is authoritative.
 ##
-## SaveData format 2 slots hold the boundary character, tier (0-based), phase=free_market|map_select|round, stage and round_seed.
-## start_round(stage) persists phase=round and a seed BEFORE launch; continue_character restarts it unchanged.
-## quit_round never writes. save_and_quit returns the hub/map select to the slots. RunScene passes finish_run(summary,
-## character) with an outgoing character only for persistent clears; deaths use the last saved boundary for history.
-## A carried Dictionary reaches RunScene.configure via options.character.
+## SaveData format 3 slots are {name, created, rounds_played, character}: no phase, tier cursor, stage or seed. The
+## character is saved at the hub (the Free Market writes each change) and when a round ends; `start_round` writes nothing,
+## so closing the game mid-round loses the round and there is nothing to resume.
+## finish_run(summary, character, ending) is the ONE exit of a persistent round. RunScene hands over the character as the
+## round left it (RunWorld.character_snapshot(): pickups kept, the stage added to its cleared regions after a clear) for a
+## clear, a death and a quit alike; `ending` "" means cleared/died by the summary, "quit" is Quit round, which ends the round exactly
+## like a death. SaveData.finish_round writes slot, best, count, NX and one history entry together; the results screen
+## then returns to the hub (to_hub).
 ##
 ## start_run(stage, seed, options) is ONLY a tool one-off (--run), clears active_slot and never reads/writes saves.
 ## options.character also accepts the existing --character=<absolute JSON path>. The CLI parser passes other
 ## --key[=value] flags to RunScene unchanged. finish_run shows one-off results without bests or history.
 ## Summary: {stage, map_id, region, continent (the display names, #221; older saves lack them), map_name, street_name, time, duration, cleared, level, job_id, job_name, kills,
-## damage_dealt, skills: [{key, name, icon, rank}], seed, bosses_killed, levels_gained, nx_awarded}; persistent endings
-## add ending and tiers_cleared. nx_awarded (NxAward, tier C) is credited to the save's account only for persistent
-## rounds: in the boundary write of a non-final clear, or the end_run write of a death/victory. One-off rounds,
-## Quit round and deletion never credit it.
+## damage_dealt, skills: [{key, name, icon, rank}], seed, bosses_killed, levels_gained, nx_awarded, revives: [{t, level,
+## rank, source_kind, hp}] (second lives taken, #375; never saved or put in the history)}; persistent rounds
+## add ending. nx_awarded (NxAward, tier C) is credited to the save's account only for persistent rounds, in the
+## finish_round write. One-off rounds and deletion never credit it.
 ## Cash Shop (#118 seam for #122/#126): goto_cash_shop(origin) opens the v83 shop as the active character from the
 ## boundary screen it names ("stage_select" or "free_market"; no-op without a living character) and leave_cash_shop()
-## returns to that origin. The saved boundary phase is untouched while shopping. Purchases are CashShop.buy on save_data().
+## returns to that origin. Purchases are CashShop.buy on save_data().
 ## start_hub(request) is the tool-only `--hub` (HubTestKit): a throwaway save, a test kit and the real Free Market.
 ## Tests may inject save/host and set deferred_swaps=false. The autoload does nothing until explicitly called.
 
@@ -62,7 +63,7 @@ var current_name := ""
 var deferred_swaps := true
 ## Local saves; created on first persistent/menu use (tests may assign their own).
 var save: SaveData
-## The Settings that persistent rounds take their HP / MP ALERT levels from and follow live (spec #34, #121); null =
+## The Settings that persistent rounds take their HP ALERT level from and follow live (spec #34, #121); null =
 ## the Settings autoload when this node is in the tree (tests may assign their own).
 var settings: GameSettings
 ## Living character slot, or -1 for tools and ended runs.
@@ -134,58 +135,64 @@ func goto_history() -> void:
 	_swap_to(screen, "history")
 
 
-## Deletes a confirmed character, archiving its last boundary as deleted.
+## Deletes a confirmed character, archiving it in the history as deleted.
 func delete_character(index: int) -> bool:
-	if save_data().end_run(index, "deleted", _date()) != OK:
+	if save_data().delete_slot(index, _date()) != OK:
 		action_error = "Could not delete the character. Check that the save folder is writable."
 		return false
 	goto_character_select()
 	return true
 
 
-## Creates a fresh Beginner and enters its first map select; -1 with action_error on failure.
-## #70 supplies look/weapon here without changing the round flow.
-func create_character(character_name: String, look: Dictionary = {}, beginner_weapon: int = 0) -> int:
+## Creates a character of playable job `job` (0 = the default job) and opens its Free Market; -1 with action_error on
+## failure. `look` is the creation look ({skin, face, hair, equips: [top, bottom, shoes]}).
+func create_character(character_name: String, look: Dictionary = {}, job: int = 0) -> int:
 	action_error = save_data().name_error(character_name)
 	if not action_error.is_empty():
 		return -1
-	var character := new_character(look, beginner_weapon, equipment_info_loader())
-	var snapshot := {"name": character_name, "created": _date(),
-		"character": character, "tier": 0, "phase": "map_select", "rounds_played": 0, "tiers_cleared": 0}
+	var data := DataRepo.load_all()
+	var jobs := DataRepo.jobs(data)
+	var job_id := jobs.default_job() if job == 0 else job
+	action_error = jobs.job_error(job_id)
+	if not action_error.is_empty():
+		return -1
+	var character := new_character(look, job_id, equipment_info_loader())
+	var snapshot := {"name": character_name, "created": _date(), "rounds_played": 0, "character": character}
 	var index := save_data().create_slot(snapshot)
 	action_error = "" if index >= 0 else "Use a unique name of 4-12 letters and digits and an empty slot. Check that the save folder is writable."
 	if index >= 0:
 		active_slot = index
-		goto_stage_select()
+		_open_free_market(snapshot)
 	return index
 
 
-## A fresh Beginner snapshot (the sim's defaults) wearing the creation choices: `look` {skin, face, hair, equips:
-## [top, bottom, shoes]} and `weapon` (0 = the default creation weapon) become worn equipment with plain WZ stats from
-## `img_loader` (path -> img root, {} when absent); an empty look wears Equipment.DEFAULT_OUTFIT.
-static func new_character(look: Dictionary, weapon: int, img_loader: Callable) -> Dictionary:
+## A fresh character of job `job_id` (the sim's defaults) wearing the creation choices: `look` {skin, face, hair, equips:
+## [top, bottom, shoes]} and the job's creation weapon (JobTree.creation_weapon) become worn equipment with plain WZ stats
+## from `img_loader` (path -> img root, {} when absent); an empty look wears Equipment.DEFAULT_OUTFIT. Only the first region is open.
+static func new_character(look: Dictionary, job_id: int, img_loader: Callable) -> Dictionary:
 	var data := DataRepo.load_all()
+	var jobs := DataRepo.jobs(data)
 	var ids: Array = look.get("equips", []).duplicate() if look.get("equips") is Array else []
 	if ids.is_empty():
 		ids = Equipment.DEFAULT_OUTFIT.filter(func(id: int) -> bool: return Equipment.slot_of(id) != "weapon")
-	ids.append(weapon if weapon > 0 else Equipment.DEFAULT_OUTFIT[-1])
+	ids.append(jobs.creation_weapon(job_id))
 	var infos := DataRepo.equipment_info(PackedInt32Array(ids), img_loader)
-	var character := RunWorld.new({"data": data, "equipment_info": infos}).character_snapshot()
+	var character := RunWorld.new({"data": data, "equipment_info": infos, "job": job_id}).character_snapshot()
 	character.look = look.duplicate(true)
 	character.look.erase("equips")
 	character.equipment.worn = Equipment.worn_from_ids(ids, infos)
 	return character
 
 
-## A migrated copy of a stored character, idempotent: format 1 becomes format 2 with item info from `img_loader` (as
-## new_character); a format-2 one only drops what spec #225 removed (Magnet ranks and radius modifier) and needs no loader.
+## A format-3 copy of a stored character, idempotent: older formats (tool files, fixtures) keep what format 3 keeps, with
+## item info from `img_loader` for the items a format-1 file migrates (as new_character).
 static func migrated_character(character: Dictionary, img_loader: Callable) -> Dictionary:
 	var data := DataRepo.load_all()
-	var jobs := JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
+	var jobs := DataRepo.jobs(data)
 	if int(character.get("format", 0)) == CharacterSnapshot.FORMAT:
-		return CharacterSnapshot.migrate(character, jobs, {})
+		return CharacterSnapshot.migrate(character, jobs, {}, progression())
 	var ids := PackedInt32Array(CharacterSnapshot.held_item_ids(character, jobs))
-	return CharacterSnapshot.migrate(character, jobs, DataRepo.equipment_info(ids, img_loader))
+	return CharacterSnapshot.migrate(character, jobs, DataRepo.equipment_info(ids, img_loader), progression())
 
 
 ## An img loader over `lib` (default: the default asset library) for img roots such as item info (empty roots without
@@ -197,18 +204,23 @@ static func equipment_info_loader(lib: AssetLibrary = null) -> Callable:
 		return img.root if img != null else {}
 
 
-## Shows map select for the active character and autosaves the boundary.
+## Shows map select for the active character: every region of the progression, those it has not unlocked shown locked.
 func goto_stage_select() -> void:
 	var snapshot := save_data().slot(active_slot)
 	if snapshot.is_empty():
 		return
-	snapshot.phase = "map_select"
-	if save_data().update_slot(active_slot, snapshot) != OK:
-		_swap_to(error_screen("Could not save the round boundary."), "error")
-		return
 	var screen := _instance(STAGE_SELECT)
 	screen.configure(snapshot, self)
 	_swap_to(screen, "stage_select")
+
+
+## Opens the active character's Free Market (home), with an optional arrival notice.
+func goto_free_market(notice: String = "") -> void:
+	var snapshot := save_data().slot(active_slot)
+	if snapshot.is_empty():
+		goto_character_select()
+		return
+	_open_free_market(snapshot, notice)
 
 
 ## Opens the Cash Shop for the active character; `origin` ("stage_select" or "free_market") is where Leave returns.
@@ -226,15 +238,20 @@ func leave_cash_shop(origin: String) -> void:
 	var snapshot := save_data().slot(active_slot)
 	if snapshot.is_empty():
 		goto_character_select()
-	elif origin == "free_market" and snapshot.phase == "free_market":
+	elif origin == "free_market":
 		_open_free_market(snapshot)
 	else:
 		goto_stage_select()
 
 
-## Ordered stage keys per tier, from survivor data; works for any number of tiers.
-static func tiers() -> Array:
-	return DataRepo.load_all().get("stages", {}).get("tiers", [])
+## The ordered region keys of the game (stages.json `progression`, ADR 0007).
+static func progression() -> Array:
+	return DataRepo.load_all().get("stages", {}).get("progression", [])
+
+
+## The stage keys a character with the `cleared` regions may start, in progression order (the first is always open).
+static func unlocked_stages(cleared: Array) -> Array:
+	return CharacterSnapshot.unlocked_keys(progression(), cleared)
 
 
 static func _date() -> String:
@@ -255,22 +272,28 @@ func start_run(stage_key: String, p_seed: int = -1, options: Dictionary = {}) ->
 
 
 ## Tool-only `--hub` (HubTestKit): opens the Free Market with a test character. `request` is HubTestKit.parse_args'
-## {character, mesos}. The character (plus the test kit) goes into slot 0 of a throwaway save at `save_path`, recreated
-## now, in phase free_market, and is continued as in real play; user://save.json is never read or written.
+## {character, mesos[, job]} (a `job` the character is not of opens the error screen). The character (plus the test kit) goes into slot 0 of a throwaway save at `save_path`, recreated
+## now, and is continued as in real play; user://save.json is never read or written.
 func start_hub(request: Dictionary, save_path: String = HubTestKit.SAVE_PATH) -> void:
-	var loaded := HubTestKit.load_character(String(request.get("character", HubTestKit.DEFAULT_CHARACTER)),
+	if request.has("error"):
+		_swap_to(error_screen("--hub: " + String(request.error)), "error")
+		return
+	var loaded := HubTestKit.load_character(String(request.get("character", HubTestKit.default_character())),
 		equipment_info_loader())
 	if not String(loaded.error).is_empty():
 		_swap_to(error_screen("--hub: " + String(loaded.error)), "error")
+		return
+	var data := DataRepo.load_all()
+	var job_error := HubTestKit.job_error(request, loaded.character, JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {})))
+	if job_error != "":
+		_swap_to(error_screen("--hub: " + job_error), "error")
 		return
 	hub_tool = true
 	save = HubTestKit.fresh_save(save_path)
 	var character := HubTestKit.apply(loaded.character, int(request.get("mesos", HubTestKit.DEFAULT_MESOS)),
 		equipment_info_loader())
-	# A cleared first tier: out00 opens the second tier's map select, like the hub after a real clear.
-	var snapshot := {"name": HubTestKit.CHARACTER_NAME, "created": _date(), "character": character, "tier": 1,
-		"phase": "free_market", "rounds_played": 1, "tiers_cleared": 1, "stage": "henesys",
-		"round_seed": make_seed()}
+	var snapshot := {"name": HubTestKit.CHARACTER_NAME, "created": _date(), "character": character,
+		"rounds_played": 1}
 	var index := save.create_slot(snapshot)
 	if index < 0:
 		_swap_to(error_screen("--hub: the test character could not be saved to %s." % save_path), "error")
@@ -278,62 +301,13 @@ func start_hub(request: Dictionary, save_path: String = HubTestKit.SAVE_PATH) ->
 	continue_character(index)
 
 
-## Saves the selected stage and seed before launching a persistent round. Rejects stages outside this tier.
+## Starts a persistent round of the active character on an unlocked region. Writes nothing: the round exists only
+## while it is played. Ignores a stage the character has not unlocked.
 func start_round(stage_key: String, p_seed: int = -1) -> void:
 	stage_key = DataRepo.canonical_stage_key(stage_key)
 	var snapshot := save_data().slot(active_slot)
-	if snapshot.is_empty() or snapshot.phase != "map_select":
+	if snapshot.is_empty() or stage_key not in unlocked_stages(snapshot.character.get("cleared_regions", [])):
 		return
-	var ordered := tiers()
-	var tier := int(snapshot.tier)
-	if tier >= ordered.size() or stage_key not in ordered[tier]:
-		return
-	snapshot.phase = "round"
-	snapshot.stage = stage_key
-	snapshot.round_seed = make_seed() if p_seed < 0 else p_seed
-	if save_data().update_slot(active_slot, snapshot) != OK:
-		_swap_to(error_screen("Could not save the round's stage and seed."), "error")
-		return
-	_resume_round(snapshot)
-
-
-## Resumes a living character in the hub, at map select or at the beginning of its stored round.
-func continue_character(index: int) -> void:
-	var snapshot := save_data().slot(index)
-	if snapshot.is_empty():
-		return
-	active_slot = index
-	var migrated := migrated_character(snapshot.character, equipment_info_loader())
-	if migrated != snapshot.character:
-		# A format-1 (spec #32) character migrates once, so the hub and map select see worn equipment too; a format-2
-		# one drops the Magnet ranks of before spec #225 (idempotent: later loads change nothing and do not save).
-		snapshot.character = migrated
-		if save_data().update_slot(index, snapshot) != OK:
-			_swap_to(error_screen("Could not save the round boundary."), "error")
-			return
-	if snapshot.phase == "round":
-		_resume_round(snapshot)
-	elif snapshot.phase == "free_market":
-		_open_free_market(snapshot)
-	else:
-		goto_stage_select()
-
-
-## Leaves a round without altering its last saved boundary; Continue restarts that same stage/seed.
-func quit_round() -> void:
-	goto_character_select()
-
-
-## Saves at a hub/map-select boundary, then returns to the character slots.
-func save_and_quit() -> void:
-	var snapshot := save_data().slot(active_slot)
-	if not snapshot.is_empty() and save_data().update_slot(active_slot, snapshot) != OK:
-		_swap_to(error_screen("Could not save the round boundary."), "error")
-		return
-	goto_character_select()
-
-
-func _resume_round(snapshot: Dictionary) -> void:
 	var live := _live_settings()
 	# The account's owned cash items decide which of the character's worn cash equipment and pet count (spec #34).
 	var options := {"character": snapshot.character, "name": snapshot.name, "account": save_data().account}
@@ -341,10 +315,27 @@ func _resume_round(snapshot: Dictionary) -> void:
 		options["settings_alert"] = live.alert_levels()
 	if autoplay:
 		options["autoplay"] = true
-	_launch_round(String(snapshot.stage), int(snapshot.round_seed), options, live)
+	_launch_round(stage_key, make_seed() if p_seed < 0 else p_seed, options, live)
 
 
-## The Settings a persistent round follows: `settings`, else the Settings autoload (null outside the tree).
+## Opens a living character's Free Market: its home between rounds.
+func continue_character(index: int) -> void:
+	var snapshot := save_data().slot(index)
+	if snapshot.is_empty():
+		return
+	active_slot = index
+	_open_free_market(snapshot)
+
+
+## Saves the character, then returns to the character slots (the hub's Save & quit).
+func save_and_quit() -> void:
+	var snapshot := save_data().slot(active_slot)
+	if not snapshot.is_empty() and save_data().update_slot(active_slot, snapshot) != OK:
+		_swap_to(error_screen("Could not save the character."), "error")
+		return
+	goto_character_select()
+
+
 func _live_settings() -> GameSettings:
 	if settings != null:
 		return settings
@@ -373,9 +364,10 @@ func _launch_round(stage_key: String, p_seed: int, options: Dictionary, live: Ga
 	_swap_to(run, "run")
 
 
-## Ends a round. Persistent clears require a final CharacterSnapshot; deaths may retain the saved boundary character.
-## Non-final clears have exactly one exit (_after_round_cleared); one-off rounds never access SaveData.
-func finish_run(summary: Dictionary, character: Dictionary = {}) -> void:
+## Ends a round. A persistent one (an active character) needs the character as the round left it (RunWorld.character_snapshot)
+## and saves it with the round's result; `ending` is "" for cleared/died by the summary or "quit" (Quit round, handled
+## exactly like a death). One-off rounds never access SaveData.
+func finish_run(summary: Dictionary, character: Dictionary = {}, ending: String = "") -> void:
 	last_summary = summary.duplicate(true)
 	last_stage = DataRepo.canonical_stage_key(String(summary.get("stage", last_stage)))
 	if last_summary.has("stage"):
@@ -385,46 +377,29 @@ func finish_run(summary: Dictionary, character: Dictionary = {}) -> void:
 	if active_slot >= 0:
 		var sd := save_data()
 		var snapshot := sd.slot(active_slot)
-		var cleared := bool(summary.get("cleared", false))
-		var valid_character := CharacterSnapshot.validation_error(character).is_empty()
-		if snapshot.is_empty() or (cleared and not valid_character):
+		if snapshot.is_empty() or not CharacterSnapshot.validation_error(character).is_empty():
 			_swap_to(error_screen("Missing final character at the round boundary."), "error")
 			return
 		before = sd.best_for(last_stage).duplicate(true)
-		# tier C: terminal history uses the last valid character when death leaves unanswerable rewards.
-		if valid_character:
-			snapshot.character = character.duplicate(true)
-		snapshot.erase("look") # Legacy wrapper duplication; CharacterSnapshot is the single look source.
-		snapshot.stage = last_stage
+		snapshot.character = character.duplicate(true)
 		snapshot.rounds_played = int(snapshot.rounds_played) + 1
-		if cleared:
-			snapshot.tier = int(snapshot.tier) + 1
-			snapshot.tiers_cleared = int(snapshot.tiers_cleared) + 1
-			if int(snapshot.tier) < tiers().size():
-				_after_round_cleared(snapshot)
-				return
-		var ending := "victory" if cleared else "died"
-		if sd.end_run(active_slot, ending, _date(), snapshot, summary) != OK:
-			_swap_to(error_screen("Could not save the end of the run."), "error")
+		if ending.is_empty():
+			ending = "cleared" if bool(summary.get("cleared", false)) else "died"
+		if sd.finish_round(active_slot, snapshot, ending, _date(), last_summary) != OK:
+			_swap_to(error_screen("Could not save the end of the round."), "error")
 			return
 		last_new_best = SaveData.is_better(SaveData.record_from(summary), before)
 		last_summary["ending"] = ending
-		last_summary["tiers_cleared"] = snapshot.tiers_cleared
-		active_slot = -1
 	var results := _instance(RESULTS)
 	if results != null and results.has_method("configure"):
 		results.configure(last_summary, last_new_best, before, self)
 	_swap_to(results, "results")
 
 
-## Saves the carried non-final boundary (and the round's NX, in the same write) before entering the Free Market.
-func _after_round_cleared(snapshot: Dictionary) -> void:
-	snapshot.phase = "free_market"
-	if save_data().update_slot(active_slot, snapshot, last_summary) != OK:
-		_swap_to(error_screen("Could not save the cleared round."), "error")
-		return
-	var nx := int(last_summary.get("nx_awarded", 0))
-	_open_free_market(snapshot, "You have gained %d NX." % nx if nx > 0 else "")
+## The Free Market arrival notice after a round: the NX it paid ("" when none).
+static func nx_notice(summary: Dictionary) -> String:
+	var nx := int(summary.get("nx_awarded", 0))
+	return "You have gained %d NX." % nx if nx > 0 else ""
 
 
 func _open_free_market(snapshot: Dictionary, notice: String = "") -> void:
@@ -490,7 +465,7 @@ static func parse_run_args(list: PackedStringArray) -> Dictionary:
 		elif key in INT_OPTIONS:
 			options[key] = int(v)
 		elif key == "job":
-			JobTree.put_forced(options, v) # --job=<id>[:<weapon path>], spec #151 #157
+			JobTree.put_job(options, v) # --job=<id>: the tool character's job (#284)
 		elif key in FLOAT_OPTIONS:
 			options[key] = float(v)
 		elif key == "perf":
@@ -500,15 +475,15 @@ static func parse_run_args(list: PackedStringArray) -> Dictionary:
 	return {"run": String(flags.run), "seed": seed_v, "options": options}
 
 
-## Why the run options' forced job (`--job=<id>[:<path>]`) cannot be played ("" when none is forced or it can): an unknown
-## id, a job above the second advancement, a job (or its first job) that is not playable in this build, or a weapon path
-## its line does not have.
+## Why the run options' `--job=<id>` (the tool character's job, #284) cannot be played ("" when none is named or it
+## can): not a whole job id (the old `<id>:<path>` form included), unknown, or not playable in this build.
 static func forced_job_error(options: Dictionary, data: Dictionary) -> String:
-	var job_id := int(options.get("job", 0))
-	if job_id == 0:
+	if not options.has("job"):
 		return ""
-	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {})).forced_job_error(job_id,
-		String(options.get("job_path", "")))
+	var job_id := int(options.job)
+	if job_id < 0:
+		return "'%s' is not a job id" % String(options.get("job_text", options.job))
+	return DataRepo.jobs(data).job_error(job_id)
 
 
 ## A minimal screen with an error message and a way back to the title (used when the run scene is missing).

@@ -3,14 +3,14 @@ extends RefCounted
 ## Unlimited per-kind potions with independent sim-time cooldowns (tier C: spec #237). Survivor data chooses the
 ## current item and cooldown; restore amounts come unchanged from canonical item specs. No files or clocks.
 
-## Canonical starter item ids: Red Potion and Blue Potion (tier A).
-const DEFAULT_ITEMS := {"hp": 2000000, "mp": 2000003}
+## Canonical starter item id per kind: the Red Potion (tier A). HP is the only kind: there is no MP (ADR 0006).
+const DEFAULT_ITEMS := {"hp": 2000000}
 
-var cooldown_left := {"hp": 0.0, "mp": 0.0}
+var cooldown_left := {"hp": 0.0}
 var item_info: Dictionary
-var used := {"hp": 0, "mp": 0}
+var used := {"hp": 0}
 ## Potions the pet drank (spec #34); not part of `used`.
-var pet_used := {"hp": 0, "mp": 0}
+var pet_used := {"hp": 0}
 
 var _items := {}
 var _cooldowns: Dictionary
@@ -39,7 +39,7 @@ func is_ready(kind: String) -> bool:
 	return _items.has(kind) and float(cooldown_left[kind]) <= 0.0
 
 
-## Advances both cooldowns by one simulation tick. Paused runs do not call this.
+## Advances every cooldown by one simulation tick. Paused runs do not call this.
 func tick(dt: float) -> void:
 	for kind: String in cooldown_left:
 		cooldown_left[kind] = maxf(0.0, float(cooldown_left[kind]) - dt)

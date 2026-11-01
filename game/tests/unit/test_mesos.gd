@@ -114,7 +114,7 @@ func _world(chance: float, mult: float = 1.0, p_seed: int = 15) -> RunWorld:
 	data.balance.mesos.chance = chance
 	data.balance.mesos.mult = mult
 	data.balance.mesos.boss_drops = 3
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var w := RunWorld.new(RF.setup("quiet", p_seed, data))
 	RF.place_player(w, 400)
 	w.god = true
@@ -216,7 +216,7 @@ func test_a_boss_drops_its_configured_number_of_range_rolled_bundles() -> void:
 	var data := RF.quiet_data()
 	data.balance.mesos.mult = 1.0
 	data.balance.mesos.boss_drops = 3
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
 		"rewards": {"exp_mult": 5, "exp_drops": 2, "spread": 100, "potions": {"hp": 1, "mp": 1}, "bonus_choices": 1}}])
 	var w := RunWorld.new(RF.setup("quiet", 20, data))
@@ -258,7 +258,9 @@ func test_data_lists_the_v83_ranges_for_every_roster_mob_and_boss() -> void:
 	for id: int in expected:
 		var listed: Array = mobs[str(id)].get("mesos", [])
 		assert_eq([int(listed[0]), int(listed[1])] if listed.size() == 2 else [], expected[id], "mesos of %d" % id)
-	var no_range := [9300003, 9300062, 9300063, 9300064, 4090000]  # no v83 drop row: the level fallback applies
+	var no_range := [9300003, 9300062, 9300063, 9300064, 4090000, 3300008, 3300005, 5220002, 5220001,
+		4130103, 9300012, 5220003, 4240000, 5120100, 6220001, 6090001, 6090000, 8220001, 6090003, 7130401, 7220001, 3220001, 8110300, 8220002, 9400120, 9400121, 9400014, 8180000, 8180001, 8220003, 5220004, 7220000, 7220002, 8220004, 8220005, 8220006, 9400549, 9400594, 9400575, 8160000, 8170000, 8500001]
+	# ... no v83 drop row (#452 bosses: none used): the level fallback applies
 	var stages: Dictionary = data.stages.stages
 	var ids := {}
 	for key: String in stages:

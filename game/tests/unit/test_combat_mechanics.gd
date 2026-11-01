@@ -81,7 +81,7 @@ func test_knockback_rolls_only_stream_one_once_per_nonboss_hit() -> void:
 		control.hit_mob(c, control.loadout.stats("synthetic"), -1)
 		control.rng.randf()
 	assert_eq(w.rng.state, control.rng.state)
-	for stream: String in ["basic_rng", "final_rng", "spawn_rng", "drop_rng", "card_rng", "job_rng",
+	for stream: String in ["final_rng", "spawn_rng", "drop_rng", "card_rng",
 			"potion_rng", "meso_rng", "equip_rng", "scroll_rng", "reward_rng", "pirate_rng"]:
 		assert_eq((w.get(stream) as RandomNumberGenerator).state,
 			(control.get(stream) as RandomNumberGenerator).state, stream)
@@ -226,8 +226,9 @@ func test_projectile_pool_reuse_clears_blast_and_falloff() -> void:
 
 
 func test_ranged_final_attack_fires_current_ammo_with_immediate_unchanged_damage_rolls() -> void:
-	for row: Array in [[1452000, 310, 2060002], [1462000, 320, 2061002],
-			[1472000, 410, 2070003], [1492000, 520, 2330001]]:
+	# Lv40 (CF.ranged_final's default) of each ammo job's exact schedule (D9): Steel, Steel, Tobi, Mighty Bullet.
+	for row: Array in [[1452000, 312, 2060002], [1462000, 322, 2061002],
+			[1472000, 412, 2070004], [1492000, 522, 2330002]]:
 		var w := CF.ranged_final(row[0], row[1])
 		var m := RF.put_mob(w, 1110100, 380, 190, 100)
 		w.mob_kinds[w.swarm.kind[m]].move_speed = 0
@@ -237,7 +238,7 @@ func test_ranged_final_attack_fires_current_ammo_with_immediate_unchanged_damage
 		var mk := w.swarm.mob_kind(m)
 		var expected := ProjectileSystem.roll_damage(st.damage_min, st.damage_max, false, mk.pdd,
 			w.projectiles.magic_defense_k, st.crit, st.crit_mult, expected_rng, 1.0, "physical",
-			st.damage_pct, st.player_level, mk.level, st.crit_damage_bonus)
+			st.damage_pct, st.crit_damage_bonus)
 		w.hit_mob(m, {"skill": "trigger", "damage_type": "physical", "damage_min": 1,
 			"damage_max": 1, "crit": 0, "crit_mult": 1.5}, -1)
 		w.step(DT, MoveInput.new())
@@ -258,7 +259,7 @@ func test_ranged_final_attack_fires_current_ammo_with_immediate_unchanged_damage
 
 
 func test_ranged_final_attack_spread_uses_the_ranged_reach() -> void:
-	var w := CF.ranged_final(1452000, 310)
+	var w := CF.ranged_final(1452000, 312)
 	w.loadout.add_skill_mod("synthetic", "count", "add", 1)
 	var primary := RF.put_mob(w, 1110100, 350, 190, 100)
 	var nearby := RF.put_mob(w, 1110100, 550, 190, 100)
@@ -276,32 +277,33 @@ func test_ranged_final_attack_spread_uses_the_ranged_reach() -> void:
 func test_cards_and_skill_text_preview_knockback_blast_targets_and_falloff() -> void:
 	var w := CF.world({"kind": "projectile", "knockback": {"chance_field": "prop", "distance": 120},
 		"impact_blast": {"damage_field": "x"}, "pierce_falloff": 0.1})
+	w.book.defs.synthetic["rarity_bonuses"] = {
+		"rare": [{"id": "blast", "text": "Blast", "effects": [{"stat": "blast_targets", "op": "add", "value": 1}]}],
+		"epic": [{"id": "falloff", "text": "Falloff", "effects": [{"stat": "pierce_falloff", "op": "add", "value": -0.05}]}]}
 	w.upgrades = UpgradePool.from_data({"cards": [
-		{"id": "rank", "kind": "skill_rank", "skill": "synthetic", "max_rank": 2},
-		{"id": "blast", "kind": "skill_mod", "skill": "synthetic", "effects": [
-			{"stat": "blast_targets", "op": "add", "value": 1}]},
-		{"id": "falloff", "kind": "skill_mod", "skill": "synthetic", "effects": [
-			{"stat": "pierce_falloff", "op": "add", "value": -0.05}]}]})
+		{"id": "rank", "kind": "skill_rank", "skill": "synthetic", "max_rank": 2}]})
 	var rank := w.upgrades.choice_card("rank", w)
 	assert_eq(rank.skill_changes.get("knockback_chance"), {"before": 100, "after": 0})
 	assert_eq(rank.skill_changes.get("blast_targets"), {"before": 3, "after": 4})
 	assert_eq(rank.skill_changes.get("damage"), {"before": 72, "after": 130}, "the selected field is damage, not MP absorption")
 	assert_false(rank.skill_changes.has("x"))
 	var lines := "\n".join(LevelUpWindow.change_lines(rank))
-	assert_true(lines.contains("Knock-back chance: 100%"))
-	assert_true(lines.contains("Blast targets: 3"))
-	var blast := w.upgrades.choice_card("blast", w)
+	assert_true(lines.contains("Knock-back chance: 100%"), lines)
+	assert_true(lines.contains("Blast targets: 3"), lines)
+	var blast := w.upgrades.choice_card("rank", w, "rare")
 	assert_eq(blast.skill_mod_changes.get("blast_targets"), {"before": 3, "after": 4})
-	var falloff := w.upgrades.choice_card("falloff", w)
+	var falloff := w.upgrades.choice_card("rank", w, "epic")
 	assert_eq(falloff.skill_mod_changes.get("pierce_falloff"), {"before": 10.0, "after": 5.0})
-	assert_true("\n".join(LevelUpWindow.change_lines(falloff)).contains("Pierce fall-off: 10%"))
+	assert_true("\n".join(LevelUpWindow.change_lines(falloff)).contains("Pierce fall-off: 10%"), str(LevelUpWindow.change_lines(falloff)))
 	var text := SkillText.new(w.book)
 	var current := text.level_line("synthetic", 1, w.loadout.stats("synthetic"))
 	assert_true(current.contains("Knock-back: 100%"))
 	assert_true(current.contains("Blast: 3 targets"))
 	assert_true(current.contains("Pierce fall-off: 10%"))
-	w.upgrades.apply("blast", w)
+	w.upgrades.apply("rank", w, "rare")
 	assert_eq(w.loadout.stats("synthetic").count, 1, "a blast-target card does not add shots")
 	var dressed := text.dress([rank], w.loadout)
-	assert_true(String(dressed[0].desc).contains("Knock-back: 0%"))
-	assert_true(String(dressed[0].desc).contains("Blast: 5 targets"))
+	assert_eq(dressed[0].desc, "+1 rank.", "rarity cards retain their rank/bonus wording")
+	var after := text.level_line("synthetic", 2, w.loadout.stats("synthetic"))
+	assert_true(after.contains("Knock-back: 0%"), after)
+	assert_true(after.contains("Blast: 5 targets"), after)

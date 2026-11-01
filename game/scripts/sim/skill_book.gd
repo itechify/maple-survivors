@@ -8,10 +8,14 @@ extends RefCounted
 ## changes exactly what the original level-up changed (damage, mastery, the projectile art). Visual paths are
 ## templates: `{level}` becomes the canonical level, `{cl}` the CharLevel variant for the character's level.
 
-const ACTIVE_KINDS := ["projectile", "instant", "buff"]
+const ACTIVE_KINDS := ["projectile", "instant", "buff", "summon", "form"]
 ## Skill.wz keys holding a weapon requirement code; the second has a trailing space (tier A: only 5001003 spells it so).
 const WEAPON_FIELDS := ["weapon", "weapon "]
 
+## Rarity status-bonus catalogue (balance.status_bonuses, StatusBonus); Loadout.status_bonuses reads and writes this one.
+var status_bonuses := {}
+var rank_levels := {}
+var slot_limits := {}
 var defs := {}
 var skill_imgs := {}
 
@@ -25,7 +29,9 @@ static func from_data(skills_root: Dictionary, p_skill_imgs: Dictionary) -> Skil
 	var b := SkillBook.new()
 	var d: Variant = skills_root.get("skills", {})
 	if d is Dictionary:
-		b.defs = d
+		b.defs = SkillTemplate.resolve(d)
+	b.rank_levels = skills_root.get("rank_levels", {})
+	b.slot_limits = skills_root.get("slot_limits", {})
 	b.skill_imgs = p_skill_imgs
 	for key: String in b.defs:
 		b._by_id[int(b.defs[key].get("skill_id", 0))] = key
@@ -52,6 +58,36 @@ func skill_id(key: String) -> int:
 	return int(def(key).get("skill_id", 0))
 
 
+## Skill id whose art (effect, hit, finish nodes and Use sound) a cast of `key` shows with a weapon of `family`: the
+## `art_by_family` twin (Panic : Axe for Panic) for that family, else the skill's own id. Numbers are never taken from it.
+func art_skill_id(key: String, family: String) -> int:
+	return int(def(key).get("art_by_family", {}).get(family, skill_id(key)))
+
+
+## The optional meter gate, spending and role policy for a skill.
+func meter_rule(key: String) -> Dictionary:
+	return def(key).get("meter", {})
+
+
+## `path` (a Skill.wz or Sound.wz path naming this skill's id) re-pointed at the art twin for `family`; unchanged when
+## there is no twin, no path, or the path does not name the skill.
+func art_path(key: String, path: String, family: String) -> String:
+	var own := skill_id(key)
+	var twin := art_skill_id(key, family)
+	if path == "" or twin == own:
+		return path
+	return path.replace("/%07d/" % own, "/%07d/" % twin)
+
+
+## The Use sound of the `nth` cast (zero-based) of `key` for a weapon of `family`: the `sounds.use_cycle` list in order and
+## wrapping (Blast's five Use sounds, no RNG), else the single `sounds.use` ("" when the skill has none or is unknown).
+func use_sound(key: String, nth: int, family: String) -> String:
+	var sounds: Dictionary = def(key).get("sounds", {})
+	var cycle: Array = sounds.get("use_cycle", [])
+	var path := String(cycle[posmod(nth, cycle.size())]) if not cycle.is_empty() else String(sounds.get("use", ""))
+	return art_path(key, path, family)
+
+
 ## "projectile", "instant", "buff" or "passive".
 func kind(key: String) -> String:
 	return String(def(key).get("kind", ""))
@@ -67,14 +103,22 @@ func slot(key: String) -> String:
 	return String(def(key).get("slot", "active" if is_active(key) else "passive"))
 
 
+## Survivor rank mapping: explicit per-skill override, else the table for the WZ maximum level.
+func rank_table(key: String) -> Array:
+	var d := def(key)
+	if d.has("ranks"):
+		return d.ranks
+	return rank_levels.get(str(max_level(key)), [1])
+
+
 ## Highest survivor rank (the length of `ranks`, at least 1).
 func max_rank(key: String) -> int:
-	return maxi(1, def(key).get("ranks", [1]).size())
+	return maxi(1, rank_table(key).size())
 
 
 ## Canonical skill level for survivor rank `rank` (clamped to 1..max_rank and to the img's level count).
 func canonical_level(key: String, rank: int) -> int:
-	var ranks: Array = def(key).get("ranks", [1])
+	var ranks := rank_table(key)
 	if ranks.is_empty():
 		return 1
 	var lv := int(ranks[clampi(rank, 1, ranks.size()) - 1])
@@ -99,7 +143,8 @@ func skill_node(key: String) -> Dictionary:
 	return node if node is Dictionary else {}
 
 
-## Weapon families that can use `key` (WeaponInfo.FAMILIES values); empty = any weapon, bare hands included. Source, in
+## Weapon families a skill's data names (WeaponInfo.FAMILIES values; weapons gate no skill since #284, so this only says
+## which weapons a skill was made for: a ranged skill's passive range bonus). Empty = any weapon. Source, in
 ## order: survivor skills.json `weapon_families` (tier C: an array of family names, or ["any"] for explicitly any weapon;
 ## it overrides the canonical value), then the Skill.wz `weapon` code (tier A: weapon type - 100, see
 ## WeaponInfo.family_of_skill_code), read from `weapon` and from `"weapon "` with a trailing space (tier A: the WZ typo on
@@ -144,13 +189,6 @@ func _read_weapon_families(key: String) -> PackedStringArray:
 	return out
 
 
-## True when a character holding weapon family `family` ("" = bare hands) can use `key`: it has no weapon requirement,
-## or `family` is one of its weapon_families.
-func usable_with(key: String, family: String) -> bool:
-	var needs := weapon_families(key)
-	return needs.is_empty() or family in needs
-
-
 ## Number of canonical levels in the img (0 when the img is absent).
 func max_level(key: String) -> int:
 	var lv: Variant = skill_node(key).get("level")
@@ -187,6 +225,14 @@ static func fill_path(template: String, level: int, char_variant: int = 0) -> St
 	return template.replace("{level}", str(level)).replace("{cl}", str(char_variant))
 
 
+## Where a `cast_visuals` entry plays relative to the caster, and whether it flips: {x, flip}. An entry flagged
+## `"facing": true` is authored for a left-facing caster (as WZ art is), so a right-facing one mirrors its x and flips it
+## (tier C, Dragon Strike's tiles at -200 px steps); an entry without the flag is absolute (Meteor Shower's).
+static func visual_placement(visual: Dictionary, facing: int) -> Dictionary:
+	var mirror := bool(visual.get("facing", false)) and facing > 0
+	return {"x": -float(visual.x) if mirror else float(visual.x), "flip": mirror}
+
+
 ## Visual path `field` ("ball", "hit", "effect") of `key` at canonical `level` for a character of `char_level`:
 ## the `char_level` variant when the skill has one and the character reached a threshold, else the base template.
 func visual(key: String, field: String, level: int, char_level: int) -> String:
@@ -200,3 +246,8 @@ func visual(key: String, field: String, level: int, char_level: int) -> String:
 		if best > 0:
 			return fill_path(String(cl[field]), level, best)
 	return fill_path(String(d.get(field, "")), level)
+
+
+## The display unit for a skill’s meter gate and retention cards.
+func meter_unit(key: String) -> String:
+	return String(meter_rule(key).get("unit", "orbs"))

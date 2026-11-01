@@ -5,14 +5,18 @@ extends SceneTree
 ## over the minute, so burst spikes do not dominate), the mean number of mobs near the player (within NEAR_X px
 ## horizontally and NEAR_Y px vertically), the swarm engagement (below), the mean EXP drops lying on the map, mobs
 ## recycled and relocated per minute, the lowest HP fraction per minute, EXP lost to expired drops, and how it ended.
-## Also records per-boss fight duration, MP waiting and whole boss-hit fractions. Potion metrics are player-only
-## potions_used {hp, mp} and potion_uses [{time, level, kind, item_id, restored, capacity_waste}]; a pet adds its own
-## pet.potions_used {hp, mp}. SYSTEMS sums player drinks only. Unlimited potions have no collection/stock metrics.
+## Also records per-boss fight duration and whole boss-hit fractions. Potion metrics are player-only
+## potions_used {hp} and potion_uses [{time, level, kind, item_id, restored, capacity_waste}]; a pet adds its own
+## pet.potions_used {hp}. There is no MP (ADR 0006), so no MP-short or MP-absorbed fields. SYSTEMS sums player
+## drinks only. Unlimited potions have no collection/stock metrics.
+## Second life (#375, docs/GAME_DESIGN.md 7.81): `revives` [{t, level, rank, source_kind, hp}] lists each time a lethal hit
+## was turned into a survived one and `revive_count` is its length; the report prints the count per run and SUMMARY
+## `revived n/runs` (runs with at least one). A world without a reaction skill records `[]` / 0.
 ## Three-map schema: map_times = reached-map entry seconds from round start, starting [0.0]; ended_map =
 ## {index: zero-based map index, id: original v83 map id}. boss_fights[] retains map_index/map_id even for unspawned
 ## bosses. SUMMARY deaths_by_map uses one-based string keys; map_entry_seconds["2"/"3"] has count/min/median/max/mean
 ## over reached maps only (null stats when unobserved). Legacy records contribute no invented map observations.
-## Stage keys: henesys/ellinia/sleepywood; henesys_hg1/tree_that_grew_1/dark_cave remain aliases, including --tier
+## Stage keys: henesys/ellinia/sleepywood; henesys_hg1/tree_that_grew_1/dark_cave remain aliases, including --chain
 ## chains and --character one-offs. Camper activation/arrival/portals refer only to its own map 1; later maps use bot.
 ## Needs the asset cache (the real map and mob/skill imgs).
 ##
@@ -26,19 +30,17 @@ extends SceneTree
 ##   bash scripts/balance.sh                       # henesys, training seeds 1..6, in parallel
 ##   bash scripts/balance.sh 7 11 --stage=ellinia
 ##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys]
-##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>] [--job=<id>[:<path>]]
+##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>] [--job=<id>]
 ##
-## Card policies (jobs: seeded random choice, overridden by --job=<first or second job id>: a second job takes its first
-## job at the first window and itself at the second; a job this build cannot offer fails at startup). At every
-## multi-family advancement use an offered forced family (`100:spear`, `120:blunt`), else draw on job stream 8.
-## For example `110:axe` draws a Warrior family at Lv10, then takes Axe at Lv30.
-## --branch=<id> is the deprecated alias):
+## --job=<id> names a fresh character's job (#284; the default is JobTree.default_job(), 212). A job this build cannot
+## play, or one that differs from a --character's own job, fails at startup; --branch=<id> is the deprecated alias.
+## Card policies:
 ##   bot     BotInput.pick_card_for: the card a sensible player takes (the policy RunScene's autopick uses).
 ##   random  a careless player: a seeded random card of the three offered (its own RNG, so the sim's streams are the
 ##           same as with any other policy until the choices differ). This is the "careless player" of the tuning
 ##           record; it does not favour the first slot, where UpgradePool puts a guaranteed card.
-##   first   always the first card offered (--first-card is the same). Not a random player: guaranteed cards (the
-##           advancement attacks, pity cards) are always drawn first, so this policy always takes them.
+##   first   always the first card offered (--first-card is the same). Not a random player: guaranteed cards (pity
+##           cards) are always drawn first, so this policy always takes them.
 ##
 ## Camper movement policies: camper_henesys_top, camper_henesys_rope, camper_tree_top (sensible cards/potions).
 ## --camp-after=S: begin parking after S seconds (default 60); Tree reaches its top branch through portals.
@@ -46,19 +48,32 @@ extends SceneTree
 ## --idle-after=S: from S seconds of run time on the player stops moving (hands off the keys; cards are still chosen).
 ## --patch: a JSON object deep-merged into the loaded data before the run (keys as in setup.data: "balance",
 ## "stages", "skills", ...; see deep_merge), to try tuning variants without editing game/data.
+## --god: a diagnostic (#475): RunWorld.god makes the character invulnerable (as the fixture tool's --god), to measure what the
+## bot's damage does to a swarm without dying; the record gets `"god": true` and is never balance evidence for survival.
+## --hit-log=N: a diagnostic (#475): each record gets `last_hits`, the last N landed player hits {t, damage, mob_id, source_kind,
+## level, max_hp (the player's), hp (after the hit)}; without the flag the record keeps its bytes.
 ## One "BALANCE {json}" line per run (scripts/balance.sh tabulates them) plus a readable summary.
 ## --character=<abs JSON path>: start this one-off round from a CharacterSnapshot; never writes a save.
 ## --account=<abs JSON path>: give the round an account (AccountFile: owned cash items, worn cash equipment, pet, ALERT
-## levels; applied to the first round's character and carried through --tier chains). The record gets "account": <file
+## levels; applied to the first round's character and carried through --chain runs). The record gets "account": <file
 ## name>. Without the flag the round has an empty account and the record is byte-identical to before; NX is never credited.
-## --tier=N (N >= 2): chain from tier 1 through N using stages.json tiers; --stage selects tier 1 (default first).
-## Later tiers take their first listed stage; --character and camper policies cannot be combined with --tier.
-## Tier-1 round seed equals the run seed; later seeds are hash("balance-round-<run seed>-<zero-based tier>").
-## Chain BALANCE records contain rounds[]; only CLEARED (including all rewards) feeds the next tier.
+## --chain=N (1 <= N <= the progression size, #454; replaces --tier): plays N progression regions in order, starting at
+## --stage (default the first region). Each CLEARED round feeds the next with the carried character (equipment, mesos,
+## scrolls, cleared set) after a Free Market visit; the round seeds are run_seed for the first step and
+## hash("balance-round-<run seed>-<zero-based step>") after it. --retries=K (default 0, needs --chain): after a death or
+## TIMEOUT the same region is replayed up to K more times with the character as the failed round returned it (ADR 0006
+## keeps the loot), after the same Free Market visit; a replay's seed is hash("balance-round-<run seed>-<step>-<attempt>").
+## Chain BALANCE records hold rounds[] (each with stage, step, attempt, the round metrics); the summary groups by step.
+## --character starts a --chain with that CharacterSnapshot instead of a fresh character (#475: a fixture wearing the previous
+## region's gear, e.g. `--stage=leafre --chain=1 --retries=3 --character=<fixture>` to count the attempts a region needs from
+## that kit; later rounds carry the character as the chain does). Camper policies cannot be combined with --chain; --tier
+## fails at startup naming --chain.
 
 const DT := 1.0 / 60.0
-## The weapon path named by `--job=<id>:<path>` ("" = none); the bot's job choice reads it (spec #151 #157).
-static var forced_path := ""
+## --hit-log=N (a diagnostic, see the class doc): how many of the last landed player hits a record keeps; 0 = none.
+static var hit_log := 0
+## --god (a diagnostic, see the class doc): every world run_one plays is invulnerable.
+static var god := false
 const MILESTONES := [8, 10, 20, 30, 40, 50]
 ## "Near the player" box for the engagement metric (px from the player's feet).
 const NEAR_X := 300.0
@@ -71,8 +86,6 @@ const CAMPER := preload("res://tools/camper_input.gd")
 const POLICIES := ["bot", "random", "first", "camper_henesys_top", "camper_henesys_rope", "camper_tree_top"]
 ## tier C: harness timeout fallback; balance.run_time_cap and --cap override it.
 const DEFAULT_RUN_CAP := 1800.0
-## tier C: late MP economy observation starts at eight minutes, matching the existing late-hit report.
-const LATE_MP_START := 480.0
 ## tier C measurement: ordinary hits per kill are reported for the first this-many run minutes.
 const EARLY_MINUTES := 5
 ## The numeric fields of a round record's `shop` (the Free Market visit at its end) that aggregate() summarises.
@@ -132,24 +145,25 @@ func _init() -> void:
 	var cap := -1.0
 	var camp_after := 60.0
 	var stage_explicit := false
-	var forced_job := 0
+	var forced_job := -2 # -2: no --job; -1: a malformed one
 	var character_file := ""
 	var has_character := false
 	var account_file := ""
 	var has_account := false
 	var chain := false
-	var target_tier := 1
+	var chain_steps := 0
+	var retries := 0
+	var retries_given := false
+	var tier_flag := false
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
 			stage = DataRepo.canonical_stage_key(a.substr(8))
 			stage_explicit = true
 		elif a.begins_with("--job="):
-			var forced := JobTree.parse_forced(a.substr(6))
-			forced_job = int(forced.job)
-			forced_path = String(forced.path)
+			forced_job = JobTree.parse_job(a.substr(6))
 		elif a.begins_with("--branch="):
 			printerr("balance_run: --branch is deprecated: use --job=<id>")
-			forced_job = int(JobTree.parse_forced(a.substr(9)).job)
+			forced_job = JobTree.parse_job(a.substr(9))
 		elif a.begins_with("--patch="):
 			patch_file = a.substr(8)
 		elif a.begins_with("--character="):
@@ -158,9 +172,14 @@ func _init() -> void:
 		elif a.begins_with("--account="):
 			account_file = a.substr(10)
 			has_account = true
-		elif a.begins_with("--tier="):
+		elif a == "--tier" or a.begins_with("--tier="):
+			tier_flag = true
+		elif a.begins_with("--chain="):
 			chain = true
-			target_tier = int(a.substr(7)) if a.substr(7).is_valid_int() else -1
+			chain_steps = int(a.substr(8)) if a.substr(8).is_valid_int() else -1
+		elif a.begins_with("--retries="):
+			retries_given = true
+			retries = int(a.substr(10)) if a.substr(10).is_valid_int() else -1
 		elif a == "--first-card":
 			policy = "first"
 		elif a.begins_with("--policy="):
@@ -171,10 +190,18 @@ func _init() -> void:
 			camp_after = float(a.substr(13))
 		elif a.begins_with("--cap="):
 			cap = float(a.substr(6))
+		elif a == "--god":
+			god = true
+		elif a.begins_with("--hit-log="):
+			hit_log = maxi(0, int(a.substr(10)))
 		elif a.begins_with("--seed="):
 			seeds.append(int(a.substr(7)))
 		elif a.is_valid_int():
 			seeds.append(int(a))
+	if tier_flag:
+		print("balance_run: --tier was replaced by --chain=N (and --retries=K to replay a failed region)")
+		quit(2)
+		return
 	if not (policy in POLICIES):
 		print("balance_run: unknown --policy=%s (%s)" % [policy, POLICIES])
 		quit(2)
@@ -195,29 +222,34 @@ func _init() -> void:
 			quit(1)
 			return
 		deep_merge(data, patch)
-	if forced_job != 0:
-		var job_error := JobTree.from_data(data.jobs, data.jobs_survivor).forced_job_error(forced_job, forced_path)
+	if forced_job != -2:
+		var job_error := "not a job id" if forced_job < 0 \
+			else DataRepo.jobs(data).job_error(forced_job)
 		if job_error != "":
 			print("balance_run: --job: " + job_error)
 			quit(2)
 			return
 	if cap > 0.0:
 		data.balance["run_time_cap"] = cap
-	var tiers: Array = data.stages.get("tiers", [])
-	if chain and (target_tier < 2 or target_tier > tiers.size() or has_character or CAMPER.STAGES.has(policy)):
-		print("balance_run: --tier must be 2..%d; cannot combine with --character or camper policies" % tiers.size())
+	var progression: Array = data.stages.get("progression", [])
+	if retries < 0 or (retries_given and not chain):
+		print("balance_run: --retries must be an integer >= 0 and needs --chain")
+		quit(2)
+		return
+	if chain and (chain_steps < 1 or chain_steps > progression.size() or CAMPER.STAGES.has(policy)):
+		print("balance_run: --chain must be 1..%d; cannot combine with camper policies" % progression.size())
 		quit(2)
 		return
 	if chain and not stage_explicit:
-		stage = String(tiers[0][0])
-	if not data.stages.stages.has(stage) or (chain and stage not in tiers[0]):
-		print("balance_run: unknown stage or --tier requires a tier-1 --stage: " + stage)
+		stage = String(progression[0])
+	var first_step: int = progression.find(stage)
+	if not data.stages.stages.has(stage) or (chain and (first_step < 0 or first_step + chain_steps > progression.size())):
+		print("balance_run: unknown stage, or --chain=%d does not fit the progression from %s" % [chain_steps, stage])
 		quit(2)
 		return
 	var stages: Array = [stage]
 	if chain:
-		for tier_index in range(1, target_tier):
-			stages.append(String(tiers[tier_index][0]))
+		stages = progression.slice(first_step, first_step + chain_steps)
 	var character := {}
 	if has_character:
 		var errors := PackedStringArray()
@@ -225,6 +257,10 @@ func _init() -> void:
 		if not errors.is_empty():
 			print("balance_run: " + "; ".join(errors))
 			quit(1)
+			return
+		if forced_job >= 0 and int(character.get("job_id", -1)) != forced_job:
+			print("balance_run: --job=%d does not match the character's job %d" % [forced_job, int(character.get("job_id", -1))])
+			quit(2)
 			return
 	var account := {}
 	if has_account:
@@ -247,23 +283,24 @@ func _init() -> void:
 			return
 		if has_character:
 			setup.character = character
+		elif forced_job >= 0:
+			setup["job"] = forced_job
 		setups.append(setup)
 	if has_account:
 		apply_account(setups, account)
 	for s in seeds:
 		var r: Dictionary
 		if chain:
-			r = run_chain(setups, policy, s, idle_after, camp_after, forced_job)
+			r = run_chain(setups, policy, s, idle_after, camp_after, retries)
 		else:
 			var setup: Dictionary = setups[0].duplicate()
 			setup.seed = s
 			var world := RunWorld.new(setup)
 			var start_character := world.character_snapshot()
-			r = run_one(world, policy, s, idle_after, camp_after, forced_job)
+			r = run_one(world, policy, s, idle_after, camp_after)
 			r.merge({"seed": s, "stage": stage, "policy": policy, "start_character": start_character, "missing": []})
-			for tier_index in tiers.size():
-				if stage in tiers[tier_index]:
-					r["tier"] = tier_index + 1
+			if progression.has(stage):
+				r["step"] = progression.find(stage) + 1
 		if has_account:
 			r["account"] = account_file.get_file() # spec #34: the record names the account file; absent without the flag.
 		print("BALANCE " + JSON.stringify(r))
@@ -272,7 +309,7 @@ func _init() -> void:
 
 
 ## Puts a normalised tool account (AccountFile) on every prepared round setup. The worn cash equipment and pet go on
-## the first round's character only; later tiers carry the character from the clear, which keeps them.
+## the first round's character only; later steps carry the character from the clear, which keeps them.
 static func apply_account(setups: Array, account: Dictionary) -> void:
 	var later := account.duplicate()
 	later.erase("cash")
@@ -281,56 +318,71 @@ static func apply_account(setups: Array, account: Dictionary) -> void:
 		AccountFile.apply(setups[index], account if index == 0 else later)
 
 
-## Stable round stream by run seed and zero-based tier; tier 1 preserves existing regression seeds.
-static func round_seed(run_seed: int, tier_index: int) -> int:
+## Stable round stream by run seed and zero-based step; step 1 preserves existing regression seeds.
+static func round_seed(run_seed: int, step_index: int) -> int:
 	# tier C: harness stream namespace, independent of card/job/combat RNG consumption in earlier rounds.
-	return run_seed if tier_index == 0 else hash("balance-round-%d-%d" % [run_seed, tier_index])
+	return run_seed if step_index == 0 else hash("balance-round-%d-%d" % [run_seed, step_index])
 
 
-## Plays prepared tier setups in order, carrying a boundary snapshot only after CLEARED; no menu/save dependency.
+## The seed of a zero-based attempt at a step: the first attempt is round_seed, a replay gets its own stream.
+static func attempt_seed(run_seed: int, step_index: int, attempt_index: int) -> int:
+	# tier C: a replay with the same seed would repeat the failed fight move for move.
+	return round_seed(run_seed, step_index) if attempt_index == 0 \
+		else hash("balance-round-%d-%d-%d" % [run_seed, step_index, attempt_index])
+
+
+## Plays the prepared step setups in order, carrying a boundary snapshot between rounds; no menu/save dependency. A
+## CLEARED round advances to the next step. A death or TIMEOUT replays the same step, up to `retries` more times, with the
+## character as the failed round returned it (ADR 0006 keeps what a lost round picked up); the chain ends when the
+## replays run out. Every hand-over passes through a Free Market visit (BotShop) before the next round plays.
 static func run_chain(setups: Array, policy: String, run_seed: int, idle_after := -1.0,
-		camp_after := 60.0, forced_job := 0) -> Dictionary:
+		camp_after := 60.0, retries := 0) -> Dictionary:
 	var rounds: Array = []
 	var carried: RunWorld = null
-	for tier_index in setups.size():
-		var setup: Dictionary = setups[tier_index].duplicate()
-		setup.seed = round_seed(run_seed, tier_index)
+	var step := 0
+	var attempt := 0
+	while step < setups.size():
+		var setup: Dictionary = setups[step].duplicate()
+		setup.seed = attempt_seed(run_seed, step, attempt)
 		var world := carried if carried != null else RunWorld.new(setup)
-		var start_character := world.character_snapshot()
-		var record := run_one(world, policy, int(setup.seed), idle_after, camp_after, forced_job)
-		record["start_character"] = start_character
-		record.merge({"seed": setup.seed, "stage": setup.stage, "policy": policy, "tier": tier_index + 1, "missing": []})
-		rounds.append(record)
-		if record.state != "CLEARED":
-			break
 		carried = null
-		if tier_index + 1 < setups.size():
-			# The Free Market between the tiers (spec #33, #112): the next round's world, built from the boundary snapshot,
-			# visits the shops before it plays. Its scroll rolls follow that round's seed; the careless plan draws from
-			# its own stream.
-			var next_setup: Dictionary = setups[tier_index + 1].duplicate()
-			next_setup.seed = round_seed(run_seed, tier_index + 1)
-			next_setup.character = record.character
-			carried = RunWorld.new(next_setup)
-			var shop_rng := RandomNumberGenerator.new()
-			shop_rng.seed = hash("careless-shop-%d-%d" % [run_seed, tier_index])
-			record["shop"] = BotShop.visit(carried, policy, shop_rng)
-			carried.drain_events()
-	return {"mode": "chain", "seed": run_seed, "stage": setups[0].stage, "policy": policy,
-		"target_tier": setups.size(), "rounds": rounds}
+		var start_character := world.character_snapshot()
+		var record := run_one(world, policy, int(setup.seed), idle_after, camp_after)
+		record["start_character"] = start_character
+		record.merge({"seed": setup.seed, "stage": setup.stage, "policy": policy, "step": step + 1,
+			"attempt": attempt + 1, "missing": []})
+		rounds.append(record)
+		var cleared: bool = record.state == "CLEARED"
+		var next_step := step + 1 if cleared else step
+		var next_attempt := 0 if cleared else attempt + 1
+		if next_step >= setups.size() or next_attempt > retries:
+			break
+		# The Free Market between the rounds (spec #33, #112): the next round's world, built from the boundary snapshot,
+		# visits the shops before it plays. Its scroll rolls follow that round's seed; the careless plan draws from
+		# its own stream.
+		var next_setup: Dictionary = setups[next_step].duplicate()
+		next_setup.seed = attempt_seed(run_seed, next_step, next_attempt)
+		next_setup.character = world.character_snapshot()
+		carried = RunWorld.new(next_setup)
+		var shop_rng := RandomNumberGenerator.new()
+		shop_rng.seed = hash("careless-shop-%d-%d" % [run_seed, step]) if attempt == 0 \
+			else hash("careless-shop-%d-%d-%d" % [run_seed, step, attempt])
+		record["shop"] = BotShop.visit(carried, policy, shop_rng)
+		carried.drain_events()
+		step = next_step
+		attempt = next_attempt
+	var stage_keys: Array = setups.map(func(s: Dictionary) -> String: return String(s.stage))
+	var last: Dictionary = rounds.back()
+	return {"mode": "chain", "seed": run_seed, "stage": setups[0].stage, "policy": policy, "chain": setups.size(),
+		"retries": retries, "stages": stage_keys, "rounds": rounds,
+		"chain_cleared": int(last.step) == setups.size() and last.state == "CLEARED"}
 
 
-## Answers an open job / card window of `w` with `policy` (see the class doc); `rng` drives the random policy.
-static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, cards_taken: Array, forced_job := 0) -> void:
+## Answers an open card window of `w` with `policy` (see the class doc); `rng` drives the random policy.
+static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, cards_taken: Array) -> void:
 	var guard := 0
-	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
+	while guard < 64 and w.state == RunWorld.CHOOSING_UPGRADE:
 		guard += 1
-		if w.state == RunWorld.CHOOSING_JOB:
-			var pick := BotInput.pick_choice(w.pending_jobs, w.job_rng, forced_job, w.jobs, forced_path,
-				w.held_weapon_family())
-			if pick.job_id < 0 or not w.apply_job(pick.job_id, pick.path):
-				w.decline_job()
-			continue
 		var id := ""
 		match policy:
 			"random":
@@ -343,21 +395,41 @@ static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, card
 		w.apply_choice(id)
 
 
+## Whether a landed `player_hit` event counts in the hit metrics: every hit but the ticks of Poison (source_kind "poison").
+static func counts_as_hit(event: Dictionary) -> bool:
+	return String(event.get("source_kind", "")) != "poison"
+
+
 ## Plays `w` to its end/cap with movement/card policy `policy` and returns the pacing record.
-static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0, forced_job := 0) -> Dictionary:
+static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0) -> Dictionary:
+	if god:
+		w.god = true
 	var memo := {}
 	var portal_names: Array = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("careless-%d" % seed_value)
 	var cards_taken: Array = []
+	var six_actives_at := -1.0
 	var boss_hits: Array = []
 	# #76: landed ordinary mob attack hits (recorded only when nonzero).
 	var mob_attack_hits := 0
+	var last_hits: Array = []
 	var buff_casts: Array = []
+	# Corsair (522) only, measurement for the QA smoke (spec #384 C15): ship boardings and seconds, what the hull took, landed hits of
+	# the summons, the cannon, the torpedo and the strike, and marked monster-seconds. Other jobs record nothing and keep their bytes.
+	var corsair := {"ship_boardings": 0, "ship_seconds": 0.0, "hull_broken": 0, "hull_absorbed": 0, "marks_applied": 0,
+		"marked_monster_seconds": 0.0, "hits": {}} if w.job_id() == 522 else {}
+	var ship_start := -1.0
+	var mark_until := {}
+	# Shadower (422) only, measurement for the QA smoke (spec #425 SH14 #439): the meso charge's time-weighted mean and peak, Dark Sight
+	# windows, casts and hits of its skills (Assassinate's critical hits, Meso Explosion's lines), Smokescreen zones, raw negated hits
+	# (contact negation fires every tick; count the zones for the ordinary reading) and Assaulter presses. Other jobs record nothing.
+	var shadower := {"charge_mean": 0.0, "charge_peak": 0, "dark_sight_windows": 0, "casts": {}, "hits": {}, "assassinate_crits": 0,
+		"zones": 0, "negated_hits": 0} if w.job_id() == 422 else {}
+	var charge_value := 0
+	var charge_at := 0.0
+	var charge_area := 0.0
 	var potion_uses: Array = []
-	var mp_short_seconds := 0.0
-	var late_mp_short_seconds := 0.0
-	var late_observed_seconds := 0.0
 	var reach := {}
 	var alive_min: Array = []
 	var level_min: Array = []
@@ -395,13 +467,13 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var taken := 0
 	var max_alive := 0
 	var max_alive_t := 0.0
-	var job_t := -1.0
-	var job_times := {} # job id (string) -> run time of its first job_changed, for every advancement
 	var ticks := maxi(0, ceili((cap - w.time) / DT - 1e-6))
 	var next_min := 60.0
 	var low_hp := 1.0
 	for t in ticks + 1: # drain the final choice-only settlement too, without adding a combat/measurement tick
-		choose(w, policy, rng, cards_taken, forced_job)
+		choose(w, policy, rng, cards_taken)
+		if six_actives_at < 0.0 and w.loadout.slot_count("active") == 6:
+			six_actives_at = w.time
 		if w.transfer_pending:
 			w.advance_map()
 		var ticked := w.state == RunWorld.PLAYING and t < ticks
@@ -410,11 +482,6 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			w.step(DT, MoveInput.new() if idle else movement(w, policy, memo, camp_after))
 			if w.transfer_pending:
 				w.advance_map()
-			var late_dt := clampf(w.time - LATE_MP_START, 0.0, DT)
-			late_observed_seconds += late_dt
-			if bool(w.player_state.get("mp_short",false)):
-				mp_short_seconds += DT
-				late_mp_short_seconds += late_dt
 			var a := w.swarm.alive_count()
 			alive_sum += a
 			near_sum += _near(w)
@@ -457,16 +524,69 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 							cast.value = float(buff.value)
 							break
 					buff_casts.append(cast)
+				"cast":
+					if not shadower.is_empty():
+						shadower.casts[String(e.skill)] = int(shadower.casts.get(String(e.skill), 0)) + 1
+				"meter_changed":
+					if not shadower.is_empty():
+						charge_area += charge_value * (w.time - charge_at)
+						charge_at = w.time
+						charge_value = int(e.value)
+						shadower.charge_peak = maxi(int(shadower.charge_peak), charge_value)
+				"safe_zone_started":
+					if not shadower.is_empty():
+						shadower.zones += 1
+				"hit_negated":
+					if not shadower.is_empty():
+						shadower.negated_hits += 1
+				"form_started":
+					if not shadower.is_empty() and String(e.skill) == "dark_sight":
+						shadower.dark_sight_windows += 1
+					if not corsair.is_empty() and String(e.skill) == "battleship":
+						corsair.ship_boardings += 1
+						ship_start = w.time
+				"form_ended":
+					if not corsair.is_empty() and String(e.skill) == "battleship":
+						corsair.ship_seconds += w.time - maxf(ship_start, 0.0)
+						ship_start = -1.0
+						if String(e.reason) == "broken":
+							corsair.hull_broken += 1
+				"mob_hit":
+					if not shadower.is_empty():
+						var sh_skill := String(e.get("skill", ""))
+						shadower.hits[sh_skill] = int(shadower.hits.get(sh_skill, 0)) + 1
+						if sh_skill == "assassinate" and bool(e.crit):
+							shadower.assassinate_crits += 1
+					if not corsair.is_empty():
+						var hit_skill := String(e.get("skill", ""))
+						corsair.hits[hit_skill] = int(corsair.hits.get(hit_skill, 0)) + 1
+				"mob_status_applied":
+					if not corsair.is_empty() and String(e.status) == MobSwarm.STATUS_NAMES[MobSwarm.ALL_WEAK]:
+						corsair.marks_applied += 1
+						var from_t := maxf(w.time, float(mark_until.get(int(e.mob), 0.0)))
+						corsair.marked_monster_seconds += maxf(0.0, w.time + float(e.duration) - from_t)
+						mark_until[int(e.mob)] = w.time + float(e.duration)
 				"player_hit":
+					if not corsair.is_empty() and int(e.get("absorbed", 0)) > 0:
+						corsair.hull_absorbed += int(e.absorbed)
 					if not bool(e.miss):
-						hits += 1
-						taken += int(e.damage)
-						if String(e.get("source_kind", "")) == "mob_attack":
-							mob_attack_hits += 1
+						# #459: a poison tick is a damage over time, not a hit: it stays out of the hit metrics (hits, taken,
+						# hits_by_min and the before-6:00 / after-8:00 counts) and is kept in boss_hits.
+						if hit_log > 0: # every landed hit, poison ticks included
+							last_hits.append({"t": snappedf(w.time, 0.01), "damage": int(e.damage), "mob_id": int(e.mob_id),
+								"source_kind": String(e.get("source_kind", "")), "level": int(w.player_state.level),
+								"max_hp": int(e.max_hp), "hp": int(w.player_state.hp)})
+							if last_hits.size() > hit_log:
+								last_hits.pop_front()
+						if counts_as_hit(e):
+							hits += 1
+							taken += int(e.damage)
+							if String(e.get("source_kind", "")) == "mob_attack":
+								mob_attack_hits += 1
 						if bool(e.boss):
 							boss_hits.append({"mob_id": int(e.mob_id), "time": w.time, "damage": int(e.damage),
 								"max_hp": int(e.max_hp), "fraction": float(e.damage) / maxi(1, int(e.max_hp)),
-								"mp_absorbed": int(e.mp_absorbed), "source_kind": String(e.get("source_kind","other"))})
+								"source_kind": String(e.get("source_kind","other"))})
 				"pickup_collected":
 					exp_total += int(e.exp)
 				"equipment_changed":
@@ -485,11 +605,6 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					var lv := int(e.level)
 					if lv in MILESTONES and not reach.has(str(lv)):
 						reach[str(lv)] = snappedf(w.time, 0.1)
-				"job_changed":
-					if int(e.job_id) == 200 and job_t < 0.0:
-						job_t = snappedf(w.time, 0.1)
-					if not job_times.has(str(int(e.job_id))):
-						job_times[str(int(e.job_id))] = snappedf(w.time, 0.1)
 		if not ticked:
 			break
 		if w.time >= next_min - 1e-6:
@@ -532,15 +647,12 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"timeout": w.state == RunWorld.PLAYING, "run_time_cap": cap,
 		"bosses": _boss_snapshots(w), "boss_hits": boss_hits, "buff_casts": buff_casts,
 		"boss_fights": fight_records(w), "boss_hit_fraction": statistics(boss_hits.map(func(hit: Dictionary) -> float: return float(hit.fraction))),
-		"mp_short_seconds": snappedf(mp_short_seconds,0.001),
 		"teleports": teleports,
-		"late_mp_start": LATE_MP_START, "late_mp_short_seconds": snappedf(late_mp_short_seconds, 0.001),
-		"late_observed_seconds": snappedf(late_observed_seconds, 0.001),
 		"camper": {"policy":policy if CAMPER.STAGES.has(policy) else "", "started_time":float(memo.get("started_time",-1.0)),
 			"reached":bool(memo.get("reached",false)),"reached_time":float(memo.get("reached_time",-1.0)),"portals":portal_names},
 		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
-		"branch": w.jobs.second_job(w.progression.job_id),
-		"forced_branch": forced_job, "job": int(w.player_state.job_id), "job_t": job_t, "job_times": job_times, "kills": w.kills, "reach": reach,
+		"job": int(w.player_state.job_id), "kills": w.kills, "reach": reach,
+		"hazards_cast": w.hazards.cast_count, "hazard_seconds": snappedf(w.hazards.seconds, 0.01),
 		"alive_by_min": alive_min, "level_by_min": level_min, "hits_by_min": hits_min, "taken_by_min": taken_min,
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
 		"ordinary_kill_hits_by_min": kill_hits.buckets,
@@ -551,18 +663,38 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"equips_worn": equips_worn, "equipment_worn": _worn_ids(w), "scrolls_on_worn": _scrolls_on_worn(w),
 		"potions_used": w.potions.used.duplicate(),
 		"potion_uses": potion_uses,
+		"revives": w.revives.duplicate(true), "revive_count": w.revives.size(),
 		"warnings": Array(w.warnings),
 		"spawned": w.director.spawned, "recycled": w.director.recycled, "relocated": w.director.relocated,
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
 		"max_alive": max_alive, "max_alive_t": snappedf(max_alive_t, 1.0), "low_hp_after_1min": snappedf(low_hp, 0.01),
+		"six_actives_at": six_actives_at, "picks": cards_taken.size(),
 		"skills": skills, "cards": w.loadout.card_ranks.duplicate(), "cards_taken": cards_taken,
 		# #115: what the round would pay (tier C placeholders); tools record it and never credit it or write a save.
 		"nx_awarded": w.nx_awarded(), "bosses_killed": w.bosses_killed(), "levels_gained": w.levels_gained(),
 		"card_tiers_offered": w.card_tiers_offered.duplicate(), "card_tiers_picked": w.card_tiers_picked.duplicate(),
 	}
+	if not corsair.is_empty():
+		if ship_start >= 0.0:
+			corsair.ship_seconds += w.time - ship_start
+		corsair.ship_seconds = snappedf(float(corsair.ship_seconds), 0.01)
+		corsair.marked_monster_seconds = snappedf(float(corsair.marked_monster_seconds), 0.1)
+		record["corsair"] = corsair
+	if god:
+		record["god"] = true
+	if hit_log > 0:
+		record["last_hits"] = last_hits
+	if not shadower.is_empty():
+		charge_area += charge_value * (w.time - charge_at)
+		shadower.charge_mean = snappedf(charge_area / maxf(0.001, w.time), 0.01)
+		record["shadower"] = shadower
 	if mob_attack_hits > 0:
 		# #76: only rounds where an ordinary mob's attack landed record this, so other rounds keep their exact bytes.
 		record["mob_attack_hits"] = mob_attack_hits
+	if w.level_scale != null:
+		# #453: only a stage with a level_scale records this, so other stages keep their exact bytes. The effective level at
+		# each scheduled boss's arrival, in schedule order (bosses that never arrived are absent).
+		record["level_scale_at"] = level_scale_arrivals(w)
 	if w.pet_system != null:
 		# #119: only a round with a pet out records one, so rounds without keep their exact bytes. Its drinks and pickups
 		# are counted apart from the player's (potions_used stays the player's).
@@ -623,37 +755,26 @@ static func _engaged(w: RunWorld, seen: PackedFloat32Array) -> Vector2i:
 ## same length element by element (null elements keep the original), so a keyframe patch may list only the fields it
 ## changes; any other value replaces.
 static func deep_merge(into: Dictionary, patch: Dictionary) -> void:
-	for k: Variant in patch:
-		var pv: Variant = patch[k]
-		var iv: Variant = into.get(k)
-		if pv is Dictionary and iv is Dictionary:
-			deep_merge(iv, pv)
-		elif pv is Array and iv is Array and (pv as Array).size() == (iv as Array).size():
-			for i in (pv as Array).size():
-				if pv[i] is Dictionary and iv[i] is Dictionary:
-					deep_merge(iv[i], pv[i])
-				elif pv[i] != null:
-					iv[i] = pv[i]
-		else:
-			into[k] = pv
+	DataRepo.merge_patch(into, patch, true)
 
 
 ## A readable multi-line summary of one record.
 static func describe(r: Dictionary) -> String:
 	if r.get("mode", "") == "chain":
-		var lines := PackedStringArray(["CHAIN seed %d (%s): %d/%d rounds started" % [
-			int(r.seed), String(r.policy), r.rounds.size(), int(r.target_tier)]])
+		var lines := PackedStringArray(["CHAIN seed %d (%s): %d rounds over %d steps (retries %d), %s" % [
+			int(r.seed), String(r.policy), r.rounds.size(), int(r.chain), int(r.retries),
+			"cleared" if bool(r.chain_cleared) else "not cleared"]])
 		for record: Dictionary in r.rounds:
-			lines.append("ROUND tier %d stage %s" % [int(record.tier), String(record.stage)])
+			lines.append("ROUND step %d attempt %d stage %s" % [int(record.step), int(record.attempt), String(record.stage)])
 			lines.append(describe(record))
 		return "\n".join(lines)
 	var reach: Dictionary = r.reach
 	var parts := PackedStringArray()
 	for lv: int in MILESTONES:
 		parts.append("Lv%d %s" % [lv, _mmss(float(reach.get(str(lv), -1.0)))])
-	var head := "seed %d (%s): %s at %s, Lv %d, job %d (at %s), kills %d, max alive %d at %s, lowest HP %d%%" % [
+	var head := "seed %d (%s): %s at %s, Lv %d, job %d, kills %d, max alive %d at %s, lowest HP %d%%" % [
 		int(r.seed), String(r.get("policy", "bot")), r.state, _mmss(float(r.time)), int(r.level), int(r.job),
-		_mmss(float(r.job_t)), int(r.kills), int(r.max_alive), _mmss(float(r.max_alive_t)),
+		int(r.kills), int(r.max_alive), _mmss(float(r.max_alive_t)),
 		roundi(float(r.low_hp_after_1min) * 100.0)]
 	var lines := PackedStringArray([head, "  " + "  ".join(parts),
 		"  EXP collected %d, expired %d (%d drops); mesos earned %d; equipment %d dropped, %d picked up" % [int(r.exp_collected), int(r.expired_exp),
@@ -674,7 +795,8 @@ static func describe(r: Dictionary) -> String:
 	lines.append("  NX awarded %d (bosses killed %d, levels gained %d)" % [int(r.get("nx_awarded", 0)),
 		int(r.get("bosses_killed", 0)), int(r.get("levels_gained", 0))])
 	lines.append("  boss fights %s" % [r.get("boss_fights",[])])
-	lines.append("  potions used %s; MP-short %.3f s; boss-hit fractions %s" % [r.get("potions_used",{}),float(r.get("mp_short_seconds",0.0)),r.get("boss_hit_fraction",{})])
+	lines.append("  potions used %s; boss-hit fractions %s" % [r.get("potions_used",{}),r.get("boss_hit_fraction",{})])
+	lines.append("  second lives %d %s" % [int(r.get("revive_count", 0)), r.get("revives", [])])
 	if r.has("pet"):
 		lines.append("  pet %s" % [r.pet])
 	lines.append("  camper %s" % [r.get("camper",{})])
@@ -706,17 +828,36 @@ static func _boss_snapshots(world: RunWorld) -> Array:
 	return snapshots
 
 
+## [{boss_index, mob_id, level}] of the bosses that arrived, `level` being the level scale's effective level then.
+static func level_scale_arrivals(world: RunWorld) -> Array:
+	var arrivals: Array = []
+	for record: Dictionary in world.bosses.records:
+		if record.has("level_scale_at"):
+			arrivals.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id),
+				"level": float(record.level_scale_at)})
+	return arrivals
+
+
 ## Completed spawn-to-death durations; unfinished fights keep duration -1 and report elapsed/censor status.
 static func fight_records(world: RunWorld) -> Array:
 	var fights: Array = []
 	for record: Dictionary in world.bosses.records:
 		var spawn := float(record.spawn_time)
 		var death := float(record.death_time)
-		fights.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id), "spawn_time": spawn, "death_time": death,
+		# Keyed on the scheduled entry, so a final form's swap (record.mob_id becomes the form's) never changes the id.
+		var entry: Dictionary = world.bosses.entries[int(record.boss_index)]
+		var fight := {"boss_index": int(record.boss_index), "mob_id": int(entry.mob_id), "spawn_time": spawn, "death_time": death,
 			"map_index": int(record.get("map_index", 0)), "map_id": int(record.get("map_id", world.current_map_id())),
 			"duration": death-spawn if bool(record.dead) and spawn>=0.0 else -1.0,
 			"elapsed": maxf(0.0, (death if bool(record.dead) else world.time)-spawn) if spawn>=0.0 else 0.0,
-			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "skipped" if bool(record.get("skipped", false)) else "not_spawned"})
+			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "skipped" if bool(record.get("skipped", false)) else "not_spawned"}
+		if entry.has("final_form"):
+			# Only encounters with a final form carry these, so other runs' records keep their shape.
+			fight["final_form"] = int(entry.final_form)
+			fight["form_time"] = float(record.get("form_time", -1.0))
+		if record.has("level_scale_at"):
+			fight["level_scale_at"] = float(record.level_scale_at)
+		fights.append(fight)
 	return fights
 
 
@@ -745,22 +886,18 @@ static func movement(world: RunWorld, policy: String, memo: Dictionary, camp_aft
 static func aggregate(records: Array) -> Dictionary:
 	if not records.is_empty() and records[0].get("mode", "") == "chain":
 		return aggregate_chain(records)
-	var result := {"runs": records.size(), "potions_used": {"hp": 0, "mp": 0},
+	var result := {"runs": records.size(), "potions_used": {"hp": 0},
 		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0,
 		"ordinary_kill_hits_by_min": KillHits.empty_buckets()}
-	result["branches"] = {}
+	result["jobs"] = {}
+	result["revived_runs"] = 0
 	result["card_tier_runs"] = 0
 	result["card_tiers_offered"] = UpgradePool.empty_tier_counts()
 	result["card_tiers_picked"] = result.card_tiers_offered.duplicate()
-	var waits: Array = []
 	var deaths: Array = []
 	result["deaths_by_map"] = {"1": 0, "2": 0, "3": 0}
 	var map_entries := {"2": [], "3": []}
 	result["outcomes"] = {"CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
-	var late_waits: Array = []
-	result["late_mp_observed_runs"] = 0
-	result["late_mp_short_runs"] = 0
-	var job_samples := {} # job id -> advancement times
 	var mesos_earned: Array = []
 	var equips_dropped: Array = []
 	var equips_collected: Array = []
@@ -772,23 +909,20 @@ static func aggregate(records: Array) -> Dictionary:
 	var fight_samples := {}
 	var censored_samples := {}
 	var hit_samples := {}
-	var start_levels: Array = []
 	var end_levels: Array = []
 	var nx_samples: Array = []
 	result["lv70_reached"] = 0
-	result["tier"] = int(records[0].get("tier", 0)) if not records.is_empty() else 0
+	result["step"] = int(records[0].get("step", 0)) if not records.is_empty() else 0
 	for record: Dictionary in records:
-		if record.get("start_character", {}).has("level"):
-			start_levels.append(int(record.start_character.level))
 		if record.has("level"):
 			end_levels.append(int(record.level))
 		if record.has("nx_awarded"):
 			nx_samples.append(int(record.nx_awarded))
 		result.lv70_reached += 1 if bool(record.get("lv70_reached", int(record.get("level", 0)) >= LEVEL_TARGET)) else 0
-		var branch_key := str(int(record.get("branch", 0))) if record.has("branch") else "unobserved"
-		if not result.branches.has(branch_key):
-			result.branches[branch_key] = {"runs": 0, "CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
-		var group: Dictionary = result.branches[branch_key]
+		var job_key := str(int(record.get("job", 0))) if record.has("job") else "unobserved"
+		if not result.jobs.has(job_key):
+			result.jobs[job_key] = {"runs": 0, "CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
+		var group: Dictionary = result.jobs[job_key]
 		group.runs += 1
 		var outcome := String(record.get("state", ""))
 		if group.has(outcome):
@@ -811,26 +945,10 @@ static func aggregate(records: Array) -> Dictionary:
 			var index := int(number) - 1
 			if map_times.size() > index:
 				map_entries[number].append(float(map_times[index]))
-		if float(record.get("late_observed_seconds", 0.0)) > 0.0:
-			result.late_mp_observed_runs += 1
-			var late_wait := float(record.get("late_mp_short_seconds", 0.0))
-			late_waits.append(late_wait)
-			result.late_mp_short_runs += 1 if late_wait > 0.0 else 0
 		var kill_hits: Array = record.get("ordinary_kill_hits_by_min", [])
 		for minute in mini(EARLY_MINUTES, kill_hits.size()):
 			result.ordinary_kill_hits_by_min[minute].hits += int(kill_hits[minute].hits)
 			result.ordinary_kill_hits_by_min[minute].kills += int(kill_hits[minute].kills)
-		# Per-job advancement times; records from before job_times only have the Magician's job_t.
-		var times: Dictionary = record.get("job_times", {})
-		if not record.has("job_times") and float(record.get("job_t", -1.0)) >= 0.0:
-			times = {"200": float(record.job_t)}
-		for id: String in times:
-			if float(times[id]) < 0.0:
-				continue
-			if not job_samples.has(id):
-				job_samples[id] = []
-			job_samples[id].append(float(times[id]))
-		waits.append(float(record.get("mp_short_seconds", 0.0)))
 		if record.has("equips_dropped"):
 			equips_dropped.append(int(record.equips_dropped))
 			equips_collected.append(int(record.get("equips_collected", 0)))
@@ -841,8 +959,9 @@ static func aggregate(records: Array) -> Dictionary:
 				shop_samples[field].append(int(record.shop.get(field, 0)))
 		if record.has("mesos_earned"):
 			mesos_earned.append(int(record.mesos_earned))
-		for kind: String in ["hp", "mp"]:
-			result.potions_used[kind] += int(record.get("potions_used", {}).get(kind, 0))
+		result.potions_used.hp += int(record.get("potions_used", {}).get("hp", 0))
+		if int(record.get("revive_count", 0)) > 0:
+			result.revived_runs += 1
 		var camper: Dictionary = record.get("camper", {})
 		if String(camper.get("policy", "")) != "":
 			result.camper_runs += 1
@@ -881,15 +1000,10 @@ static func aggregate(records: Array) -> Dictionary:
 		for source: String in hit_samples[id].sources:
 			sources[source] = statistics(hit_samples[id].sources[source])
 		result.boss_hits[id] = {"whole_fraction": statistics(hit_samples[id].all), "by_source": sources}
-	result["mp_short_seconds"] = statistics(waits)
 	result["death_seconds"] = statistics(deaths)
 	result["map_entry_seconds"] = {}
 	for number: String in map_entries:
 		result.map_entry_seconds[number] = statistics(map_entries[number])
-	result["late_mp_short_seconds"] = statistics(late_waits)
-	result["job_seconds"] = {}
-	for id: String in job_samples:
-		result.job_seconds[id] = statistics(job_samples[id])
 	result["mesos_earned"] = statistics(mesos_earned)
 	result["equips_dropped"] = statistics(equips_dropped)
 	result["equips_collected"] = statistics(equips_collected)
@@ -900,7 +1014,6 @@ static func aggregate(records: Array) -> Dictionary:
 		for field: String in SHOP_FIELDS:
 			result.shop[field] = statistics(shop_samples[field])
 	result["boss_hit_fraction"] = statistics(fractions)
-	result["start_level"] = statistics(start_levels)
 	result["end_level"] = statistics(end_levels)
 	result["nx_awarded"] = statistics(nx_samples)
 	for bucket: Dictionary in result.ordinary_kill_hits_by_min:
@@ -908,21 +1021,51 @@ static func aggregate(records: Array) -> Dictionary:
 	return result
 
 
-## Aggregates each tier separately; unstarted rounds never enter outcome, death or boss denominators.
+## Aggregates each chain step separately; unstarted rounds never enter outcome, death or boss denominators. A step's
+## `runs` counts its attempts (retries included); it adds `clears`, `attempts_per_clear` (null without a clear) and the
+## chains that reached and cleared it.
 static func aggregate_chain(records: Array) -> Dictionary:
 	var groups := {}
-	var result := {"mode": "chain", "runs": records.size(), "tier1_clears": 0, "tiers": {}}
+	var stage_of := {}
+	var reached := {}
+	var cleared_in := {}
+	var result := {"mode": "chain", "runs": records.size(), "chain": 0, "retries": 0, "chain_clears": 0, "steps": {}}
 	for record: Dictionary in records:
-		for tier in range(1, int(record.target_tier) + 1):
-			if not groups.has(str(tier)):
-				groups[str(tier)] = []
+		result.chain = maxi(int(result.chain), int(record.chain))
+		result.retries = maxi(int(result.retries), int(record.get("retries", 0)))
+		var reached_here := {}
+		var cleared_here := {}
+		for step in range(1, int(record.chain) + 1):
+			var key := str(step)
+			if not groups.has(key):
+				groups[key] = []
+				reached[key] = 0
+				cleared_in[key] = 0
+			var stages: Array = record.get("stages", [])
+			if step <= stages.size():
+				stage_of[key] = String(stages[step - 1])
 		for round_record: Dictionary in record.rounds:
-			groups[str(int(round_record.tier))].append(round_record)
-			if int(round_record.tier) == 1 and round_record.state == "CLEARED":
-				result.tier1_clears += 1
-	for tier: String in groups:
-		result.tiers[tier] = aggregate(groups[tier])
-		result.tiers[tier].tier = int(tier)
+			var key := str(int(round_record.step))
+			groups[key].append(round_record)
+			stage_of[key] = String(round_record.get("stage", stage_of.get(key, "")))
+			reached_here[key] = true
+			if round_record.state == "CLEARED":
+				cleared_here[key] = true
+		for key: String in reached_here:
+			reached[key] += 1
+		for key: String in cleared_here:
+			cleared_in[key] += 1
+		if cleared_here.size() == int(record.chain):
+			result.chain_clears += 1
+	for key: String in groups:
+		var summary := aggregate(groups[key])
+		summary.step = int(key)
+		summary.stage = String(stage_of.get(key, ""))
+		summary.clears = int(summary.outcomes.CLEARED)
+		summary.attempts_per_clear = float(summary.runs) / summary.clears if summary.clears > 0 else null
+		summary.runs_reached = reached[key]
+		summary.runs_cleared = cleared_in[key]
+		result.steps[key] = summary
 	return result
 
 
@@ -953,31 +1096,29 @@ static func censored_median(samples: Array) -> Dictionary:
 ## alone cannot hide unfinished ones.
 static func describe_metrics(summary: Dictionary) -> String:
 	if summary.get("mode", "") == "chain":
-		var chain_lines := PackedStringArray(["SUMMARY chain %d runs; tier-1 clears feeding tier 2: %d/%d" % [
-			int(summary.runs), int(summary.tier1_clears), int(summary.runs)]])
-		for tier: String in summary.tiers:
-			chain_lines.append(describe_metrics(summary.tiers[tier]))
+		var chain_lines := PackedStringArray(["SUMMARY chain of %d steps (retries %d): %d/%d runs cleared every step" % [
+			int(summary.chain), int(summary.retries), int(summary.chain_clears), int(summary.runs)]])
+		for step: String in summary.steps:
+			chain_lines.append(describe_metrics(summary.steps[step]))
 		return "\n".join(chain_lines)
 	var lines := PackedStringArray()
 	lines.append("SUMMARY deaths by map: 1:%d 2:%d 3:%d" % [summary.deaths_by_map["1"],
 		summary.deaths_by_map["2"], summary.deaths_by_map["3"]])
 	for number: String in summary.map_entry_seconds:
 		lines.append("  map-%s entry seconds %s" % [number, _range(summary.map_entry_seconds[number])])
-	if int(summary.get("tier", 0)) > 0:
-		lines.append("SUMMARY tier %d: %d started, %d cleared; start level %s; end level %s; Lv70 reached %d/%d" % [
-			int(summary.tier), int(summary.runs), int(summary.outcomes.CLEARED), _range(summary.start_level),
-			_range(summary.end_level), int(summary.lv70_reached), int(summary.runs)])
-	lines.append("SYSTEMS %d runs: potions used HP %d MP %d; MP-short seconds %s%s" % [
-		int(summary.runs), int(summary.potions_used.hp), int(summary.potions_used.mp),
-		_range(summary.mp_short_seconds), _campers(summary)])
-	for branch_key: String in summary.get("branches", {}):
-		lines.append("  SUMMARY branch %s: %s" % [branch_key, summary.branches[branch_key]])
-	var job_ids: Array = summary.job_seconds.keys()
-	job_ids.sort_custom(func(a: String, b: String) -> bool: return int(a) < int(b))
-	for id: String in job_ids:
-		lines.append("  Job %s seconds %s" % [id, _range(summary.job_seconds[id])])
-	if job_ids.is_empty():
-		lines.append("  Job seconds none (n=0)")
+	if int(summary.get("step", 0)) > 0:
+		lines.append("SUMMARY step %d%s: %d started, %d cleared; end level %s; Lv70 reached %d/%d" % [
+			int(summary.step), " (%s)" % summary.stage if summary.get("stage", "") != "" else "", int(summary.runs),
+			int(summary.outcomes.CLEARED), _range(summary.end_level), int(summary.lv70_reached), int(summary.runs)])
+		if summary.has("runs_reached"):
+			lines.append("  attempts per clear %s; chains reaching the step %d, clearing it %d" % [
+				"none" if summary.attempts_per_clear == null else "%.2f" % float(summary.attempts_per_clear),
+				int(summary.runs_reached), int(summary.runs_cleared)])
+	lines.append("SYSTEMS %d runs: potions used HP %d%s" % [int(summary.runs), int(summary.potions_used.hp),
+		_campers(summary)])
+	lines.append("  SUMMARY revived %d/%d runs" % [int(summary.get("revived_runs", 0)), int(summary.runs)])
+	for job_key: String in summary.get("jobs", {}):
+		lines.append("  SUMMARY job %s: %s" % [job_key, summary.jobs[job_key]])
 	if summary.has("nx_awarded"):
 		lines.append("  NX awarded per run (not credited) " + _range(summary.nx_awarded))
 	if summary.has("mesos_earned"):
@@ -987,7 +1128,7 @@ static func describe_metrics(summary: Dictionary) -> String:
 	if summary.has("equips_worn"):
 		lines.append("  equipment put on mid-round per round " + _range(summary.equips_worn))
 	if summary.has("shop"):
-		lines.append("  Free Market visits after this tier: %d" % int(summary.shop.visits))
+		lines.append("  Free Market visits after this step: %d" % int(summary.shop.visits))
 		for field: String in SHOP_FIELDS:
 			lines.append("    shop %s per visit %s" % [field, _range(summary.shop[field])])
 	lines.append("  card tiers (%d observed runs)" % int(summary.card_tier_runs))
@@ -995,8 +1136,6 @@ static func describe_metrics(summary: Dictionary) -> String:
 		lines.append("  cards %s offered %d picked %d" % [tier.capitalize(), int(summary.card_tiers_offered[tier]),
 			int(summary.card_tiers_picked[tier])])
 	lines.append("  outcomes %s; death-only seconds %s" % [summary.outcomes, _range(summary.death_seconds)])
-	lines.append("  MP-short after 8:00 seconds %s; %d/%d observed runs waited" % [
-		_range(summary.late_mp_short_seconds), int(summary.late_mp_short_runs), int(summary.late_mp_observed_runs)])
 	for minute in summary.ordinary_kill_hits_by_min.size():
 		var bucket: Dictionary = summary.ordinary_kill_hits_by_min[minute]
 		lines.append("  minute %d ordinary hits/kill %s (%d hits / %d kills)" % [minute + 1,

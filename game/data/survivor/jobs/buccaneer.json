@@ -1,0 +1,131 @@
+{
+	"_doc": "Buccaneer line (spec #412, BC1–BC12 #413–#424). Job 512 is playable: eleven lineage pool skills, Flash Fist at start, Dash on mobility, Energy Charge, Drain/Orb finishers and two mutually exclusive morph forms. Shockwave, Demolition and Snatch are form subs. DataRepo discovers this per-line file automatically; default_job stays 212. All gameplay tuning belongs to the balance pass.",
+	"jobs": {
+		"512": {
+			"starting_skill": "flash_fist",
+			"_starting_skill": "tier C: spec #412 (BU-14): the Flash Fist, slot 1; defined by skills/buccaneer.json since B4 #416.",
+			"mobility_skill": "dash",
+			"_mobility_skill": "tier C: spec #412 (BU-1): Dash (WZ 5001005) is Buccaneer's manual mobility skill on the skill key, outside both slot tracks; defined by skills/pirate.json on slot mobility (B5 #417; Corsair reuses it).",
+			"skill_pool": [
+				"flash_fist",
+				"somersault_kick",
+				"backspin_blow",
+				"double_uppercut",
+				"corkscrew_blow",
+				"barrage",
+				"dragon_strike",
+				"energy_drain",
+				"energy_orb",
+				"transformation",
+				"super_transformation"
+			],
+			"_skill_pool": "tier C: spec #412 (BU-1, BU-4): eleven entries for the Brawler's skills. Shockwave is a sub-skill of Transformation, Demolition and Snatch of Super Transformation, and Energy Blast is dropped (BU-4), so none of them is a pool entry.",
+			"weapon_families": [
+				"knuckle"
+			],
+			"_weapon_families": "tier C: spec #412 (BU-20): the knuckles (WeaponInfo.family 148, 1482xxx); guns, swords, axes, bows, wands and claws never drop for a Buccaneer. Armour and shields drop by the class bit (Pirate for armour, Warrior for shields, which a Buccaneer does not admit).",
+			"creation_weapon": 1482000,
+			"_creation_weapon": "tier A: the Steel Knuckler (Item.wz 1482000, reqJob 16 = the Pirate bit; its level requirement is gone with #292). Already in the Pirate manifest fragment.",
+			"meter": {
+				"id": "energy",
+				"max": 10,
+				"gain": {
+					"event": "cast_landed",
+					"amount": 1,
+					"exclude": "finisher"
+				},
+				"per_unit": {
+					"stat": "damage",
+					"value": 0.03
+				},
+				"cue": {
+					"effect": "Skill.wz/511.img/skill/5110001/affected",
+					"sound": "Sound.wz/Skill.img/5110001/Use"
+				}
+			},
+			"_meter": "tier C: spec #412 (BU-5): Energy Charge, max 10, one energy per landed cast of a non-finisher pool skill, +3% damage per held energy on every pool skill. The cue (tier A: WZ paths of the Energy Charge affected art and Use sound) is presentation only (B6 reads it); the sim ignores it. No art: book 511 has no state node, so the HUD draws the pip fallback.",
+			"playable": true,
+			"_provenance": "tier C: spec #412 B11 #423: Buccaneer is playable (BU-20/BU-21); default_job stays 212 (the pin).",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/buccaneer_t2.json",
+				"_fixture": "tier C: spec #412 B11 #423: the Buccaneer fixture (tier 2, the tier-1 knuckle kit from a god Henesys clear); tool-only.",
+				"scrolls": [
+					2044800,
+					2044801,
+					2044802,
+					2044803,
+					2044804,
+					2044805,
+					2044807,
+					2044809,
+					2044806,
+					2044808
+				],
+				"equipment": [
+					1002001,
+					1482001,
+					1082002,
+					1040010
+				],
+				"fallback_item": 1482006,
+				"_kit": "tier C: spec #412 B11 #423: the knuckle ATT scrolls (100/60/10, dark 70% and 30%) and ACC scrolls (100/60/10, dark 70% and 30%) read from scrolls/pirate.json, 10 per stack; spare gear is a second knuckler (1482001, Lv15) and the Pirate-wearable generic hat, gloves and top (the cache holds no armour with the Pirate bit); the flow driver's diagnostic item is the Lv40 Hard Knuckler 1482006."
+			}
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"512": {
+					"hp": 600,
+					"_hp": "tier C #346 (orchestrator ruling, spec #412 BU-20): the melee starting HP, copied from Hero's 112 row (jobs/hero.json); the balance pass owns it.",
+					"primary": "str",
+					"secondary": "dex",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 4
+						},
+						{
+							"level": 200,
+							"target": 204
+						}
+					],
+					"_ap": "tier C: spec #412 (BU-20): the Hero 112 row copied: STR primary, DEX secondary, keyframes Lv1 -> 4 and Lv200 -> 204 (AutoAp interpolates between them)."
+				}
+			}
+		},
+		"growth": {
+			"512": {
+				"hp": 65,
+				"_hp": "tier C #346 (orchestrator ruling, spec #412 BU-20): melee HP growth per level, copied from Hero's 112 growth row; GAME_DESIGN 4.2."
+			}
+		},
+		"bot": {
+			"card_scores": {
+				"flash_fist_new": 100,
+				"flash_fist_rank": 74,
+				"somersault_kick_new": 100,
+				"somersault_kick_rank": 74,
+				"backspin_blow_new": 100,
+				"backspin_blow_rank": 74,
+				"double_uppercut_new": 100,
+				"double_uppercut_rank": 74,
+				"corkscrew_blow_new": 100,
+				"corkscrew_blow_rank": 74,
+				"barrage_new": 100,
+				"barrage_rank": 74,
+				"dragon_strike_new": 100,
+				"dragon_strike_rank": 74,
+				"energy_drain_new": 100,
+				"energy_drain_rank": 74,
+				"energy_orb_new": 100,
+				"energy_orb_rank": 74,
+				"transformation_new": 100,
+				"transformation_rank": 74,
+				"super_transformation_new": 100,
+				"super_transformation_rank": 74
+			},
+			"_card_scores": "tier C: spec #412 B11 #423: explicit new 100 / rank 74 for the eleven pool keys, the numbers the default pool scorer gives; written out so the finishers (Energy Drain, Energy Orb), the forms and Dragon Strike are taken whatever their cast rule."
+		}
+	}
+}

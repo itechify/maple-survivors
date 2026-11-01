@@ -19,7 +19,7 @@ func test_pet_state_is_exposed_for_drawing() -> void:
 	assert_eq(state.species, PF.KITTY)
 	assert_eq(state.action, "stand")
 	assert_true(state.facing == 1 or state.facing == -1)
-	assert_eq(state.abilities, {"auto_hp": false, "auto_mp": false, "wing_boots": false, "binocular": false,
+	assert_eq(state.abilities, {"auto_hp": false, "wing_boots": false, "binocular": false,
 		"vac": false})
 	# #126: standing exactly on the player it was hidden behind (or over) the avatar; it starts a little behind instead.
 	assert_near(state.pos.x, w.player.pos.x - w.player.facing * 30.0, 0.5, "starts 30 px behind the player")
@@ -27,7 +27,7 @@ func test_pet_state_is_exposed_for_drawing() -> void:
 	assert_eq(state.facing, w.player.facing, "facing the way the player does")
 	assert_eq(PF.world([PF.KITTY, PF.WING]).pet_state().abilities.wing_boots, true)
 	assert_eq(PF.world(PF.EVERYTHING).pet_state().abilities,
-		{"auto_hp": true, "auto_mp": true, "wing_boots": true, "binocular": true, "vac": true})
+		{"auto_hp": true, "wing_boots": true, "binocular": true, "vac": true})
 
 
 func test_pet_walks_after_the_player_without_teleporting() -> void:

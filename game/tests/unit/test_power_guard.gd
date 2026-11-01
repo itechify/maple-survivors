@@ -32,10 +32,9 @@ func _books() -> Dictionary:
 	}
 
 
-## A non-god Fighter (110) or Page (120) on the synthetic map with plenty of MP, wearing the creation sword.
+## A non-god Fighter (110) or Page (120) on the synthetic map, wearing the creation sword.
 func _world(seed_value := 182, job := 110, mutate: Callable = Callable()) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 1000
 	data.balance.magnet_radius = 0
 	if mutate.is_valid():
 		mutate.call(data)
@@ -46,7 +45,7 @@ func _world(seed_value := 182, job := 110, mutate: Callable = Callable()) -> Run
 	var w := RunWorld.new(setup)
 	for mk: MobKind in w.mob_kinds:
 		mk.move_speed = 0.0
-	w.change_job(job)
+	RF.as_job(w, job)
 	RF.place_player(w, 400)
 	w.player_avoid = 0.0
 	w.drain_events()
@@ -91,14 +90,12 @@ func test_rage_raises_damage_and_lowers_defence_while_active_then_recasts_on_exp
 	var pdd0: float = w.hit_defense().pdd
 	var bounds0: Vector2 = CombatMath.physical_damage_range(w.loadout.str_stat, w.loadout.dex_stat,
 		w.loadout.luk_stat, w.loadout.watk, 1302077, "swingO1", 0, w.loadout.mastery)
-	var mp0: int = w.player_state.mp
 	assert_true(w.learn_skill("rage"))
 	w.loadout.set_rank("rage", 3)
 	w.step(DT, MoveInput.new())
 	assert_true(w.buffs.has("rage"), "auto-cast")
 	assert_eq(w.weapon_attack(), watk0 + 4.0, "rank 3: pad +4")
 	assert_eq(w.hit_defense().pdd, pdd0 - 4.0, "the WZ pdd is already negative: WDEF -4, not +4")
-	assert_eq(mp0 - int(w.player_state.mp), 12, "canonical mpCon")
 	var bounds1: Vector2 = CombatMath.physical_damage_range(w.loadout.str_stat, w.loadout.dex_stat,
 		w.loadout.luk_stat, w.loadout.watk, 1302077, "swingO1", 0, w.loadout.mastery)
 	assert_true(bounds1.y > bounds0.y, "the damage bounds rise")
@@ -247,25 +244,6 @@ func test_no_reflect_without_the_buff_a_miss_or_a_blocked_hit() -> void:
 	assert_eq(w.take_hit(82.0, false, "", Vector2(w.swarm.x[untouched], w.swarm.y[untouched]),
 		{"mob": untouched, "accuracy": 1.0, "source_kind": "touch"}), 0)
 	assert_eq(w.swarm.hp[untouched], w.swarm.max_hp[untouched], "a miss reflects nothing")
-
-
-func test_power_guard_comes_off_the_damage_before_magic_guard_splits_it() -> void:
-	var control := _world()
-	var full := _touch_hit(control, _mob(control))
-	var w := _world()
-	_cast_buff(w, "power_guard_fighter", 10) # x = 20
-	# A synthetic Magic Guard-style buff: half of what is left goes to MP.
-	w.buffs.start("guard_stub", {"skill_id": 1, "level": 1, "icon": "", "duration": 60.0, "buff_stat": "",
-		"buff_value": 0.0, "buff_effects": {"mp_guard": 50.0}, "pulse_interval": 0.0})
-	var m := _mob(w)
-	var hp0: float = w._hp
-	var mp0: float = w._mp
-	_touch_hit(w, m)
-	var left := full - int(full * 20 / 100)
-	var to_mp := left / 2
-	assert_eq(int(mp0 - w._mp), to_mp, "MP pays half of the reduced hit")
-	assert_eq(int(hp0 - w._hp), left - to_mp, "HP pays the rest")
-	assert_eq(_of(w.drain_events(), "player_hit")[0].mp_absorbed, to_mp)
 
 
 func test_the_hit_window_still_limits_it_to_one_reflect_per_window() -> void:

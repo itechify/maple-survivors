@@ -355,7 +355,7 @@ const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 
 /**
  * A light check before staging a candidate: it parses, has SaveData's top-level shape
- * (format 1 or 2, best and runs objects; for format 2 exactly 3 slots and a history array). The game still validates
+ * (format 1, 2 or 3, best and runs objects; for formats 2 and 3 exactly 3 slots and a history array). The game still validates
  * the contents in full when it loads the file. Returns {ok: true, slots} or {ok: false, error}.
  */
 export function validateSaveText(text) {
@@ -365,7 +365,7 @@ export function validateSaveText(text) {
 	} catch (e) {
 		return { ok: false, error: 'That file is not valid JSON, so it was not imported.' };
 	}
-	if (!isObject(s) || !isWhole(s.format) || ![1, 2].includes(s.format)) {
+	if (!isObject(s) || !isWhole(s.format) || ![1, 2, 3].includes(s.format)) {
 		return { ok: false, error: 'That file is not a Maple Survivors save (unknown format).' };
 	}
 	if (!isObject(s.best) || !isObject(s.runs)) {

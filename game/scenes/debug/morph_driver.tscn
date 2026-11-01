@@ -2,5 +2,5 @@
 
 [ext_resource type="Script" path="res://scenes/debug/morph_driver.gd" id="1"]
 
-[node name="MorphDriver" type="Node"]
+[node name="MorphDriver" type="Node2D"]
 script = ExtResource("1")

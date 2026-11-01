@@ -1,14 +1,22 @@
 {
+	"_pacing_293": "Tier C: F/P pool active cooldowns x0.4 of T8/T9 values; training only, not frozen balance.",
 	"_doc": "Magician line skills (books 200 First Job Magician, 210 F/P, 220 I/L, 230 Cleric). Entry format and tier rules: see ../skills.json _doc.",
 	"skills": {
 		"energy_bolt": {
+			"_rarity": "Tier C: first-pass bonuses from legacy behaviour cards; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "damage", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "pierce", "text": "Pierce", "effects": [{"stat": "pierce", "op": "add", "value": 1}]}],
+				"unique": [{"id": "count", "text": "Extra projectile", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "count", "text": "Extra projectile and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2001004, "book": "200", "job": 200, "kind": "projectile", "slot": "active",
 			"name": "Energy Bolt", "desc": "Fires a bolt of energy at the nearest monster.",
-			"text": {"desc": "Uses MP to attack the nearest monster with a bolt of energy.", "h": "MP -{mp_cost}, basic attack {mad}, mastery {mastery_pct}%, {count|bolt|bolts} per cast"},
+			"text": {"desc": "Attacks the nearest monster with a bolt of energy.", "h": "Basic attack {mad}, mastery {mastery_pct}%, {count|bolt|bolts} per cast"},
 			"icon": "Skill.wz/200.img/skill/2001004/icon",
 			"damage": "magic",
-			"cooldown": 0.9, "range": 450, "speed": 450, "count": 1, "pierce": 0, "radius": 14,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"cooldown": 0.36, "range": 450, "speed": 450, "count": 1, "pierce": 0, "radius": 14,
+			"ranks": [3, 5, 8, 10, 13, 15, 18, 20],
 			"action": "swingO1", "action_time": 0.8,
 			"ball": "Skill.wz/200.img/skill/2001004/ball",
 			"hit": "Skill.wz/200.img/skill/2001004/hit/0",
@@ -17,13 +25,20 @@
 			"sounds": {"use": "Sound.wz/Skill.img/2001004/Use", "hit": ""}
 		},
 		"magic_claw": {
+			"_rarity": "Tier C: first-pass bonuses from legacy behaviour cards; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "damage", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "cooldown", "text": "Cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "attack_count", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "attack_count", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2001005, "book": "200", "job": 200, "kind": "instant", "slot": "active",
 			"name": "Magic Claw", "desc": "Rakes the nearest monster twice with a magic claw.",
-			"text": {"desc": "Uses MP to attack the nearest monsters twice each with a magic claw.", "h": "MP -{mp_cost}, basic attack {mad}, mastery {mastery_pct}%, up to {count|monster|monsters}"},
+			"text": {"desc": "Attacks the nearest monsters twice each with a magic claw.", "h": "Basic attack {mad}, mastery {mastery_pct}%, up to {count|monster|monsters}"},
 			"icon": "Skill.wz/200.img/skill/2001005/icon",
 			"damage": "magic",
-			"cooldown": 1.25, "range": 260, "count": 1, "pierce": 0,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"cooldown": 0.5, "range": 260, "count": 1, "pierce": 0,
+			"ranks": [3, 5, 8, 10, 13, 15, 18, 20],
 			"action": "swingO1", "action_time": 0.8,
 			"ball": "",
 			"hit": "Skill.wz/200.img/skill/2001005/hit/0",
@@ -35,19 +50,6 @@
 			},
 			"rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2001005/Use", "hit": ""}
-		},
-		"magic_guard": {
-			"skill_id": 2001002, "book": "200", "job": 200, "kind": "buff", "slot": "passive",
-			"name": "Magic Guard", "desc": "Part of the damage you take is paid with MP instead of HP.",
-			"icon": "Skill.wz/200.img/skill/2001002/icon",
-			"damage": "none",
-			"buff": {"stat": "mp_guard", "field": "x", "duration_field": "time"},
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "alert2", "action_time": 0.8,
-			"ball": "", "hit": "",
-			"effect": "Skill.wz/200.img/skill/2001002/effect",
-			"rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/2001002/Use", "hit": ""}
 		},
 		"magic_armor": {
 			"skill_id": 2001003, "book": "200", "job": 200, "kind": "buff", "slot": "passive",
@@ -61,124 +63,22 @@
 			"rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2001003/Use", "hit": ""}
 		},
-		"improved_max_mp": {
-			"skill_id": 2000001, "book": "200", "job": 200, "kind": "passive", "slot": "passive",
-			"name": "Improved MaxMP Increase", "desc": "Increases computed Max MP by 2% per skill level.",
-			"text": {"desc": "Increases your Max MP, including what levels and the job give you.", "h": "Max MP +{passive_pct}%"},
-			"icon": "Skill.wz/200.img/skill/2000001/icon",
-			"damage": "none", "ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-			"_passive": "Tier C: owner choice; multiply computed Max MP, including level/INT growth and job bonus, by 1 + 0.02 per skill level. Preserve current MP ratio when it grows. Canonical skill instead raises MP gained per level.",
-			"passive": {"stat": "max_mp_percent", "per_level": 0.02},
-			"action": "", "action_time": 0.0, "ball": "", "hit": "", "effect": "", "rotate": false,
-			"sounds": {"use": "", "hit": ""}
-		},
-		"improved_mp_recovery": {
-			"skill_id": 2000000, "book": "200", "job": 200, "kind": "passive", "slot": "passive",
-			"name": "Improved MP Recovery", "desc": "Adds character-level-scaled MP recovery every 10 seconds.",
-			"text": {"h": "MP +(character level x {level} / 10) every 10 sec."},
-			"regen": {"pool": "mp", "divisor": 10},
-			"_regen": "Tier B: pre-Big-Bang rule, each regeneration pulse adds floor(character level x skill level / divisor) to the pool (Loadout.regen_bonus; pool hp serves Improved HP Recovery with data only).",
-			"icon": "Skill.wz/200.img/skill/2000000/icon",
-			"damage": "none", "ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-			"action": "", "action_time": 0.0, "ball": "", "hit": "", "effect": "", "rotate": false,
-			"sounds": {"use": "", "hit": ""}
-		},
-		"mp_eater_fp": {
-			"skill_id": 2100000, "book": "210", "job": 210, "kind": "passive", "slot": "passive",
-			"absorb_mp": {"chance_field": "prop", "percent_field": "x"},
-			"name": "MP Eater", "desc": "Magic hits may absorb MP from a monster's remaining pool.",
-			"icon": "Skill.wz/210.img/skill/2100000/icon", "damage": "none",
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (integer interpretation).",
-			"action": "", "action_time": 0.0, "ball": "", "hit": "",
-			"effect": "Skill.wz/210.img/skill/2100000/effect", "rotate": false,
-			"sounds": {"use": "", "hit": ""}
-		},
-		"mp_eater_il": {
-			"skill_id": 2200000, "book": "220", "job": 220, "kind": "passive", "slot": "passive",
-			"absorb_mp": {"chance_field": "prop", "percent_field": "x"},
-			"name": "MP Eater", "desc": "Magic hits may absorb MP from a monster's remaining pool.",
-			"icon": "Skill.wz/220.img/skill/2200000/icon", "damage": "none",
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (integer interpretation).",
-			"action": "", "action_time": 0.0, "ball": "", "hit": "",
-			"effect": "Skill.wz/220.img/skill/2200000/effect", "rotate": false,
-			"sounds": {"use": "", "hit": ""}
-		},
-		"mp_eater_cleric": {
-			"skill_id": 2300000, "book": "230", "job": 230, "kind": "passive", "slot": "passive",
-			"absorb_mp": {"chance_field": "prop", "percent_field": "x"},
-			"name": "MP Eater", "desc": "Magic hits may absorb MP from a monster's remaining pool.",
-			"icon": "Skill.wz/230.img/skill/2300000/icon", "damage": "none",
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (integer interpretation).",
-			"action": "", "action_time": 0.0, "ball": "", "hit": "",
-			"effect": "Skill.wz/230.img/skill/2300000/effect", "rotate": false,
-			"sounds": {"use": "", "hit": ""}
-		},
-		"holy_arrow": {
-			"skill_id": 2301005, "book": "230", "job": 230, "kind": "projectile", "slot": "active",
-			"name": "Holy Arrow", "desc": "Cleric. Shoots a holy arrow at the nearest monster.",
-			"text": {"desc": "Attacks the nearest monster by firing Holy Arrows. Very effective against undead and devil-based monsters.", "h": "MP -{mp_cost}; Basic attack {mad}, mastery {mastery_pct}%, {count|arrow|arrows} per cast"},
-			"icon": "Skill.wz/230.img/skill/2301005/icon", "damage": "magic",
-			"_tuning": "Tier C: same flight, reach, radius and recast as Fire Arrow; canonical mad/mastery/mpCon and holy element are tier A.",
-			"cooldown": 1.0, "range": 480, "speed": 520, "count": 1, "pierce": 0, "radius": 12,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-			"action": "shoot1", "action_time": 0.8,
-			"ball": "Skill.wz/230.img/skill/2301005/ball",
-			"hit": "Skill.wz/230.img/skill/2301005/hit/0",
-			"effect": "Skill.wz/230.img/skill/2301005/effect", "rotate": true,
-			"sounds": {"use": "Sound.wz/Skill.img/2301005/Use", "hit": ""}
-		},
-		"heal": {
-			"skill_id": 2301002, "book": "230", "job": 230, "kind": "instant", "slot": "active",
-			"name": "Heal", "desc": "Restores HP below half health, or strikes undead inside its holy box.",
-			"text": {"desc": "Recovers your HP when it falls below half, and damages every undead monster in the area."},
-			"icon": "Skill.wz/230.img/skill/2301002/icon", "damage": "none",
-			"cast": {"rule": "hp_or_undead"}, "heal": {"field": "hp", "hp_threshold": 0.5, "recast_delay": 2.0},
-			"_heal": "Tier A: mpCon/hp/lt/rb from v83. Tier B: undead formula; weak historical recovery coefficients. Tier C: provisional choice of the unverified single-target recovery fit (docs/research/cleric-heal.md), below-half trigger, 2 s recast, every undead in the box, 0.8 s stance.",
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-			"action": "alert2", "action_time": 0.8, "ball": "",
-			"effect": "Skill.wz/230.img/skill/2301002/effect",
-			"hit": "Skill.wz/230.img/skill/2301002/hit/0", "rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/2301002/Use", "hit": ""}
-		},
-		"cold_beam": {
-			"skill_id": 2201004, "book": "220", "job": 220, "kind": "instant", "slot": "active",
-			"name": "Cold Beam", "desc": "Freezes the nearest monster with an icy beam.",
-			"text": {"desc": "Attacks the nearest monster with a sharp piece of ice. The monster will freeze if hit. Fire-based monsters take 1.5 times the damage, ice-based monsters half.", "h": "MP -{mp_cost}; Basic attack {mad}, mastery {mastery_pct}%, up to {count|monster|monsters}, freeze for {time} sec."},
-			"icon": "Skill.wz/220.img/skill/2201004/icon", "damage": "magic",
-			"_survivor": "Tier C: nearest-target auto-cast, 1.25 s cooldown, 300 px range, one target, swingO1 stance held 0.8 s. Tier A: hit/effect only (no ball), elemAttr i, mad/mastery/mpCon and freeze time from the canonical level; no prop field, so every damaging hit attempts freeze through on_hit.",
-			"cooldown": 1.25, "range": 300, "count": 1,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-			"on_hit": {"status": "freeze", "duration_field": "time"},
-			"action": "swingO1", "action_time": 0.8, "ball": "",
-			"hit": "Skill.wz/220.img/skill/2201004/hit/0",
-			"effect": "Skill.wz/220.img/skill/2201004/effect", "rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/2201004/Use", "hit": ""}
-		},
-		"thunder_bolt": {
-			"skill_id": 2201005, "book": "220", "job": 220, "kind": "instant", "slot": "active",
-			"name": "Thunder Bolt", "desc": "Strikes nearby monsters with lightning.",
-			"text": {"desc": "Attacks surrounding monsters with a thunder bolt.", "h": "MP -{mp_cost}; Basic attack {mad}, mastery {mastery_pct}%, up to {mob_count|monster|monsters}"},
-			"icon": "Skill.wz/220.img/skill/2201005/icon", "damage": "magic",
-			"_survivor": "Tier C: auto-cast with at least one monster in the canonical box, 1.5 s cooldown, swingO1 stance held 0.8 s. Tier A: lt/rb/mobCount, mad/mastery/mpCon and elemAttr l from Skill.wz; hit/effect only (no ball).",
-			"cast": {"rule": "box"}, "cooldown": 1.5,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-			"action": "swingO1", "action_time": 0.8, "ball": "",
-			"hit": "Skill.wz/220.img/skill/2201005/hit/0",
-			"effect": "Skill.wz/220.img/skill/2201005/effect", "rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/2201005/Use", "hit": ""}
-		},
 		"fire_arrow": {
+			"_rarity": "Tier C: first-pass bonuses from legacy behaviour cards; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "damage", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "pierce", "text": "Pierce", "effects": [{"stat": "pierce", "op": "add", "value": 1}]}],
+				"unique": [{"id": "count", "text": "Extra projectile", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "count", "text": "Extra projectile and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2101004, "book": "210", "job": 210, "kind": "projectile", "slot": "active",
 			"name": "Fire Arrow", "desc": "Fire/Poison Wizard. Shoots a flaming arrow at the nearest monster.",
-			"text": {"desc": "Attacks the nearest monster with a fire arrow using the magic power. Ice-based monsters take 1.5 times the damage, fire-based monsters half.", "h": "MP -{mp_cost}; Basic attack {mad}, mastery {mastery_pct}%, {count|arrow|arrows} per cast"},
+			"text": {"desc": "Attacks the nearest monster with a fire arrow using the magic power. Ice-based monsters take 1.5 times the damage, fire-based monsters half.", "h": "Basic attack {mad}, mastery {mastery_pct}%, {count|arrow|arrows} per cast"},
 			"icon": "Skill.wz/210.img/skill/2101004/icon",
 			"damage": "magic",
-			"_tier": "Tier A: canonical mad/mastery/mpCon, elemAttr f and 30 levels. Tier C: nearest auto-cast, cooldown 1 s, range 480 px, speed 520 px/s, count 1, pierce 0, radius 12 px, action time 0.8 s, projectile rotation.",
-			"cooldown": 1.0, "range": 480, "speed": 520, "count": 1, "pierce": 0, "radius": 12,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+			"_tier": "Tier A: canonical mad/mastery/mpCon, elemAttr f and 30 levels. Tier C: nearest auto-cast, #293 cooldown 0.4 s, range 480 px, speed 520 px/s, count 1, pierce 0, radius 12 px, action time 0.8 s, projectile rotation.",
+			"cooldown": 0.4, "range": 480, "speed": 520, "count": 1, "pierce": 0, "radius": 12,
+			"ranks": [4, 8, 12, 15, 19, 23, 27, 30],
 			"action": "shoot1", "action_time": 0.8,
 			"ball": "Skill.wz/210.img/skill/2101004/ball",
 			"hit": "Skill.wz/210.img/skill/2101004/hit/0",
@@ -187,13 +87,20 @@
 			"sounds": {"use": "Sound.wz/Skill.img/2101004/Use", "hit": ""}
 		},
 		"poison_breath": {
+			"_rarity": "Tier C: first-pass bonuses from legacy behaviour cards; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "damage", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "cooldown", "text": "Cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "count", "text": "Extra projectile", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "count", "text": "Extra projectile and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2101005, "book": "210", "job": 210, "kind": "projectile", "slot": "active",
 			"name": "Poison Breath", "desc": "Fires a poisonous orb at the nearest monster, with a chance to poison on hit.",
 			"text": {"desc": "Attacks the nearest monster by splashing a Poison drop. With a given success rate, the monster gets temporarily poisoned."},
 			"icon": "Skill.wz/210.img/skill/2101005/icon", "damage": "magic",
-			"_tier": "Tier A: canonical mad/mastery/mpCon, elemAttr s, prop/time and 30 levels; swingO3 action and cached visuals/sounds. Tier C: nearest auto-cast, cooldown 1.25 s, range 450 px, speed 400 px/s, count 1, pierce 0, radius 14 px, action time 0.8 s, no projectile rotation; existing status-system poison rules apply.",
-			"cooldown": 1.25, "range": 450, "speed": 400, "count": 1, "pierce": 0, "radius": 14,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+			"_tier": "Tier A: canonical mad/mastery/mpCon, elemAttr s, prop/time and 30 levels; swingO3 action and cached visuals/sounds. Tier C: nearest auto-cast, #293 cooldown 0.5 s, range 450 px, speed 400 px/s, count 1, pierce 0, radius 14 px, action time 0.8 s, no projectile rotation; existing status-system poison rules apply.",
+			"cooldown": 0.5, "range": 450, "speed": 400, "count": 1, "pierce": 0, "radius": 14,
+			"ranks": [4, 8, 12, 15, 19, 23, 27, 30],
 			"on_hit": {"status": "poison", "chance_field": "prop", "duration_field": "time"},
 			"action": "swingO3", "action_time": 0.8,
 			"ball": "Skill.wz/210.img/skill/2101005/ball",
@@ -209,7 +116,7 @@
 			"slot": "passive",
 			"name": "Meditation",
 			"desc": "Temporarily increases your magic attack.",
-			"text": {"desc": "Meditate for a bit to temporarily boost up your magic attack.", "h": "MP -{mp_cost}; magic attack +{mad} for {duration} sec."},
+			"text": {"desc": "Meditate for a bit to temporarily boost up your magic attack.", "h": "Magic attack +{mad} for {duration} sec."},
 			"icon": "Skill.wz/210.img/skill/2101001/icon",
 			"damage": "none",
 			"ranks": [
@@ -263,7 +170,7 @@
 			"slot": "passive",
 			"name": "Meditation",
 			"desc": "Temporarily increases your magic attack.",
-			"text": {"desc": "Meditate for a bit to temporarily boost up your magic attack.", "h": "MP -{mp_cost}; magic attack +{mad} for {duration} sec."},
+			"text": {"desc": "Meditate for a bit to temporarily boost up your magic attack.", "h": "Magic attack +{mad} for {duration} sec."},
 			"icon": "Skill.wz/220.img/skill/2201001/icon",
 			"damage": "none",
 			"ranks": [
@@ -527,7 +434,7 @@
 			}
 		},
 		"teleport_fp": {
-			"skill_id": 2101002, "book": "210", "job": 210, "kind": "instant", "slot": "active",
+			"skill_id": 2101002, "book": "210", "job": 210, "kind": "instant", "slot": "mobility",
 			"name": "Teleport", "desc": "Press X and a direction to blink to a platform. Hold X to repeat.",
 			"text": {"desc": "Press the Teleport key with an arrow key to teleport a set distance to another platform in the same map. Hold the key to keep teleporting."},
 			"icon": "Skill.wz/210.img/skill/2101002/icon", "damage": "none",
@@ -538,29 +445,373 @@
 			"effect": "Effect.wz/BasicEff.img/Teleport", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2101002/Use", "hit": ""}
 		},
-		"teleport_il": {
-			"skill_id": 2201002, "book": "220", "job": 220, "kind": "instant", "slot": "active",
-			"name": "Teleport", "desc": "Press X and a direction to blink to a platform. Hold X to repeat.",
-			"text": {"desc": "Press the Teleport key with an arrow key to teleport a set distance to another platform in the same map. Hold the key to keep teleporting."},
-			"icon": "Skill.wz/220.img/skill/2201002/icon", "damage": "none",
-			"cast": {"rule": "manual"}, "skill_key": "teleport", "teleport": {"repeat_delay": 0.3, "bot_threat_distance": 60.0},
-			"_teleport": "Tier C: 0.3 s survivor repeat delay; bot blinks from threats within 60 px. Canonical mpCon and range from Skill.wz.",
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "", "action_time": 0.0, "ball": "", "hit": "",
-			"effect": "Effect.wz/BasicEff.img/Teleport", "rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/2201002/Use", "hit": ""}
+		"explosion": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2111002,
+			"book": "211",
+			"job": 211,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Explosion",
+			"desc": "Explodes fire around you, striking nearby monsters.",
+			"text": {"desc": "Explodes fire around you, striking nearby monsters."},
+			"icon": "Skill.wz/211.img/skill/2111002/icon",
+			"damage": "magic",
+			"element": "f",
+			"cooldown": 1.6,
+			"range": 450,
+			"count": 1,
+			"action": "magic3",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/211.img/skill/2111002/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "box"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2111002/Use"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31."
 		},
-		"teleport_cleric": {
-			"skill_id": 2301001, "book": "230", "job": 230, "kind": "instant", "slot": "active",
-			"name": "Teleport", "desc": "Press X and a direction to blink to a platform. Hold X to repeat.",
-			"text": {"desc": "Press the Teleport key with an arrow key to teleport a set distance to another platform in the same map. Hold the key to keep teleporting."},
-			"icon": "Skill.wz/230.img/skill/2301001/icon", "damage": "none",
-			"cast": {"rule": "manual"}, "skill_key": "teleport", "teleport": {"repeat_delay": 0.3, "bot_threat_distance": 60.0},
-			"_teleport": "Tier C: 0.3 s survivor repeat delay; bot blinks from threats within 60 px. Canonical mpCon and range from Skill.wz.",
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "", "action_time": 0.0, "ball": "", "hit": "",
-			"effect": "Effect.wz/BasicEff.img/Teleport", "rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/2301001/Use", "hit": ""}
+		"poison_mist": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "linger", "text": "Cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}]}],
+				"legendary": [{"id": "linger", "text": "Cooldown and damage", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2111003,
+			"book": "211",
+			"job": 211,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Poison Mist",
+			"desc": "Leaves poison mist on the ground. Monsters entering it can be poisoned; bosses resist the poison.",
+			"text": {"desc": "Leaves poison mist on the ground. Monsters entering it can be poisoned; bosses resist the poison."},
+			"icon": "Skill.wz/211.img/skill/2111003/icon",
+			"damage": "none",
+			"element": "s",
+			"cooldown": 3.2,
+			"range": 450,
+			"count": 1,
+			"action": "alert3",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/211.img/skill/2111003/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "box"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2111003/Use"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"ground": {"status": "poison", "element": "s", "chance_field": "prop",
+				"interval": 1.0,
+				"tile": "Skill.wz/211.img/skill/2111003/tile/0"
+			}
+		},
+		"element_composition": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "pierce", "text": "Pierce", "effects": [{"stat": "pierce", "op": "add", "value": 1}]}],
+				"unique": [{"id": "twin", "text": "Extra projectile", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "twin", "text": "Extra projectile and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2111006,
+			"book": "211",
+			"job": 211,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Element Composition",
+			"desc": "Fires a combined fire and poison projectile that can poison its target.",
+			"text": {"desc": "Fires a combined fire and poison projectile that can poison its target."},
+			"icon": "Skill.wz/211.img/skill/2111006/icon",
+			"damage": "magic",
+			"element": "fs",
+			"cooldown": 0.8,
+			"range": 450,
+			"count": 1,
+			"action": "shoot6",
+			"action_time": 0.8,
+			"ball": "Skill.wz/211.img/skill/2111006/ball",
+			"hit": "Skill.wz/211.img/skill/2111006/hit/0",
+			"effect": "Skill.wz/211.img/skill/2111006/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "nearest"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2111006/Use"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"speed": 500,
+			"radius": 10,
+			"on_hit": {
+				"status": "poison",
+				"chance_field": "prop",
+				"element": "s"
+			}
+		},
+		"fire_demon": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "crowd", "text": "Extra target", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "crowd", "text": "Extra target and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2121003,
+			"book": "212",
+			"job": 212,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Fire Demon",
+			"desc": "Strikes monsters with fire and temporarily makes them weak against ice. Bosses resist the weakness.",
+			"text": {"desc": "Strikes monsters with fire and temporarily makes them weak against ice. Bosses resist the weakness."},
+			"icon": "Skill.wz/212.img/skill/2121003/icon",
+			"damage": "magic",
+			"element": "f",
+			"cooldown": 2.0,
+			"range": 450,
+			"count": 1,
+			"action": "magic3",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/212.img/skill/2121003/hit/0",
+			"effect": "Skill.wz/212.img/skill/2121003/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "box"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2121003/Use",
+				"hit": "Sound.wz/Skill.img/2121003/Hit"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"on_hit": {
+				"status": "ice_weak",
+				"element": ""
+			}
+		},
+		"paralyze": {
+			"capture_delay": 0.3,
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "haste", "text": "Cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2121006,
+			"book": "212",
+			"job": 212,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Paralyze",
+			"desc": "Strikes a monster with poison magic and temporarily stops it. Bosses cannot be stopped.",
+			"text": {"desc": "Strikes a monster with poison magic and temporarily stops it. Bosses cannot be stopped."},
+			"icon": "Skill.wz/212.img/skill/2121006/icon",
+			"damage": "magic",
+			"element": "s",
+			"cooldown": 1.2,
+			"range": 450,
+			"count": 1,
+			"action": "paralyze",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/212.img/skill/2121006/hit/0",
+			"effect": "Skill.wz/212.img/skill/2121006/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "nearest"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2121006/Use",
+				"hit": "Sound.wz/Skill.img/2121006/Hit"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop"
+			}
+		},
+		"meteor_shower": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2121007,
+			"book": "212",
+			"job": 212,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Meteor Shower",
+			"desc": "Calls falling meteors over a wide area. Damage lands after a short delay.",
+			"text": {"desc": "Calls falling meteors over a wide area. Damage lands after a short delay."},
+			"icon": "Skill.wz/212.img/skill/2121007/icon",
+			"damage": "magic",
+			"element": "f",
+			"cooldown": 4.8,
+			"range": 450,
+			"count": 1,
+			"action": "meteor",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/212.img/skill/2121007/hit/0",
+			"effect": "Skill.wz/212.img/skill/2121007/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "box"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2121007/Use",
+				"hit": "Sound.wz/Skill.img/2121007/Hit"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"pending": {
+				"delay": 1.8,
+				"effect": ""
+			},
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/212.img/skill/2121007/tile/0",
+					"x": -360
+				},
+				{
+					"path": "Skill.wz/212.img/skill/2121007/tile/1",
+					"x": -180
+				},
+				{
+					"path": "Skill.wz/212.img/skill/2121007/tile/2",
+					"x": 0
+				},
+				{
+					"path": "Skill.wz/212.img/skill/2121007/tile/3",
+					"x": 180
+				},
+				{
+					"path": "Skill.wz/212.img/skill/2121007/tile/4",
+					"x": 360
+				},
+				{
+					"path": "Skill.wz/212.img/skill/2121007/effect0",
+					"x": 0
+				}
+			]
+		},
+		"big_bang": {
+			"capture_delay": 1.38,
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2121001,
+			"book": "212",
+			"job": 212,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Big Bang",
+			"release_visuals": ["Skill.wz/212.img/skill/2121001/special/0"],
+			"desc": "Automatically charges fully, then releases a blast around you.",
+			"text": {"desc": "Automatically charges fully, then releases a blast around you."},
+			"icon": "Skill.wz/212.img/skill/2121001/icon",
+			"damage": "magic",
+			"element": "",
+			"cooldown": 2.8,
+			"range": 450,
+			"count": 1,
+			"action": "dash",
+			"action_time": 1.08,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/212.img/skill/2121001/keydown",
+			"rotate": false,
+			"cast": {
+				"rule": "box",
+				"box": {
+					"lt": {
+						"$v": [
+							-250,
+							-180
+						]
+					},
+					"rb": {
+						"$v": [
+							250,
+							100
+						]
+					}
+				}
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2121001/Use",
+				"loop": "Sound.wz/Skill.img/2121001/Loop"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"pending": {
+				"delay": 1.08,
+				"effect": "Skill.wz/212.img/skill/2121001/effect",
+				"follow_player": true
+			}
+		},
+		"elquines": {
+			"_rarity": "Tier C: first-pass #291 bonuses (damage, area, one extra ally); repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "reach", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "twin", "text": "Extra ally", "effects": [{"stat": "summon_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "twin", "text": "Extra ally and damage", "effects": [{"stat": "summon_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2121005,
+			"book": "212",
+			"job": 212,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Elquines",
+			"desc": "Calls an ice ally that follows you and attacks nearby monsters.",
+			"icon": "Skill.wz/212.img/skill/2121005/icon",
+			"damage": "magic",
+			"element": "i",
+			"cooldown": 12.0,
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/212.img/skill/2121005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"cast": {
+				"rule": "summon"
+			},
+			"summon": {"ordinal_spread": 36.0,
+				"path": "Skill.wz/212.img/skill/2121005/summon",
+				"attack": "attack1",
+				"follow_speed": 180.0,
+				"follow_distance": 60.0,
+				"teleport_distance": 600.0,
+				"attack_interval": 2.4
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2121005/Use"
+			},
+			"_provenance": "Tier A: ice, WZ time/mad/mastery and summon attack info/art. Tier C: 30 s recast, follow settings, 2.4 s attack cycle; GAME_DESIGN 7.32."
 		}
 	}
 }

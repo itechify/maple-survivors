@@ -13,12 +13,11 @@ const BODY_MOB := 1110100
 const FLYER := 9300063
 
 
-## A quiet world: 1000 HP, 100 MP, no regeneration, mobs stand still unless a test gives them speed, basic attacks on.
+## A quiet world: 1000 HP, 100 MP, no regeneration, mobs stand still unless a test gives them speed, no skills.
 func _world(p_seed := 194) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.balance.player.mp = 100
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.regen.hp = 0
 	data.balance.regen.mp = 0
 	data.balance.magnet_radius = 0
@@ -261,12 +260,11 @@ func test_a_boss_skill_aimed_at_the_character_is_not_cast() -> void:
 
 # --- the character cannot attack, but everything else works ---------------------------------------------------------
 
-func test_the_basic_attack_and_auto_casts_pause_and_resume_when_hidden_ends() -> void:
+func test_auto_casts_pause_and_resume_when_hidden_ends() -> void:
 	var control := _world()
 	_stand_mob(control, SNAIL, 450.0)
 	assert_true(control.learn_skill("three_snails"))
-	var swung := _types(_run(control, 120), "basic_attack").filter(func(e: Dictionary) -> bool: return e.phase == "start")
-	assert_false(swung.is_empty(), "control: the character swings")
+	assert_false(_types(_run(control, 120), "cast").is_empty(), "control: the character casts")
 	var w := _world()
 	var m := _stand_mob(w, SNAIL, 450.0)
 	w.swarm.hp[m] = 100000
@@ -274,36 +272,16 @@ func test_the_basic_attack_and_auto_casts_pause_and_resume_when_hidden_ends() ->
 	assert_true(w.learn_skill("three_snails"))
 	_hide(w, 3.0)
 	var events := _run(w, 170)
-	assert_true(_types(events, "basic_attack").is_empty(), "no swing starts")
 	assert_true(_types(events, "cast").is_empty(), "no skill casts")
 	assert_true(_types(events, "mob_hit").is_empty(), "nothing is hit")
 	events = _run(w, 60)
 	assert_false(_types(events, "cast").is_empty(), "the skill is ready again once Hidden ends")
 
 
-func test_a_swing_in_its_windup_when_hidden_begins_never_lands() -> void:
-	var w := _world()
-	var m := _stand_mob(w, SNAIL, 450.0)
-	w.swarm.hp[m] = 100000
-	w.swarm.max_hp[m] = 100000
-	var begun := false
-	for tick in 120:
-		w.step(DT, MoveInput.new())
-		for e: Dictionary in w.drain_events():
-			if e.type == "basic_attack" and e.phase == "start":
-				begun = true
-		if begun:
-			break
-	assert_true(begun)
-	_hide(w, 3.0)
-	assert_true(_types(_run(w, 120), "mob_hit").is_empty())
-
-
 func test_heal_still_heals_but_never_strikes_undead_while_hidden() -> void:
 	var make := func() -> RunWorld:
 		var data := RF.quiet_data()
 		data.balance.player.hp = 1000
-		data.balance.player.mp = 1000
 		data.balance.regen.hp = 0
 		var setup := RF.setup("quiet", 57, data)
 		setup.skill_imgs["230"] = {"skill": {"2301002": {"level": {
@@ -311,8 +289,8 @@ func test_heal_still_heals_but_never_strikes_undead_while_hidden() -> void:
 				"lt": {"$v": [-250.0, -150.0]}, "rb": {"$v": [250.0, 150.0]}}}}}}
 		var cleric := RunWorld.new(setup)
 		RF.place_player(cleric, 400)
-		cleric.change_job(200)
-		cleric.change_job(230)
+		RF.as_job(cleric, 200)
+		RF.as_job(cleric, 230)
 		cleric.loadout.order.clear()
 		cleric.learn_skill("heal")
 		cleric.loadout.set_caster(100.0, 23.0, 30)

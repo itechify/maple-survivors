@@ -1,0 +1,130 @@
+{
+	"_doc": "Night Lord line (spec #383, ticket NL2 #401). The third class line after Bowmaster and Buccaneer to reuse the line convention: its job entry, its meso charge meter, its AP row, its bot card scores and its status-bonus catalogue. Skill definitions are in skills/night_lord.json. An undefined skill key is never offered or learned. The meter block is read by PlayerMeter's meso_picked rule (NL4 #403). 412 is selectable (`playable`, NL12 #411) and has a hub_kit (NL11 #410); JobTree.default_job() stays 212 (survivor/jobs.json default_job).",
+	"jobs": {
+		"412": {
+			"starting_skill": "lucky_seven",
+			"_starting_skill": "tier C: spec #383: Lucky Seven (4001344, book 400) is the starting active (slot 1) and the first skill a round learns; it is defined in skills/night_lord.json (moved from thief.json by NL7 #406).",
+			"mobility_skill": "flash_jump",
+			"_mobility_skill": "tier C: spec #383 D1: Flash Jump (4111006) is the mobility skill on the skill key, outside both slot tracks and never a card; it follows balance.mobility_rank_levels like Teleport and Rush. Defined by NL6 #405.",
+			"skill_pool": [
+				"lucky_seven",
+				"drain",
+				"avenger",
+				"triple_throw",
+				"ninja_storm",
+				"ninja_ambush",
+				"shadow_partner",
+				"shadow_meso"
+			],
+			"_skill_pool": "tier C: spec #383: the eight hand-picked Night Lord actives from the 400/410/411/412 books (Flash Jump is the mobility skill, not a pool entry). All eight are defined in skills/night_lord.json.",
+			"weapon_families": [
+				"claw"
+			],
+			"_weapon_families": "tier C: spec #383: claws only (WeaponInfo family claw, 147xxxx); daggers (133xxxx) belong to Shadower. Armour drops by the Thief class bit.",
+			"creation_weapon": 1472000,
+			"_creation_weapon": "tier A item fact: the Garnier 1472000 (reqJob 8, the Thief bit, PAD 10, reqLevel 10 which is not enforced, #292); the choice is tier C, spec #383.",
+			"meter": {
+				"id": "meso_charge",
+				"max": 10,
+				"gain": {
+					"event": "meso_picked",
+					"amount": 1,
+					"per_mesos": 1000
+				},
+				"decay": {
+					"interval": 6.0,
+					"amount": 1
+				},
+				"per_unit": {
+					"stat": "damage",
+					"value": 0.03
+				},
+				"art": "Item.wz/Special/0900.img/09000002/iconRaw"
+			},
+			"_meter": "tier C: spec #383 M23: the meso charge, a counter filled by meso pickups and never a currency. 1 pip per 1000 mesos picked up, one pip decays every 6 s, +3% damage per held pip on every pool cast; NL4 #403 reads gain.per_mesos and decay, NL9 #408 adds the Shadow Meso read. Tier A fact: the art is the meso coin's animation frame, already imported for pickups. Read by PlayerMeter (NL4 #403).",
+			"playable": true,
+			"_provenance": "tier C: spec #383 NL12 #411: Night Lord is playable alongside the other jobs; 212 remains the default.",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/night_lord_t2.json",
+				"scrolls": [
+					2044702,
+					2044701,
+					2044700,
+					2044704,
+					2044705
+				],
+				"equipment": [
+					1002001,
+					1472001,
+					1082002,
+					1040031
+				],
+				"fallback_item": 1472014
+			},
+			"_hub_kit": "tier C: spec #383 NL11 #410: the --hub / flow-driver test kit of a Night Lord. Fixture = night_lord_t2.json (the tier-1 claw kit); scrolls = the five claw ATT scrolls of scrolls/thief.json (10%, 60%, 100%, dark 70%, dark 30%; 5 stacks of 10 within the Use tab); spare equipment = the all-job hat 1002001, a second claw (1472001, Lv15), the all-job gloves 1082002 and a Thief-bit top (1040031, Lv10), all wearable by job 412; fallback_item = the Lv40 claw 1472014 the flow driver wears at Lv1 when a round dropped no equipment."
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"412": {
+					"primary": "luk",
+					"secondary": "dex",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 25
+						},
+						{
+							"level": 25,
+							"target": 25
+						},
+						{
+							"level": 200,
+							"target": 200
+						}
+					],
+					"_ap": "tier C: spec #383: the Thief (400) row copied verbatim (the Thief gear pattern, no new tuning); explicit so 412 no longer falls back through 410/400."
+				}
+			}
+		},
+		"bot": {
+			"card_scores": {
+				"lucky_seven_new": 100,
+				"lucky_seven_rank": 74,
+				"drain_new": 100,
+				"drain_rank": 74,
+				"avenger_new": 100,
+				"avenger_rank": 74,
+				"triple_throw_new": 100,
+				"triple_throw_rank": 74,
+				"ninja_storm_new": 100,
+				"ninja_storm_rank": 74,
+				"ninja_ambush_new": 100,
+				"ninja_ambush_rank": 74,
+				"shadow_partner_new": 100,
+				"shadow_partner_rank": 74,
+				"shadow_meso_new": 100,
+				"shadow_meso_rank": 74
+			},
+			"_card_scores": "tier C: spec #383: every pool skill is scored explicitly (learn 100, rank 74, the numbers BotInput's pool default gives every curated skill; NL11 #410 lists all eight as Hero's and Bowmaster's tests do). Shadow Partner needs its pair: BotInput._base_score alone only treats projectile / instant / box skills as attacks and the clone is a summon; the other seven entries are a guard, not a behaviour change."
+		},
+		"status_bonuses": {
+			"venomous_star": {
+				"kind": "poison",
+				"element": "s",
+				"chance": [14, 16, 18, 20, 24, 26, 28, 30],
+				"time": [2, 2, 3, 3, 3, 4, 4, 4],
+				"level": [4, 8, 12, 15, 19, 23, 27, 30],
+				"repeat_chance": 3
+			},
+			"stunning_avenger": {
+				"kind": "stun",
+				"chance": [20, 24, 28, 32, 36, 40, 45, 50],
+				"time": 1.5,
+				"repeat_chance": 4
+			}
+		},
+		"_status_bonuses": "spec #383 M22: the rarity status-bonus catalogue (NL3 #402 parses and validates it, NL2 only stores it). Tier A: venomous_star's chance, time and level are Venomous Star's (4120005) prop, time and rank -> poison level map (mad is unused). Tier C: everything about stunning_avenger (chance, 1.5 s) and both repeat_chance values (points added per repeat of the same grant, scaled by the x0.8 repeat factor)."
+	}
+}

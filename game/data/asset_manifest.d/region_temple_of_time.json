@@ -1,0 +1,7 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Temple of Time region (spec #449 C11, ticket #473, progression step 16). maps: the bosses' own lane maps Memory Lane5 270010500, Road of Regrets5 270020500 and Road to Oblivion5 270030500 (each map entry also imports its life mobs, backs, tiles, objs, BGM and map mark; the timed bosses and the off-level Eye of Time 8200000 of the first two lanes are in the life lists and are imported as life, but no pool uses them). mobs: the lanes' ordinary Chief Memory Guardian 8200004, Chief Qualm Guardian 8200008 and Chief Oblivion Guardian 8200012, and the three bosses Dodo 8220004, Lilynouch 8220005 and Lyka 8220006 (none of the three casts MobSkill 200, so no summon mob is needed). items: the Etc drops their mobs.json entries use as the EXP pickup. No Mob skill-effect art beyond the mobs' own imgs and the whole MobSkill.img is imported.",
+	"maps": [270010500, 270020500, 270030500],
+	"mobs": [8200004, 8200008, 8200012, 8220004, 8220005, 8220006],
+	"items": [4000448, 4000453, 4000458, 4000460, 4000461, 4000462]
+}

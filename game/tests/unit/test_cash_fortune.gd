@@ -90,7 +90,7 @@ func test_card_fortune_stacks_with_cash_fortune() -> void:
 	w.loadout.add_player_mod("fortune", "add", 7.0)
 	w.refresh_player_stats()
 	assert_eq(w.player_state.fortune, 17.0)
-	assert_eq(w.character_snapshot().fortune, 7.0, "the snapshot's resolved Fortune leaves the cash part out")
+	assert_false(w.character_snapshot().has("fortune"), "Fortune is part of the round, not of the saved character (#286)")
 
 
 func test_an_unowned_worn_item_gives_no_fortune_and_raises_a_world_warning() -> void:
@@ -115,9 +115,9 @@ func test_a_pet_out_is_the_owned_species_and_alert_levels_reach_the_world() -> v
 	setup.alert = {"hp": 0.5, "mp": 0.25}
 	var w := RunWorld.new(setup)
 	assert_eq(w.pet, 5000001)
-	assert_eq(w.alert, {"hp": 0.5, "mp": 0.25})
+	assert_eq(w.alert, {"hp": 0.5}, "an old MP ALERT is dropped (no MP, #285)")
 	assert_eq(w.warnings.size(), 0)
-	assert_eq(RunWorld.new(RF.setup("quiet", 1, data)).alert, {"hp": 0.0, "mp": 0.0}, "absent = do not alert")
+	assert_eq(RunWorld.new(RF.setup("quiet", 1, data)).alert, {"hp": 0.0}, "absent = do not alert")
 
 
 func test_three_rounds_with_every_slot_filled_do_not_compound_base_fortune() -> void:
@@ -126,7 +126,7 @@ func test_three_rounds_with_every_slot_filled_do_not_compound_base_fortune() -> 
 	data.balance.run_time_cap = 2.0
 	var owned: Array = EVERY_SLOT.values()
 	var character := _with_cash(data, EVERY_SLOT)
-	var base := float(character.base_fortune)
+	var base := float(RunWorld.new(_setup(data, character, owned)).player_state.fortune) - 100.0
 	for round_index in 3:
 		var w := RunWorld.new(_setup(data, character, owned, 100 + round_index))
 		assert_eq(w.player_state.fortune, base + 100.0, "round %d plays at base + 100" % round_index)
@@ -135,8 +135,7 @@ func test_three_rounds_with_every_slot_filled_do_not_compound_base_fortune() -> 
 			w.step(DT, MoveInput.new())
 		assert_eq(w.state, RunWorld.CLEARED)
 		character = w.character_snapshot()
-		assert_eq(character.base_fortune, base, "round %d snapshot keeps the same base Fortune" % round_index)
-		assert_eq(character.fortune, base, "and a resolved Fortune without the cash part")
+		assert_false(character.has("base_fortune") or character.has("fortune"), "no Fortune is saved")
 		assert_eq(character.cash, EVERY_SLOT, "the worn items travel with the character")
 		var parsed: Dictionary = JSON.parse_string(JSON.stringify(character))
 		assert_eq(CharacterSnapshot.validation_error(parsed), "")
@@ -154,9 +153,8 @@ func _tier_counts(w: RunWorld, draws: int) -> Dictionary:
 
 func test_card_rarity_weights_follow_the_existing_formula_with_cash_fortune() -> void:
 	var data := _data()
-	data.upgrades.cards = [{"id": "roomy", "kind": "skill_mod", "skill": "three_snails", "max_rank": 100,
+	data.upgrades.cards = [{"id": "roomy", "kind": "skill_rank", "skill": "energy_bolt", "max_rank": 100,
 		"effects": [{"stat": "count", "op": "add", "value": 1}]}]
-	data.upgrades.pity.draws = 0
 	var character := _with_cash(data, EVERY_SLOT)
 	var plain := RunWorld.new(_setup(data))
 	var cash := RunWorld.new(_setup(data, character, EVERY_SLOT.values()))
@@ -171,7 +169,9 @@ func test_card_rarity_weights_follow_the_existing_formula_with_cash_fortune() ->
 		assert_between(frequency, bands[tier][0], bands[tier][1], "%s at cash Fortune 100: %.4f" % [tier, frequency])
 	assert_true(int(lucky.normal) < int(base.normal) - 3500, "cash Fortune measurably raises non-Normal offers")
 	# The same seeded draws as a character whose own Fortune is 100: cash Fortune IS Fortune.
+	var cash_data := _data()
+	cash_data.upgrades.cards = data.upgrades.cards
 	data.balance.player["fortune"] = 100.0
 	var own := RunWorld.new(_setup(data))
-	var fresh_cash := RunWorld.new(_setup(data, character, EVERY_SLOT.values()))
+	var fresh_cash := RunWorld.new(_setup(cash_data, character, EVERY_SLOT.values()))
 	assert_eq(_tier_counts(own, 2000), _tier_counts(fresh_cash, 2000), "identical offers for identical total Fortune")

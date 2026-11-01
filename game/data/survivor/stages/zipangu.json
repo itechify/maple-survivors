@@ -1,0 +1,93 @@
+{
+	"drop_band": [70, 80],
+	"_tier": "Tier A: map IDs, widths, original_life and the three bosses from v83 Map.wz / Mob.wz. Tier C: region, map order and pool rules (spec #449 C7, ticket #469, progression step 12), the 900 s duration and every pacing value, which copy Sleepywood's keyframe numbers (rate, max_alive, hp, speed), bursts, elites, exp_mult and hard_cap exactly (Sleepywood carries no post_duration_slope). Only the pools differ, and there is no opening_ramp: level_scale takes its place. Keyframes from 300 s carry no pool because map 1 picks only keyframes with t < 300 (maps 2 and 3 use their own life lists).",
+	"name": "Zipangu",
+	"region": "Zipangu",
+	"continent": "Zipangu",
+	"duration": 900,
+	"hard_cap": 400,
+	"_bosses": "Tier C: owner schedule (Male Boss, Female Boss, Black Crow; spec #449); hp_mult, dmg_mult and attack_dmg_mult are the first draft of game/tools/level_scale_draft.gd (--step=12 --stage=zipangu), not tuned. 8 s per-attack cadence as every boss. Canonical attacks, timing, stats and elements stay in Mob.wz. All bosses and reward choices must finish to clear.",
+	"map_seconds": 300,
+	"_maps": "Tier C: owner map order and pool rules, spec #449.",
+	"maps": [
+		{
+			"map_id": 800020110,
+			"pool": "curve",
+			"boss": {
+				"time": 300,
+				"mob_id": 9400120,
+				"hp_mult": 324.78,
+				"dmg_mult": 0.658,
+				"attacks": [
+					"attack1",
+					"attack2"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 0.79,
+				"_tier": "tier C (#469): first draft of level_scale_draft.gd --step=12 --stage=zipangu, not tuned: arrives at curve time 300 (E_sw 10.80, level 31.80); attack1 and attack2 (both type 0, physical, no PADamage of their own, so the mob's PADamage 750) are matched on PAD; 8 s cadence. Its kit is Summon 200 only (19 levels, 8-26, each at an HP threshold from 95% down to 5%): Extra A/B/C and Leader A/B, canonical in Skill.wz and already in map 2's pool. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
+			}
+		},
+		{
+			"map_id": 801030000,
+			"pool_from_life": true,
+			"exclude": [9400120],
+			"boss": {
+				"time": 300,
+				"mob_id": 9400121,
+				"hp_mult": 0.225,
+				"dmg_mult": 0.424,
+				"attacks": [
+					"attack1",
+					"attack2"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 0.367,
+				"_tier": "tier C (#469): first draft of level_scale_draft.gd --step=12 --stage=zipangu, not tuned: arrives at curve time 600 (E_sw 36.44, level 57.44); attack1 (type 0, physical, PADamage 1500) is the strongest and is matched on PAD (attack2 is magic, the mob's MADamage 830); 8 s cadence. It has no mob skills. v83 gives it 75,000,000 HP, so the matched hp_mult is tiny. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
+			}
+		},
+		{
+			"map_id": 800020130,
+			"pool_from_life": true,
+			"exclude": [9400014],
+			"boss": {
+				"time": 300,
+				"mob_id": 9400014,
+				"hp_mult": 0.451,
+				"dmg_mult": 0.909,
+				"attacks": [
+					"attack1",
+					"attack2"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 1.222,
+				"_tier": "tier C (#469): first draft of level_scale_draft.gd --step=12 --stage=zipangu, not tuned: arrives at curve time 900 (E_sw 56.85, level 77.85); attack1 and attack2 (both type 0, physical, no PADamage of their own, so the mob's PADamage 1000) are matched on PAD; 8 s cadence. It has no mob skills. v83 gives it 35,000,000 HP, so the matched hp_mult is tiny. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
+			}
+		}
+	],
+	"exp_mult": 1.0,
+	"_level_scale": "Tier C (#469, #449 first draft): pasted from level_scale_draft.gd --step=12 --stage=zipangu, not tuned. exp_level(t) is Sleepywood's effective level E_sw at each keyframe time, and level(t) = E_sw(t) + 3 x (12 - 5), so every region levels the character at Sleepywood's pace and this step is twenty-one effective levels harder. Without it the stage would run its canonical monsters at full strength from 0:00 for a Lv1 character. C13 (#475, tier C, calibrated on training seeds 1-4): level(t) = lerp(1, E_sw(t) + 5.25, min(1, t/600)): the stage starts at effective level 1 and reaches this step's level at 10:00, because a Lv1 character cannot take Lv15-and-up damage from the first second; 5.25 levels above Sleepywood here (0.75 per step to step 12, 0.25 per step after it: the first draft's +3 per step out-ran what a band's equipment adds).",
+	"level_scale": {"keyframes": [
+		{"t": 0, "level": 1.0, "exp_level": 9.15},
+		{"t": 120, "level": 3.8, "exp_level": 9.73},
+		{"t": 300, "level": 8.53, "exp_level": 10.8},
+		{"t": 480, "level": 22.18, "exp_level": 22.22},
+		{"t": 600, "level": 41.69, "exp_level": 36.44},
+		{"t": 780, "level": 53.48, "exp_level": 48.23},
+		{"t": 900, "level": 62.1, "exp_level": 56.85}]},
+	"_pools": "Tier C weights (#469), map 1 only: Paper Lantern Ghost 9400011 (Lv40, 12 spawn points) and Big Cloud Fox 9400004 (Lv45, 7) are the field's whole roster. The opening keeps the spawn-point ratio (12:7); from 120 s the heavier fox evens out to 1:1.",
+	"keyframes": [
+		{"t": 0, "rate": 3.0, "max_alive": 50, "hp": 1.0, "speed": 1.0,
+			"pool": {"9400011": 12, "9400004": 7}},
+		{"t": 120, "rate": 4.5, "max_alive": 80, "hp": 1.0, "speed": 1.05,
+			"pool": {"9400011": 1, "9400004": 1}},
+		{"t": 300, "rate": 7.0, "max_alive": 130, "hp": 1.15, "speed": 1.1},
+		{"t": 480, "rate": 10.0, "max_alive": 180, "hp": 1.3, "speed": 1.15},
+		{"t": 600, "rate": 12.0, "max_alive": 220, "hp": 1.4, "speed": 1.2},
+		{"t": 780, "rate": 15.0, "max_alive": 280, "hp": 1.5, "speed": 1.25},
+		{"t": 900, "rate": 18.0, "max_alive": 330, "hp": 1.6, "speed": 1.3}
+	],
+	"bursts": {"first": 90, "every": 90, "count_min": 10, "count_max": 40},
+	"elites": {"first": 75, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
+	"note": "The Mushroom Shrine forest, Showa Street and the Buddha's clearing. Defeat the Male Boss, the Female Boss and the Black Crow.",
+	"original_life": {"9400011": 12, "9400004": 7}
+}

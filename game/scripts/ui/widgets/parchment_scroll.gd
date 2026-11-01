@@ -99,8 +99,18 @@ func _draw() -> void:
 	elif _anim != null and not _anim.is_empty():
 		f = _anim.frame_at(_t, false)
 	if f != null:
-		UiArt.blit(self, f, Vector2.ZERO)
+		_blit_frame(f)
 	elif _state == "open":
-		draw_rect(PARCHMENT.grow(8), Color8(255, 221, 170))
+		draw_rect(_paper_area().grow(8), Color8(255, 221, 170))
 	if _state == "open":
 		draw_content.emit(self)
+
+
+## Draws the selected animation frame; subclasses may extend only the paper treatment.
+func _blit_frame(frame: SpriteFrame) -> void:
+	UiArt.blit(self, frame, Vector2.ZERO)
+
+
+## Writable paper bounds used when the scroll art is unavailable.
+func _paper_area() -> Rect2:
+	return PARCHMENT

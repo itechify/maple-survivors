@@ -158,8 +158,6 @@ func test_wz_button_and_image_with_cache() -> void:
 	_nodes.append(img)
 	assert_eq(img.custom_minimum_size, LevelUpWindow.ART_SIZE, "the measured SkillUp size")
 	assert_eq(UiArt.text("String.wz/Npc.img/1032001/name"), "Grendel the Really Old")
-	assert_eq(UiArt.size_of("UI.wz/UIWindow.img/UtilDlgEx/t"), Vector2(JobAdvanceWindow.DLG_W, JobAdvanceWindow.TOP_H))
-	assert_eq(UiArt.size_of("UI.wz/UIWindow.img/UtilDlgEx/s").y, JobAdvanceWindow.BOTTOM_H)
 	assert_eq(UiArt.size_of("UI.wz/Basic.img/YesNo3/s"), Vector2(PauseMenu.BOX_W, PauseMenu.BOTTOM_H))
 	assert_eq(UiArt.size_of("UI.wz/Login.img/WorldSelect/scroll/0/3"), Vector2(513, 401))
 	for p: String in ["Skill.wz/200.img/skill/2000001/icon", "Character.wz/PetEquip/01812000.img/info/icon",

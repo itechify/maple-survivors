@@ -10,13 +10,11 @@ const BAR_H := 71
 const GAUGE_POS := Vector2(216, 37)
 ## Fill spans inside gauge/bar (x from, width) and the fill rows.
 const HP_FILL := Vector2(2, 105)
-const MP_FILL := Vector2(110, 105)
 const EXP_FILL := Vector2(223, 115)
 const FILL_Y := 15.0
 const FILL_H := 14.0
-## Number text positions inside the gauge (right of the HP/MP/EXP labels, label row).
+## Number text positions inside the gauge (right of the HP/EXP labels, label row).
 const HP_TEXT_X := 18.0
-const MP_TEXT_X := 129.0
 const EXP_TEXT_X := 246.0
 const TEXT_Y := 3.0
 ## Level digits, job and name text inside the bar.

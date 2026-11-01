@@ -87,6 +87,8 @@ var down_jump_platform := -1
 ## Platform whose walls stop the player (FootholdMap.wall_applies): the one stood on, kept while airborne or climbing;
 ## -1 (never stood on a floor since place()) = every wall.
 var wall_platform := -1
+## True once a Flash Jump (flash_to) was used in this airborne period; cleared by place(), landing and grabbing a ladder.
+var flash_spent := false
 
 var _on_rope := false
 var _input_dir := 0
@@ -108,6 +110,7 @@ func place(p: Vector2, fhm: FootholdMap) -> void:
 	ladder = -1
 	down_jump_platform = -1
 	wall_platform = -1
+	flash_spent = false
 	fh = -1
 	state = ST_AIR
 	if fhm == null:
@@ -150,6 +153,69 @@ func displace(side: int, distance: float, fhm: FootholdMap, bounds: Rect2) -> fl
 	return float(slid.moved)
 
 
+## Where a horizontal dash (Rush, docs/GAME_DESIGN.md 7.33) of up to `distance` px toward `side` (-1 / 1) would end, as
+## {x, y, fh, moved}, or {} when it cannot start or would not move (a climbing player, a blocked or degenerate dash).
+## Grounded it slides along the platform (displace's rules: slopes, platform edge, walls, map limits); airborne it keeps its
+## height and stops at the walls of the platform last stood on and the map limits. Changes nothing. tier C: ours (#302).
+func dash_destination(side: int, distance: float, fhm: FootholdMap, bounds: Rect2) -> Dictionary:
+	if ladder >= 0 or state == ST_LADDER or side == 0 or distance <= 0.0:
+		return {}
+	var lim := _x_limits(fhm, bounds)
+	if fh >= 0:
+		var slid := fhm.slide_along(fh, pos.x, side, distance, lim.x, lim.y)
+		if float(slid.moved) <= 0.0:
+			return {}
+		return {"x": float(slid.x), "y": float(slid.y), "fh": int(slid.fh), "moved": float(slid.moved)}
+	var target := clampf(pos.x + signf(side) * distance, lim.x, lim.y)
+	var wall := fhm.wall_hit(pos.x, pos.y, target, pos.y, walls_of(fhm))
+	if wall != FootholdMap.NONE:
+		target = fhm.x1[wall] - signf(side) * FootholdMap.EPS
+	var moved := absf(target - pos.x)
+	if moved <= 0.0 or (target - pos.x) * signf(side) <= 0.0:
+		return {}
+	return {"x": target, "y": pos.y, "fh": -1, "moved": moved}
+
+
+## Applies a dash_destination result: the position and foothold change, the horizontal speed stops, everything else
+## (facing, timers, a fall in progress) is kept.
+func dash_to(dest: Dictionary) -> void:
+	pos = Vector2(float(dest.x), float(dest.y))
+	fh = int(dest.fh)
+	vel.x = 0.0
+	if fh >= 0:
+		vel = Vector2.ZERO
+
+
+## Where a Flash Jump (docs/GAME_DESIGN.md 7.94.2) of `distance` px toward `side` (-1 / 1) would end, as {x, y, fh, moved},
+## or {} when it cannot start: standing on a floor, on a ladder or rope, already used in this airborne period
+## (flash_spent), or blocked at once. The height is kept and the walls and map limits stop it as they stop a dash
+## (dash_destination); a floor that rises to that height (or a ceiling that comes down to it) on the way stops it
+## just short of the surface (FootholdMap.surface_crossing_x), so the character never ends inside the ground.
+## Changes nothing. tier C: ours (#405).
+func flash_destination(side: int, distance: float, fhm: FootholdMap, bounds: Rect2) -> Dictionary:
+	if fh >= 0 or flash_spent:
+		return {}
+	var dest := dash_destination(side, distance, fhm, bounds)
+	if dest.is_empty():
+		return dest
+	var cross := fhm.surface_crossing_x(pos.x, pos.y, float(dest.x))
+	if is_nan(cross):
+		return dest
+	var x := cross - signf(side) * FootholdMap.EPS
+	if (x - pos.x) * signf(side) <= 0.0:
+		return {}
+	dest.x = x
+	dest.moved = absf(x - pos.x)
+	return dest
+
+
+## Applies a flash_destination result: the position changes and the airborne period's flash is spent. The fall in
+## progress (both velocity components) is kept, so the character keeps dropping from the new spot.
+func flash_to(dest: Dictionary) -> void:
+	pos = Vector2(float(dest.x), float(dest.y))
+	flash_spent = true
+
+
 ## Advances by dt seconds (normally 1/60) in `substeps` sub-steps. `ladders` may be null; `bounds` is the MapBounds
 ## rect (an empty Rect2 means only the foothold extent limits x). Returns EV_* flags of what happened.
 func step(dt: float, input: MoveInput, fhm: FootholdMap, ladders: LadderSet, bounds: Rect2) -> int:
@@ -159,6 +225,8 @@ func step(dt: float, input: MoveInput, fhm: FootholdMap, ladders: LadderSet, bou
 	var lim := _x_limits(fhm, bounds)
 	for s in n:
 		flags |= _substep(h, input, s == 0, fhm, ladders, lim)
+		if fh >= 0 or ladder >= 0:
+			flash_spent = false # a landing or a grab ends the airborne period here, not at the step's end
 		knock_t = maxf(0.0, knock_t - h)
 		ladder_cd = maxf(0.0, ladder_cd - h)
 	alert_t = maxf(0.0, alert_t - dt)

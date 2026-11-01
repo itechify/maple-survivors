@@ -47,7 +47,7 @@ func _round(species: int) -> void:
 	print("pet_driver: round ", species)
 	var run: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	run.configure("henesys", 60, {"use_flow": false, "autopick": true,
-		"account": {"owned": [species], "pet": species, "alert": {"hp": 0.0, "mp": 0.0}}})
+		"account": {"owned": [species], "pet": species, "alert": {"hp": 0.0}}})
 	add_child(run)
 	run.set_process(false)
 	var w := run.world
@@ -88,11 +88,12 @@ func _hub(species: int) -> void:
 	flow.save = SaveData.new(path)
 	flow.save.set_account({"nx": 0, "owned": [species]})
 	flow.create_character("Pet%d" % (species % 10))
-	var character: Dictionary = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var character: Dictionary = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	character["pet"] = species
 	flow.finish_run({"stage": "henesys", "cleared": true, "time": 960.0, "level": 35,
-		"job_id": 210, "job_name": "Wizard (Fire, Poison)", "kills": 3000, "damage_dealt": 100000, "seed": 1,
+		"job_id": 212, "job_name": "Arch Mage (Fire, Poison)", "kills": 3000, "damage_dealt": 100000, "seed": 1,
 		"bosses_killed": 3, "levels_gained": 12, "nx_awarded": 0}, character)
+	flow.goto_free_market() # a finished round shows the results first (#286); the hub is what is probed here
 	var hub := flow.current as FreeMarket
 	if hub == null or hub.motion == null or hub.pet_renderer == null:
 		_check(false, "hub %d: no pet in the Free Market" % species)

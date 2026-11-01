@@ -1,6 +1,7 @@
 extends TestCase
 ## Weapon attack speed and Boosters (spec #151 ticket #160, docs/GAME_DESIGN.md 6.1.1 and 7.7): the v83 speed table,
-## the basic swing and attack-skill timing under a Booster, and its weapon-family gating. Every skill here is
+## the weapon's swing timing (WeaponReach.action_spec; the automatic basic attack is gone, #284) and attack-skill timing
+## under a Booster, which counts whatever weapon is held (weapons gate no skill, #284). Every skill here is
 ## synthetic (no cache); the Booster is a stand-in for the class specs' real ones.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -15,8 +16,9 @@ const WAND := 1372005
 ## action 0.8 s, any weapon).
 func _world(p_seed := 160) -> RunWorld:
 	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["creation_weapon"] = SWORD # Explicit speed-4 Sword for these timing examples.
 	data.upgrades.cards = []
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.magnet_radius = 0
 	data.skills.skills["sword_booster"] = {"skill_id": 9991100, "book": "999", "kind": "buff", "slot": "passive",
 		"name": "Booster", "damage": "none", "ranks": [1], "action": "", "action_time": 0.0,
@@ -94,53 +96,39 @@ func test_the_weapon_speed_is_the_attack_speed_step_and_bare_hands_keep_six() ->
 	assert_eq(WeaponInfo.NORMAL_SPEED, 6)
 
 
-# --- Basic attack ---------------------------------------------------------------------------------------------------
+# --- Weapon swing timing ---------------------------------------------------------------------------------------------
 
-func test_a_basic_swing_without_a_booster_is_unchanged_for_every_weapon() -> void:
+func test_the_swing_timing_without_a_booster_is_canonical() -> void:
 	var w := _world()
-	_dummy(w)
-	w.step(DT, MoveInput.new())
-	var start := _first(w, "basic_attack", "start")
-	assert_near(float(start.interval), 0.72, 1e-9)
-	assert_near(float(start.hit_after), 0.45, 1e-9, "canonical body delays")
-	assert_near(w.upkeep.cast_left, 0.8, 1e-9, "the canonical stance length")
+	var spec := w.weapon_reach.action_spec(SWORD, w.weapon_info(), "swingO1", w.loadout.speed_steps)
+	assert_near(float(spec.interval), 0.72, 1e-9)
+	assert_near(float(spec.hit_after), 0.45, 1e-9, "canonical body delays")
+	assert_near(float(spec.action_time), 0.8, 1e-9, "the canonical stance length")
+	assert_eq(float(spec.scale), 1.0)
 
 
 func test_a_booster_shortens_the_swing_interval_impact_and_stance_by_two_steps() -> void:
 	var w := _world()
 	w.learn_skill("sword_booster")
-	_dummy(w)
-	w.step(DT, MoveInput.new()) # the Booster is cast first (skills have priority), the swing waits a tick
+	w.step(DT, MoveInput.new())
 	assert_true(w.buffs.has("sword_booster"))
 	assert_eq(w.loadout.speed_steps, 2)
-	var start := {}
-	for tick in 120:
-		w.step(DT, MoveInput.new())
-		start = _first(w, "basic_attack", "start")
-		if not start.is_empty():
-			break
-	assert_false(start.is_empty(), "a swing starts")
+	var spec := w.weapon_reach.action_spec(SWORD, w.weapon_info(), "swingO1", w.loadout.speed_steps)
 	# Sword speed 4 - 2 = 2: 600 ms -> 0.60 s interval; body delays x 600/700.
-	assert_near(float(start.interval), 0.60, 1e-9)
-	assert_near(float(start.hit_after), 0.45 * 600.0 / 700.0, 1e-9)
-	assert_near(w.upkeep.cast_left, 0.8 * 600.0 / 700.0, DT + 1e-9)
-	assert_near(float(w.player_state.action_scale), 600.0 / 700.0, 1e-9, "the avatar plays its frames faster")
+	assert_near(float(spec.interval), 0.60, 1e-9)
+	assert_near(float(spec.hit_after), 0.45 * 600.0 / 700.0, 1e-9)
+	assert_near(float(spec.action_time), 0.8 * 600.0 / 700.0, 1e-9)
+	assert_near(float(spec.scale), 600.0 / 700.0, 1e-9, "the avatar plays its frames faster")
 
 
 func test_a_booster_gives_the_wand_the_swords_normal_interval() -> void:
-	# A family-agnostic stand-in: the same buff but for wands, on a speed-6 weapon (6 - 2 = 4 -> 0.72 s).
+	# The same buff on a speed-6 weapon (6 - 2 = 4 -> 0.72 s).
 	var w := _world()
-	w.loadout.book.def("sword_booster")["weapon_families"] = ["wand"]
 	_wear(w, WAND)
 	w.learn_skill("sword_booster")
-	_dummy(w)
-	var start := {}
-	for tick in 120:
-		w.step(DT, MoveInput.new())
-		start = _first(w, "basic_attack", "start")
-		if not start.is_empty():
-			break
-	assert_near(float(start.interval), 0.72, 1e-9)
+	w.step(DT, MoveInput.new())
+	var spec := w.weapon_reach.action_spec(WAND, w.weapon_info(), "swingO1", w.loadout.speed_steps)
+	assert_near(float(spec.interval), 0.72, 1e-9)
 
 
 # --- Attack skills ---------------------------------------------------------------------------------------------------
@@ -179,9 +167,9 @@ func test_a_booster_shortens_an_attack_skills_action_time_and_cooldown() -> void
 	assert_eq(w.loadout.stats("sword_booster").speed_factor, 1.0)
 
 
-# --- Family gating -------------------------------------------------------------------------------------------------
+# --- No family gating (#284) --------------------------------------------------------------------------------------
 
-func test_the_booster_is_active_only_while_its_family_is_held() -> void:
+func test_the_booster_counts_whatever_weapon_is_held() -> void:
 	var w := _world()
 	w.learn_skill("sword_booster")
 	_dummy(w)
@@ -189,12 +177,9 @@ func test_the_booster_is_active_only_while_its_family_is_held() -> void:
 	assert_eq(w.loadout.speed_steps, 2, "sword held")
 	_wear(w, WAND)
 	assert_true(w.buffs.has("sword_booster"), "the buff keeps running")
-	assert_eq(w.loadout.speed_steps, 0, "but a Wand gets nothing from a Sword Booster")
-	assert_eq(w.loadout.stats("sword_booster").speed_factor, 1.0)
-	_wear(w, SWORD)
-	assert_eq(w.loadout.speed_steps, 2, "back to the Sword: the Booster counts again")
+	assert_eq(w.loadout.speed_steps, 2, "a Wand gets the Booster's steps too: weapons gate no skill")
 	assert_eq(w.unequip_item("weapon"), "")
-	assert_eq(w.loadout.speed_steps, 0, "bare hands")
+	assert_eq(w.loadout.speed_steps, 2, "and so do bare hands")
 	assert_eq(w.loadout.weapon_speed, 6)
 
 
@@ -222,15 +207,15 @@ func test_the_booster_recasts_when_it_expires() -> void:
 func test_magician_wand_skills_and_swings_keep_their_current_timing() -> void:
 	# The Wand is speed 6 and there is no Booster: every factor is exactly 1.0, so nothing moves.
 	var w := _world()
-	w.change_job(200)
-	assert_eq(w.weapon_id(), WAND, "Magician advancement wears the Wand")
+	RF.as_job(w, 200)
+	assert_eq(w.weapon_id(), WAND, "the Magician stands with the Wand (RF.as_job)")
 	w.learn_skill("energy_bolt")
 	var st := w.loadout.stats("energy_bolt")
 	assert_eq(w.loadout.weapon_speed, 6)
 	assert_eq(st.speed_factor, 1.0)
-	assert_eq(st.cooldown, 0.9, "Energy Bolt's tier C cooldown")
+	assert_eq(st.cooldown, 0.36, "Energy Bolt's #293 tier C cooldown")
 	assert_eq(st.action_time, 0.8, "and its stance")
-	var spec := w.basic.action_spec(WAND, w.weapon_info(), "swingO1")
+	var spec := w.weapon_reach.action_spec(WAND, w.weapon_info(), "swingO1")
 	assert_near(float(spec.interval), 0.81, 1e-9)
 	assert_near(float(spec.hit_after), 0.45, 1e-12)
 	assert_near(float(spec.action_time), 0.8, 1e-12)

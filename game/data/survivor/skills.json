@@ -1,3 +1,41 @@
 {
-	"_doc": "Survivor behaviour per skill key (docs/GAME_DESIGN.md section 7, docs/ARCHITECTURE.md 4.4.4). Canonical per-level numbers (fixdamage, mad, mastery, attackCount, x, pdd) are NOT here: SkillBook reads them from Skill.wz via setup.skill_imgs[book].skill[<7-digit id>].level[<level>]. ranks is the complete sequence 1..N from the canonical Skill.wz level table: survivor rank r equals canonical level r, and every rank card adds exactly one level. cooldown (s), range (px), speed (px/s), count (projectiles or targets), pierce (extra mobs a shot passes through), radius (shot hit radius, px), action_time (s of the cast stance) are tier C (ours). damage: fixed = canonical fixdamage; magic = GAME_DESIGN 6.1 formula with canonical mad/mastery; none = passive. Visual and sound fields are WZ paths into the asset cache; {level} = canonical level, {cl} = the char_level variant (the highest threshold <= character level). passive.stat/per_level: survivor effect per canonical level (tier C MaxMP percentage reinterpretation). passive.effects (optional): more {stat, field | per_level} entries of the same passive; stats mastery, acc, crit_chance, crit_damage and max_hp_per_level are consumed by RunWorld._refresh_caster / _on_level_up, only while the held weapon family fits weapon_families (docs/GAME_DESIGN.md 7.6). displacement {direction away|toward, when before|after|during, field|distances|distance}: a moving attack (7.13). buff.effects entries take an optional scale (a Booster's negative WZ speed steps use -1; Rage's WZ pdd is already negative and takes none). final_attack {chance_field} on a passive with damage physical and an action: the Final Attack follow-up (7.6, RNG stream 12). buff.stat/field/duration_field: active effect and canonical duration; Nimble Feet speed feeds movement; Magic Guard x% feeds mp_guard, Magic Armor pdd feeds defense, canonical time gives seconds. level_ranks {character level: rank}: the skill reaches at least that survivor rank at that character level (the SP a v83 Beginner spends on Three Snails; cards can get there sooner). text (optional, presentation only, SkillText): player-visible overrides where this game differs from String.wz/Skill.img; desc replaces the WZ desc, h is the level-line template ({name} / {name|singular|plural} filled from the skill's effective stats, then its canonical level fields; docs/GAME_DESIGN.md lists the overridden skills). Entries live in the per-line fragments skills/<line>.json (common, beginner, warrior, magician, bowman, thief, pirate), merged in that order by DataRepo.load_all; a skill key in two files is an error (docs/ARCHITECTURE.md 4.4.4)."
+	"_doc": "Survivor behaviour per skill key (docs/GAME_DESIGN.md section 7, docs/ARCHITECTURE.md 4.4.4). Canonical per-level numbers (fixdamage, mad, mastery, attackCount, x, pdd) are NOT here: SkillBook reads them from Skill.wz via setup.skill_imgs[book].skill[<7-digit id>].level[<level>]. ranks is the survivor-rank to WZ-level table override; rank_levels holds defaults by WZ maxLevel. Pool actives have eight ranks, each card adds one rank (#287). slot_limits caps active/passive learning; mobility is outside both. cooldown (s), range (px), speed (px/s), count (projectiles or targets), pierce (extra mobs a shot passes through), radius (shot hit radius, px), action_time (s of the cast stance) are tier C (ours). damage: fixed = canonical fixdamage; magic = GAME_DESIGN 6.1 formula with canonical mad/mastery; none = passive. Visual and sound fields are WZ paths into the asset cache; {level} = canonical level, {cl} = the char_level variant (the highest threshold <= character level). passive.stat/per_level: survivor effect per canonical level (tier C MaxMP percentage reinterpretation). passive.effects (optional): more {stat, field | per_level} entries of the same passive; stats mastery, acc, crit_chance, crit_damage and max_hp_per_level are consumed by RunWorld._refresh_caster / _on_level_up, without held-weapon gating (docs/GAME_DESIGN.md 7.6). displacement {direction away|toward, when before|after|during, field|distances|distance}: a moving attack (7.13). buff.effects entries take an optional scale (a Booster's negative WZ speed steps use -1; Rage's WZ pdd is already negative and takes none). final_attack {chance_field} on a passive with damage physical and an action: the Final Attack follow-up (7.6, RNG stream 12). buff.stat/field/duration_field: active effect and canonical duration (buff.duration: a literal number of seconds instead, the Beholder's life, tier C); Nimble Feet speed feeds movement; Magic Armor pdd feeds defense, canonical time gives seconds. level_ranks {character level: rank}: the skill reaches at least that survivor rank at that character level (the SP a v83 Beginner spends on Three Snails; cards can get there sooner). text (optional, presentation only, SkillText): player-visible overrides where this game differs from String.wz/Skill.img; desc replaces the WZ desc, h is the level-line template ({name} / {name|singular|plural} filled from the skill's effective stats, then its canonical level fields; docs/GAME_DESIGN.md lists the overridden skills). Entries live in the per-line fragments skills/<line>.json (common, beginner, warrior, magician, bowman, thief, pirate), merged in that order by DataRepo.load_all; a skill key in two files is an error (docs/ARCHITECTURE.md 4.4.4).",
+	"slot_limits": {
+		"active": 6,
+		"passive": 6
+	},
+	"_slots_provenance": "tier C: ADR 0006 / #282: six active and six passive slots; mobility outside both.",
+	"rank_levels": {
+		"10": [
+			2,
+			3,
+			4,
+			5,
+			7,
+			8,
+			9,
+			10
+		],
+		"20": [
+			3,
+			5,
+			8,
+			10,
+			13,
+			15,
+			18,
+			20
+		],
+		"30": [
+			4,
+			8,
+			12,
+			15,
+			19,
+			23,
+			27,
+			30
+		]
+	},
+	"_rank_provenance": "tier C: ADR 0006 #287 eight ranks map to ceil(rank * WZ maxLevel / 8); per-skill ranks overrides the default table. The 10 row (spec #348 DK-11, D9 #357) serves the level-10 skills of every line: the Beholder first, then Dash, Resurrection, Battleship; the first spec to merge adds it and the others reuse it unchanged."
 }

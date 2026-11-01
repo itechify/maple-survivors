@@ -7,6 +7,21 @@ extends RefCounted
 ## are filled in by linear interpolation (synthetic, labelled as such where tests rely on them).
 
 const WF := preload("res://tests/fixtures/world_fixtures.gd")
+## The weapon each removed job advancement wore (#284 removed advancement and its grants), by "<job>:<family>" for a
+## multi-family first job and "<job>" otherwise (item stats tier A; the choice was tier C, spec #226). Tests and debug
+## drivers of the unported lines stand their character with it through as_job.
+const LEGACY_JOB_WEAPONS := {
+	"100:sword": 1302077, "100:spear": 1432000, "100:blunt": 1322006, "100": 1302077,
+	"200": 1372005,
+	"300:bow": 1452051, "300:crossbow": 1462001, "300": 1452051,
+	"400:claw": 1472061, "400:dagger": 1332063, "400": 1472061,
+	"500:knuckle": 1482000, "500:gun": 1492000, "500": 1482000,
+	"110:sword": 1302008, "110:axe": 1312005, "110": 1302008,
+	"120:sword": 1302008, "120:blunt": 1322014, "120": 1302008,
+	"130:spear": 1432002, "130:polearm": 1442001, "130": 1432002,
+	"310": 1452005, "320": 1462000, "410": 1472008, "420": 1332012, "510": 1482004, "520": 1492004,
+	"210": 1372005, "220": 1372005, "230": 1372005,
+}
 
 
 ## Gives a synthetic stage an absolute boss schedule using the per-map schema; keeps its first map id.
@@ -144,6 +159,12 @@ static func skill_imgs() -> Dictionary:
 	bowman["3001003"].level["20"].acc = "20"  # tier A: the original Focus max-level field is a string.
 	var imgs := {"000": b000, "100": b100, "200": b200, "210": b210, "220": b220, "230": b230,
 		"300": {"skill": bowman}}
+	# #301: synthetic Brandish endpoint interpolation; fixed canonical geometry and two lines.
+	var brandish_levels := _levels(30, {"damage": [135.0, 260.0], "attackCount": [2.0, 2.0], "mobCount": [1.0, 3.0]})
+	for row: Dictionary in brandish_levels.values():
+		row.lt = {"$v": [-150.0, -110.0]}
+		row.rb = {"$v": [-10.0, 0.0]}
+	imgs["112"] = {"skill": {"1121008": {"level": brandish_levels}}}
 	# #202: v83 Hunter endpoints; intermediate rows are synthetic linear interpolation, no proprietary art.
 	var bomb_levels := _levels(30, {"mpCon": [14.0, 28.0], "x": [72.0, 130.0], "prop": [31.0, 60.0],
 		"time": [2.0, 6.0], "mobCount": [6.0, 6.0]})
@@ -158,8 +179,20 @@ static func skill_imgs() -> Dictionary:
 			"time": [10.0, 200.0], "x": [-2.0, -2.0]})},
 		"3101003": {"level": _levels(20, {"range": [130.0, 150.0], "damage": [105.0, 200.0],
 			"mobCount": [2.0, 6.0], "prop": [13.0, 70.0], "mpCon": [8.0, 15.0]})},
-		"3101005": {"level": bomb_levels},
+		"3101005": {"weapon": 45, "level": bomb_levels}, # weapon 45 = bow (v83)
 	}}
+	# #339: Strafe's v83 endpoints (Skill.wz/311.img 3111006: damage 71..100, bulletCount 4, weapon 45 = bow), linear between.
+	imgs["311"] = {"skill": {"3111006": {"weapon": 45, "level": _levels(30, {"mpCon": [26.0, 32.0],
+		"damage": [71.0, 100.0], "bulletCount": [4.0, 4.0]})}}}
+	# #341: Inferno's v83 endpoints (Skill.wz/311.img 3111003: damage 50..150, burn share x 21..50, time 5 s until level 29 and
+	# 10 s at 30, box +-130..150 x +-100, mobCount 6, weapon 45 = bow, elemAttr f), linear between; no art.
+	var inferno_levels := _levels(30, {"mpCon": [20.0, 30.0], "damage": [50.0, 150.0], "x": [21.0, 50.0], "mobCount": [6.0, 6.0]})
+	for level: String in inferno_levels:
+		var inferno_extent := lerpf(130.0, 150.0, float(int(level) - 1) / 29.0)
+		inferno_levels[level].time = 10.0 if int(level) == 30 else 5.0
+		inferno_levels[level].lt = {"$v": [-inferno_extent, -100.0]}
+		inferno_levels[level].rb = {"$v": [inferno_extent, 100.0]}
+	imgs["311"].skill["3111003"] = {"weapon": 45, "elemAttr": "f", "level": inferno_levels}
 	# #203: Iron Arrow's independently recorded v83 endpoints, synthetic intermediate rows and art.
 	imgs["320"] = {"skill": {"3201005": {"weapon": 46, "ball": _anim(3, 90.0, 61, 24),
 		"level": _levels(30, {"mpCon": [23.0, 28.0], "damage": [122.0, 180.0], "mobCount": [6.0, 6.0]})}}}
@@ -173,6 +206,49 @@ static func skill_imgs() -> Dictionary:
 	imgs["320"].skill["3200001"] = {"level": _levels(30, {"prop": [2.0, 60.0], "damage": [105.0, 250.0]})}
 	imgs["320"].skill["3201002"] = {"level": _levels(20, {"hpCon": [29.0, 10.0], "mpCon": [29.0, 10.0],
 		"time": [10.0, 200.0], "x": [-2.0, -2.0]})}
+	# #340: Arrow Rain (3111004) and Dragon's Breath (3121003): v83 endpoints; the symmetric box (+-170 / +-190 / +-210) and the
+	# mobCount (4 / 5 / 6) step at levels 11 and 21 as in the WZ; the damage between the endpoints is synthetic interpolation.
+	if not imgs.has("311"):
+		imgs["311"] = {"skill": {}}
+	var rain_levels := _levels(30, {"mpCon": [18.0, 28.0], "damage": [60.0, 160.0], "mobCount": [6.0, 6.0]})
+	var breath_levels := _levels(30, {"mpCon": [24.0, 36.0], "damage": [42.0, 100.0], "range": [440.0, 440.0], "prop": [100.0, 100.0]})
+	for lv in range(1, 31):
+		var extent := 170.0 if lv <= 10 else 190.0 if lv <= 20 else 210.0
+		rain_levels[str(lv)].lt = {"$v": [-extent, -100.0]}
+		rain_levels[str(lv)].rb = {"$v": [extent, 100.0]}
+		breath_levels[str(lv)].mobCount = 4.0 if lv <= 10 else 5.0 if lv <= 20 else 6.0
+	imgs["311"].skill["3111004"] = {"weapon": 45, "level": rain_levels, "effect": _anim(12, 65.0, 129, 138),
+		"special": {"0": _anim(1, 0.0, 42, 96)}, "hit": {"0": _anim(3, 120.0, 96, 133)}}
+	imgs["312"] = {"skill": {"3121003": {"weapon": 45, "level": breath_levels, "effect": _anim(14, 80.0, 117, 119),
+		"ball": _anim(4, 100.0, 204, 81), "hit": {"0": _anim(4, 100.0, 185, 104)}}}}
+	# MS5 #365: the Marksman's crossbow twins of Strafe (3211006, book 321) and Dragon's Breath (3221003, book 322): node for node
+	# the Bowmaster's tables (and art) with weapon 46 (crossbow); the mobCount steps (4 / 5 / 6) as in the WZ.
+	imgs["321"] = {"skill": {"3211006": {"weapon": 46, "level": _levels(30, {"mpCon": [26.0, 32.0],
+		"damage": [71.0, 100.0], "bulletCount": [4.0, 4.0]}), "hit": {"0": _anim(3, 100.0, 72, 60)}}}}
+	var crossbow_breath_levels := _levels(30, {"mpCon": [24.0, 36.0], "damage": [42.0, 100.0], "range": [440.0, 440.0], "prop": [100.0, 100.0]})
+	for lv in range(1, 31):
+		crossbow_breath_levels[str(lv)].mobCount = 4.0 if lv <= 10 else 5.0 if lv <= 20 else 6.0
+	imgs["322"] = {"skill": {"3221003": {"weapon": 46, "level": crossbow_breath_levels, "effect": _anim(14, 80.0, 117, 119),
+		"ball": _anim(4, 100.0, 204, 81), "hit": {"0": _anim(4, 100.0, 185, 104)}}}}
+	# #366: Blizzard (3211003) and Arrow Eruption (3211004) of the crossbow book 321: v83 endpoints, with the WZ steps of the box
+	# (Blizzard +-130 until level 15 and +-150 from 16; Eruption +-170 until 10, +-190 until 20, +-210 from 21) and of the freeze
+	# seconds (1 until level 10, 2 until 20, 3 from 21); x (the freeze chance) and the damage are linear between the endpoints.
+	if not imgs.has("321"):
+		imgs["321"] = {"skill": {}}
+	var blizzard_levels := _levels(30, {"mpCon": [20.0, 30.0], "damage": [100.0, 140.0], "x": [21.0, 50.0], "mobCount": [6.0, 6.0]})
+	var eruption_levels := _levels(30, {"mpCon": [18.0, 28.0], "damage": [60.0, 160.0], "mobCount": [6.0, 6.0]})
+	for lv in range(1, 31):
+		var blizzard_extent := 130.0 if lv <= 15 else 150.0
+		blizzard_levels[str(lv)].time = 1.0 if lv <= 10 else 2.0 if lv <= 20 else 3.0
+		blizzard_levels[str(lv)].lt = {"$v": [-blizzard_extent, -100.0]}
+		blizzard_levels[str(lv)].rb = {"$v": [blizzard_extent, 100.0]}
+		var eruption_extent := 170.0 if lv <= 10 else 190.0 if lv <= 20 else 210.0
+		eruption_levels[str(lv)].lt = {"$v": [-eruption_extent, -100.0]}
+		eruption_levels[str(lv)].rb = {"$v": [eruption_extent, 100.0]}
+	imgs["321"].skill["3211003"] = {"weapon": 46, "elemAttr": "i", "level": blizzard_levels, "effect": _anim(9, 110.0, 130, 157),
+		"special": {"0": _anim(3, 100.0, 94, 115)}, "hit": {"0": _anim(6, 120.0, 278, 165)}}
+	imgs["321"].skill["3211004"] = {"weapon": 46, "level": eruption_levels, "effect": _anim(12, 65.0, 129, 138),
+		"special": {"0": _anim(1, 0.0, 20, 101)}, "hit": {"0": _anim(3, 120.0, 115, 184)}}
 	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
 	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
 		if not imgs.has(pair[0]):
@@ -346,6 +422,26 @@ static func skill_imgs() -> Dictionary:
 	for lv in range(1, 31):
 		steal[str(lv)] = {"mpCon": 12 if lv <= 15 else 24, "damage": 40 + 2 * lv, "prop": 10 + lv}
 	imgs["420"].skill["4201004"] = {"action": "swingO2", "level": steal}
+	# #290: T1 damage endpoints interpolated synthetically; timing/boxes below are deliberate test values, no WZ art.
+	for spec: Array in [[2111002, 60, 120, 6, "f"], [2111003, 32, 90, 0, "s"],
+			[2111006, 80, 150, 1, ""], [2121001, 160, 450, 6, ""],
+			[2121003, 62, 120, 6, "f"], [2121006, 133, 210, 1, "s"], [2121007, 330, 570, 15, "f"]]:
+		var book := str(int(spec[0]) / 10000)
+		if not imgs.has(book):
+			imgs[book] = {"skill": {}}
+		var levels := _levels(30, {"mad": [float(spec[1]), float(spec[2])], "mastery": [1.0, 10.0],
+			"time": [4.0, 40.0], "prop": [41.0, 70.0]})
+		if int(spec[3]) > 1:
+			for node: Dictionary in levels.values():
+				node.mobCount = int(spec[3])
+				node.lt = {"$v": [-200.0, -150.0]}
+				node.rb = {"$v": [200.0, 150.0]}
+		imgs[book].skill[str(spec[0])] = {"elemAttr": spec[4], "level": levels}
+	# #291: synthetic summon frames/info, canonical endpoint facts from T1.
+	imgs["212"].skill["2121005"] = {"elemAttr": "i",
+		"level": _levels(30, {"mad": [153.0, 270.0], "mastery": [10.0, 10.0], "time": [15.0, 160.0]}),
+		"summon": {"attack1": {"info": {"mobCount": 3.0, "attackAfter": 1080.0,
+			"range": {"lt": {"$v": [-200, -150]}, "rb": {"$v": [0, 30]}}}}}}
 	return imgs
 
 
@@ -419,6 +515,17 @@ const MOB_INFO := {
 		"MDDamage": 160, "speed": -20, "acc": 140, "pushed": 300},
 	6220000: {"level": 65, "maxHP": 31000, "exp": 810, "PADamage": 190, "PDDamage": 190,
 		"MDDamage": 220, "speed": -30, "acc": 150, "boss": 1, "pushed": 1500},
+	# #452: the Ellinia and Perion bosses (v83 Mob.wz facts; the shell 5220001 and its form 5220000 are King Clang).
+	3300008: {"level": 38, "maxHP": 12500, "exp": 800, "PADamage": 130, "PDDamage": 160,
+		"MDDamage": 160, "speed": -30, "acc": 140, "boss": 1, "pushed": 300},
+	3300005: {"level": 35, "maxHP": 120000, "exp": 210, "PADamage": 125, "PDDamage": 50,
+		"MDDamage": 70, "speed": -30, "acc": 80, "pushed": 550},
+	5220002: {"level": 50, "maxHP": 9800, "exp": 410, "PADamage": 165, "PDDamage": 110,
+		"MDDamage": 150, "speed": -30, "acc": 100, "boss": 1, "pushed": 600},
+	5220001: {"level": 55, "maxHP": 4000, "exp": 0, "PADamage": 165, "PDDamage": 120,
+		"MDDamage": 120, "speed": 0, "acc": 100, "boss": 1, "pushed": 1000},
+	5220000: {"level": 55, "maxHP": 25000, "exp": 1210, "PADamage": 165, "PDDamage": 120,
+		"MDDamage": 120, "speed": -20, "acc": 100, "boss": 1, "pushed": 1000},
 }
 
 
@@ -509,9 +616,7 @@ static func setup(stage := "henesys", p_seed := 12345, data: Dictionary = {}) ->
 			1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0}},
 		# Synthetic item nodes with independently verified v83 restore amounts.
 		"item_info": {2000000: {"spec": {"hp": 50}}, 2000001: {"spec": {"hp": 150}},
-			2000002: {"spec": {"hp": 300}}, 2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}},
-			2022003: {"spec": {"hp": 1000}}, 2022000: {"spec": {"mp": 800}},
-			2001001: {"spec": {"hp": 2000}}, 2001002: {"spec": {"mp": 2000}}},
+			2000002: {"spec": {"hp": 300}}, 2022003: {"spec": {"hp": 1000}}, 2001001: {"spec": {"hp": 2000}}},
 		"ammo_info": ammo_info(),
 		"data": data if not data.is_empty() else DataRepo.load_all(),
 		"stage": stage,
@@ -567,29 +672,23 @@ static func bot_input(w: RunWorld, memo: Dictionary) -> MoveInput:
 	return BotInput.decide(w, memo)
 
 
-## The job id the bot would take from window `options` (BotInput.pick_choice's job_id; -1 = "Not now").
-static func pick_job(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
-		forced_path := "") -> int:
-	return int(BotInput.pick_choice(options, rng, forced, jobs, forced_path).job_id)
-
-
-## Basic-attack bounds after level gap and live PDD, for the examples that predate the physical hit path (LUK 0):
+## Basic-attack bounds after live PDD, for the examples that predate the physical hit path (LUK 0):
 ## the physical weapon bounds of the stance `action`, then CombatMath.physical_defense.
 static func physical_bounds(str_stat: int, dex_stat: int, watk: float, weapon_id: int, action: String,
-		player_level: int, mob_level: int, pdd: float) -> Vector2:
+		pdd: float) -> Vector2:
 	return CombatMath.physical_defense(CombatMath.physical_damage_range(str_stat, dex_stat, 0.0, watk, weapon_id,
-		WeaponInfo.attack_kind(action)), player_level, mob_level, pdd)
+		WeaponInfo.attack_kind(action)), pdd)
 
 
-## Resolves an open window like BotInput: the first available job (else "Not now") and BotInput.pick_card_for's card.
+## Resolves an open card window like BotInput (BotInput.pick_card_for's card).
 static func auto_choose(w: RunWorld) -> void:
 	BotInput.auto_choose(w)
 	if w.transfer_pending:
 		w.advance_map()
 
 
-## Adds canonical-shaped weapon afterimage and body timing data to `setup` so the automatic basic attack can swing on
-## the synthetic map (the v83 Beginner kills mostly with it). Returns `setup`.
+## Adds canonical-shaped weapon afterimage and body timing data to `setup` so the held weapon has a swing reach
+## (WeaponReach: weapon_reach skills, Final Attack spread) on the synthetic map. Returns `setup`.
 static func with_basic_attack(setup: Dictionary) -> Dictionary:
 	setup.equipment_info = {
 		1302000: {"incPAD": 17.0, "attackSpeed": 4.0, "afterImage": "swordOL", "sfx": "swordL"},
@@ -602,7 +701,7 @@ static func with_basic_attack(setup: Dictionary) -> Dictionary:
 		1322006: {"reqJob": 0, "reqLevel": 10, "incPAD": 29.0, "attackSpeed": 5.0, "afterImage": "mace", "sfx": "mace"}}
 	setup.body_img = {}
 	var images := {"0": {}}
-	for action: String in BasicAttack.ACTIONS:
+	for action: String in WeaponReach.ACTIONS:
 		setup.body_img[action] = {"0": {"delay": 300.0}, "1": {"delay": 150.0}, "2": {"delay": 350.0}}
 		images["0"][action] = {"lt": {"$v": [-88.0, -62.0]}, "rb": {"$v": [-18.0, -6.0]},
 			"2": {"0": {"$canvas": [0, 0, 0, 40, 30], "delay": 200.0}}}
@@ -614,7 +713,6 @@ static func with_basic_attack(setup: Dictionary) -> Dictionary:
 ## Combat tests can place every mob themselves and opt into resources/coverage independently of balance tuning.
 static func quiet_data() -> Dictionary:
 	var data := DataRepo.load_all()
-	data.balance.player.mp = 5
 	data.skills.skills.three_snails.count = 1
 	data.skills.skills.energy_bolt.count = 1
 	var stages: Dictionary = data.stages.stages
@@ -623,6 +721,7 @@ static func quiet_data() -> Dictionary:
 		pool[str(id)] = 1.0
 	stages["quiet"] = {
 		"maps": [{"map_id": 0, "boss": {}}], "name": "quiet", "duration": 900.0, "hard_cap": 400,
+		"drop_band": [0, 30], # the old tier-1 band a stage outside the tier lists got before ADR 0007
 		"keyframes": [{"t": 0.0, "rate": 0.0, "max_alive": 0.0, "hp": 1.0, "speed": 1.0, "pool": pool}],
 		"bursts": {}, "elites": {},
 	}
@@ -636,9 +735,40 @@ static func quiet_world(x := 400.0, p_seed := 7) -> RunWorld:
 	return w
 
 
-## Changes job without learning skills (retained fixture alias for existing callers).
+## The character of `w` for a test to edit: its format-3 snapshot plus `level` and `base_attributes` (a copy of the world's
+## base stats), the round state that no longer travels with a character (#286). Pass the edited dictionary to `world_from`.
+static func character_with_round_state(w: RunWorld) -> Dictionary:
+	var character := w.character_snapshot()
+	character["level"] = w.progression.level
+	character["base_attributes"] = w._base_stats.duplicate()
+	return character
+
+
+## A world of `setup` whose character is `character` (a format-3 snapshot, JSON-safe) and whose round starts at the `level`
+## and `base_attributes` that dictionary may carry (extra keys are ignored on load; see character_with_round_state).
+static func world_from(setup: Dictionary, character: Dictionary) -> RunWorld:
+	setup.character = character
+	var w := RunWorld.new(setup)
+	if character.has("level"):
+		w.progression.level = int(character.level)
+	for stat: String in character.get("base_attributes", {}):
+		w._base_stats[stat] = int(character.base_attributes[stat])
+	w.refresh_player_stats()
+	return w
+
+
+## Stands `w`'s character as job `job_id` (RunWorld.set_job) wearing the weapon its removed advancement granted
+## (LEGACY_JOB_WEAPONS, `family` picking a multi-family first job's), when the job had one. Learns no skill.
+static func as_job(w: RunWorld, job_id: int, family := "") -> void:
+	w.set_job(job_id)
+	var weapon := int(LEGACY_JOB_WEAPONS.get("%d:%s" % [job_id, family], LEGACY_JOB_WEAPONS.get(str(job_id), 0)))
+	if weapon > 0 and w.weapon_id() != weapon:
+		w.wear_new_item(weapon)
+
+
+## Stands `w`'s character as job `job_id` without changing its equipment (RunWorld.set_job).
 static func change_job_bare(w: RunWorld, job_id: int) -> void:
-	w.change_job(job_id)
+	w.set_job(job_id)
 
 
 ## Stands the player on the first floor at or below (x, y) (default: the ground) and refreshes the view.
@@ -673,3 +803,22 @@ static func map_from_segments(list: Array, portals: Array = []) -> Dictionary:
 	for k in portals.size():
 		po[str(k)] = {"pn": "sp", "pt": 0.0, "x": portals[k].x, "y": portals[k].y}
 	return {"info": {}, "foothold": {"1": {"0": fh}}, "portal": po}
+
+
+## Arrange unported combat tests from retained effect definitions; this never applies an upgrade card.
+static func add_modifier_effects(w: RunWorld, definition: Dictionary, repeats: int = 1) -> void:
+	for repeat in repeats:
+		for effect: Dictionary in definition.get("effects", []):
+			w.loadout.add_skill_mod(String(definition.skill), String(effect.stat),
+				String(effect.get("op", "add")), float(effect.value))
+	w.refresh_player_stats()
+
+
+## Synthetic animation frames with optional canvas stubs.
+static func anim(frames: int, ms: float = 100.0, canvas: bool = false) -> Dictionary:
+	var out := {}
+	for i in frames:
+		out[str(i)] = {"delay": ms}
+		if canvas:
+			out[str(i)]["$canvas"] = [0, 0, 0, 40, 40]
+	return out

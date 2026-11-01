@@ -18,23 +18,23 @@ func _rng() -> RandomNumberGenerator:
 	return rng
 
 
-func test_seeded_bowman_drops_use_only_the_held_family_through_dark_cave() -> void:
+func test_seeded_bowman_drops_use_only_the_listed_family_through_both_bands() -> void:
 	var rules: Dictionary = DataRepo.load_all().equipment_drops
 	for job in [300, 310, 320]:
 		for family: String in ["bow", "crossbow"]:
 			var rng := _rng()
-			for level in [10, 30, 70]:
+			for band: Array in [[0, 30], [30, 70]]:
 				var seen := {}
 				for roll in 100:
-					seen[EquipmentDrops.pick(rules.items, INFO, job, level, rules, rng, family)] = true
-					seen[EquipmentDrops.pick_boss(rules.items, INFO, job, level, rules, rng, family)] = true
-				assert_false(seen.has(0), "%d %s Lv%d has regular and boss drops" % [job, family, level])
+					seen[EquipmentDrops.pick(rules.items, INFO, job, band, rules, rng, [family])] = true
+					seen[EquipmentDrops.pick_boss(rules.items, INFO, job, band, rules, rng, [family])] = true
+				assert_false(seen.has(0), "%d %s band %s has regular and boss drops" % [job, family, band])
 				for id: int in seen:
 					assert_eq(WeaponInfo.family(id), family, "%d only %s" % [id, family])
 	for job in [0, 100, 200, 210, 400, 500, 520]:
 		for family: String in ["bow", "crossbow"]:
-			assert_eq(EquipmentDrops.eligible(rules.items, INFO, job, 30, rules, family), [])
-			assert_eq(EquipmentDrops.pick_boss(rules.items, INFO, job, 30, rules, _rng(), family), 0)
+			assert_eq(EquipmentDrops.eligible(rules.items, INFO, job, [0, 70], [family]), [])
+			assert_eq(EquipmentDrops.pick_boss(rules.items, INFO, job, [0, 70], rules, _rng(), [family]), 0)
 
 
 func test_scroll_shops_stock_each_bowman_family_at_the_weapon_price_and_only_for_bowmen() -> void:
@@ -98,7 +98,7 @@ func test_every_bowman_drop_has_regular_v83_info_icons_and_progression_in_the_pr
 		var info: Dictionary = img.root.get("info", {})
 		infos[id] = info
 		assert_eq(int(info.get("reqJob", 0)), 4, "%d Bowman only" % id)
-		assert_between(float(info.get("reqLevel", -1)), 10.0, 70.0, str(id))
+		assert_between(float(info.get("reqLevel", -1)), 10.0, 120.0, str(id)) # 120 since #474 (late bands)
 		for field: String in ["cash", "tradeBlock", "notSale", "timeLimited", "expireOnLogout"]:
 			assert_eq(int(info.get(field, 0)), 0, "%d %s" % [id, field])
 		for icon: String in ["icon", "iconRaw"]:
@@ -107,14 +107,14 @@ func test_every_bowman_drop_has_regular_v83_info_icons_and_progression_in_the_pr
 		slots[slot] = true
 		if slot == "weapon":
 			weapons.append(id)
-	assert_eq(weapons.size(), 22, "regular bow/crossbow progression, without instructor/event weapons")
+	assert_eq(weapons.size(), 51, "regular bow/crossbow progression to Lv110 (22 to Lv70 before #474), without instructor/event weapons")
 	for slot: String in ["hat", "top", "bottom", "overall", "shoes", "gloves", "weapon"]:
 		assert_has(slots, slot)
 	assert_false(slots.has("shield"))
-	for level in range(10, 71):
+	for band: Array in [[0, 30], [30, 70]]:
 		for family: String in ["bow", "crossbow"]:
-			var eligible := EquipmentDrops.eligible(weapons, infos, 300, level, data.equipment_drops, family)
-			assert_false(eligible.is_empty(), "%s progression at Lv%d" % [family, level])
+			var eligible := EquipmentDrops.eligible(weapons, infos, 300, band, [family])
+			assert_false(eligible.is_empty(), "%s progression in band %s" % [family, band])
 	var scroll_infos := DataRepo.scroll_info(Scrolls.ids(data.scrolls), func(path: String) -> Dictionary:
 		var img := lib.img(path)
 		return img.root if img != null else {})

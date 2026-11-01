@@ -96,3 +96,15 @@ func test_single_canvas_and_uol_frames() -> void:
 	var empty := SpriteAnim.from_node(w.node("info"), w)
 	assert_true(empty.is_empty())
 	assert_eq(empty.frame_at(0.0, true), null)
+
+
+func test_numeric_string_delays_read_like_numbers() -> void:
+	# Some WZ canvases store the delay as a string ("200": Spear Crusher's effect1-3, the pig mobs); it is the same ms value.
+	assert_near(SpriteAnim.delay_seconds("200"), 0.2)
+	assert_near(SpriteAnim.delay_seconds("-120"), 0.12, 1e-6, "a negative string is used by magnitude")
+	assert_near(SpriteAnim.delay_seconds(" 150 "), 0.15, 1e-6, "surrounding blanks are ignored")
+	assert_near(SpriteAnim.delay_seconds(200), 0.2)
+	assert_near(SpriteAnim.delay_seconds("0"), 0.1, 1e-6, "a zero string is the default like zero")
+	assert_near(SpriteAnim.delay_seconds(""), 0.1, 1e-6, "an empty string is the default")
+	assert_near(SpriteAnim.delay_seconds("fast"), 0.1, 1e-6, "text that is not a number is the default")
+	assert_near(SpriteAnim.delay_seconds(null), 0.1, 1e-6, "missing is the default")

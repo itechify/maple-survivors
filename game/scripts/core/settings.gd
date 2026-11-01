@@ -16,9 +16,9 @@ extends Node
 ## set_max_fps, set_movement_keys and set_alert. default_keys() reads the project defaults (never the live, rebound
 ## InputMap).
 ##
-## [alert] hp, mp (fractions 0..1 of max HP / MP; 0 = do not alert): the pet's potion pouches drink at these levels
-## (spec #34, #121). Defaults 30% / 20% (tier C). Only the persistent rounds read them (the flow hands them to the
-## round, which follows changes); tool rounds never do.
+## [alert] hp (a fraction 0..1 of max HP; 0 = do not alert): the pet's potion pouch drinks at this level
+## (spec #34, #121). Default 30% (tier C). An old file's `mp` key is ignored: there is no MP (ADR 0006). Only the
+## persistent rounds read it (the flow hands it to the round, which follows changes); tool rounds never do.
 ##
 ## View (docs/ARCHITECTURE.md 4.5): by default the project's own stretch applies - 800x600 grown to the window's
 ## aspect ("expand", e.g. 1066x600 on 16:9), whole-pixel integer scale, black bars around the rest (1920x1080: 1x with
@@ -50,10 +50,9 @@ const DEFAULT_MOVEMENT := "arrows"
 ## Default volumes (linear 0..1).
 const DEFAULT_BGM := 0.8
 const DEFAULT_SFX := 0.9
-## tier C (ours): the HP / MP ALERT defaults (fractions of max; the pet drinks below them; 0 = do not alert). Low
-## enough to be safe, on so a new pouch works at once.
+## tier C (ours): the HP ALERT default (a fraction of max; the pet drinks below it; 0 = do not alert). Low enough to
+## be safe, on so a new pouch works at once.
 const DEFAULT_ALERT_HP := 0.3
-const DEFAULT_ALERT_MP := 0.2
 ## The ALERT levels step in 5% on the Options sliders (tier C).
 const ALERT_STEP := 0.05
 
@@ -71,9 +70,8 @@ var fill_override := false
 var max_fps := 0
 ## Movement key set: a MOVEMENT_SETS key ("arrows" or "wasd").
 var movement_keys := DEFAULT_MOVEMENT
-## HP / MP ALERT: the pet's potion level as a fraction of max (0 = do not alert); see the class doc.
+## HP ALERT: the pet's potion level as a fraction of max (0 = do not alert); see the class doc.
 var alert_hp := DEFAULT_ALERT_HP
-var alert_mp := DEFAULT_ALERT_MP
 ## The HUD quick slot panel is folded away (its collapse button, the v83 QuickSlot arrow); saved in [hud].
 var quick_slot_collapsed := false
 ## Rebound actions: action name -> PackedInt32Array of physical keycodes (absent = the project's input map).
@@ -212,7 +210,6 @@ func load_settings() -> void:
 	var scheme := String(cfg.get_value("controls", "movement", movement_keys))
 	movement_keys = scheme if MOVEMENT_SETS.has(scheme) else DEFAULT_MOVEMENT
 	alert_hp = clampf(float(cfg.get_value("alert", "hp", alert_hp)), 0.0, 1.0)
-	alert_mp = clampf(float(cfg.get_value("alert", "mp", alert_mp)), 0.0, 1.0)
 	quick_slot_collapsed = bool(cfg.get_value("hud", "quick_slot_collapsed", quick_slot_collapsed))
 	bindings = {}
 	if cfg.has_section("input"):
@@ -293,7 +290,6 @@ func save_settings() -> Error:
 	_put(cfg, "display", "max_fps", max_fps, 0)
 	_put(cfg, "controls", "movement", movement_keys, DEFAULT_MOVEMENT)
 	_put(cfg, "alert", "hp", alert_hp, DEFAULT_ALERT_HP)
-	_put(cfg, "alert", "mp", alert_mp, DEFAULT_ALERT_MP)
 	_put(cfg, "hud", "quick_slot_collapsed", quick_slot_collapsed, false)
 	if cfg.has_section("input"):
 		cfg.erase_section("input")
@@ -373,16 +369,11 @@ func set_fill_window(on: bool) -> void:
 	changed.emit()
 
 
-## Sets an ALERT level ("hp" or "mp", a fraction 0..1, 0 = do not alert), saves and emits changed. Other kinds are ignored.
+## Sets an ALERT level ("hp", a fraction 0..1, 0 = do not alert), saves and emits changed. Other kinds are ignored.
 func set_alert(which: String, v: float) -> void:
-	v = clampf(v, 0.0, 1.0)
-	match which:
-		"hp":
-			alert_hp = v
-		"mp":
-			alert_mp = v
-		_:
-			return
+	if which != "hp":
+		return
+	alert_hp = clampf(v, 0.0, 1.0)
 	save_settings()
 	changed.emit()
 
@@ -394,9 +385,9 @@ func set_quick_slot_collapsed(collapsed: bool) -> void:
 	changed.emit()
 
 
-## {hp, mp}: the current ALERT levels (fractions of max; 0 = do not alert).
+## {hp}: the current ALERT level (a fraction of max HP; 0 = do not alert).
 func alert_levels() -> Dictionary:
-	return {"hp": alert_hp, "mp": alert_mp}
+	return {"hp": alert_hp}
 
 
 ## Sets the frame-rate cap (0 = refresh rate, -1 = uncapped, N), applies it and saves.

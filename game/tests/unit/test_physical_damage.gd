@@ -2,7 +2,6 @@ extends TestCase
 ## Physical combat's public formula and hit seams, with worked v83 examples and seeded synthetic runs.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const BF := preload("res://tests/fixtures/basic_attack_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
@@ -81,7 +80,7 @@ func test_mastery_and_lucky_seven_override_and_unchanged_creation_weapon_bounds(
 			[1312004, "swingO1", 1.48784, 9.656], [1312004, "stabO1", 1.26752, 7.208],
 			[1322005, "swingO1", 1.48784, 9.656], [1322005, "stabO1", 1.26752, 7.208],
 			[0, "swingO1", 1.0, 1.0], [0, "stabO1", 1.0, 1.0]]:
-		var bounds := RF.physical_bounds(12, 4, 0 if c[0] == 0 else 17, c[0], c[1], 1, 1, 0)
+		var bounds := RF.physical_bounds(12, 4, 0 if c[0] == 0 else 17, c[0], c[1], 0)
 		assert_near(bounds.x, c[2], 0.00001)
 		assert_near(bounds.y, c[3], 0.00001)
 	for c: Array in [["swingO3", "swing"], ["stabT2", "stab"], ["shoot1", "shoot"], ["throw1", "shoot"], ["alert2", ""]]:
@@ -97,19 +96,19 @@ func test_instant_hits_choose_live_pdd_or_mdd_and_apply_skill_percent_after_defe
 	kind.mdd = 150
 	var control := RandomNumberGenerator.new()
 	control.state = world.rng.state
-	var expected := roundi(control.randf_range(66, 70) * 2.0)
+	var expected := roundi(control.randf_range(76, 80) * 2.0)
 	world.drain_events()
 	world.hit_mob(mob, {"skill": "fixture", "damage_type": "physical", "magic": false,
-		"damage_min": 100.0, "damage_max": 100.0, "damage_pct": 2.0, "player_level": 1,
+		"damage_min": 100.0, "damage_max": 100.0, "damage_pct": 2.0, 
 		"crit": 0.0, "crit_mult": 1.5}, -1)
-	assert_eq(_hits(world)[0].damage, expected, "level gap10 and PDD40 act on bounds BEFORE skill200%")
+	assert_eq(_hits(world)[0].damage, expected, "PDD40 acts on bounds BEFORE skill200%; mobLv11 changes nothing")
 	for c: Array in [["magic", true, 50], ["fixed", false, 100]]:
 		world.hit_mob(mob, {"skill": "fixture", "damage_type": c[0], "magic": c[1],
 			"damage_min": 100.0, "damage_max": 100.0, "crit": 0.0, "crit_mult": 1.5}, -1)
 		assert_eq(_hits(world)[0].damage, c[2], str(c))
 
 
-func test_physical_projectiles_use_target_level_and_pdd_at_impact() -> void:
+func test_physical_projectiles_use_pdd_at_impact() -> void:
 	var world := RF.quiet_world(400, 153)
 	world.loadout.order.clear()
 	var mob := RF.put_mob(world, 1110100, 550, 190, 100)
@@ -120,7 +119,7 @@ func test_physical_projectiles_use_target_level_and_pdd_at_impact() -> void:
 	kind.mdd = 150
 	world.projectiles.spawn({"x": 500.0, "y": world.mob_center(mob).y, "vx": 400.0, "range": 500.0,
 		"damage_type": "physical", "dmg_min": 100.0, "dmg_max": 100.0, "damage_pct": 2.0,
-		"player_level": 1, "crit": 0.0, "skill": "fixture"})
+		"crit": 0.0, "skill": "fixture"})
 	kind.pdd = 40 # Changed after launch: the impact must not retain the original defence.
 	var hits := []
 	for tick in 20:
@@ -128,7 +127,7 @@ func test_physical_projectiles_use_target_level_and_pdd_at_impact() -> void:
 		hits.append_array(_hits(world))
 	assert_eq(hits.size(), 1)
 	if hits.size() == 1:
-		assert_between(hits[0].damage, 132, 140, "live PDD40 and mobLv11, then skill200%")
+		assert_between(hits[0].damage, 152, 160, "live PDD40 (mobLv11 changes nothing), then skill200%")
 
 
 func _hits(world: RunWorld) -> Array:
@@ -149,6 +148,7 @@ func test_job_accuracy_equipment_and_buffs_feed_crit_for_every_damage_type() -> 
 	var setup := RF.setup("quiet", 153, data)
 	setup.equipment_info[1302000].incACC = 7
 	var world := RunWorld.new(setup)
+	world.wear_new_item(1302000) # Explicit Sword for the worked physical-damage examples.
 	assert_near(world.player_state.acc, 13.5, 0.00001, "DEX5 LUK5 base6.5 plus equipment7")
 	assert_near(world.loadout.acc, 13.5, 0.00001)
 	world.learn_skill("crit_fixture")
@@ -168,22 +168,6 @@ func test_job_accuracy_equipment_and_buffs_feed_crit_for_every_damage_type() -> 
 	assert_eq(world.loadout.watk, 17.0, "W.Att buff expiry refreshes physical bounds too")
 
 
-func test_basic_attack_can_crit_on_stream_five_without_consuming_combat_rng() -> void:
-	var world := BF.world(153)
-	world.loadout.crit_bonus = 1.0
-	var mob := RF.put_mob(world, 100100, 450, 190, 1000)
-	world.mob_kinds[world.swarm.kind[mob]].move_speed = 0
-	var combat_before := world.rng.state
-	var hits := []
-	for tick in 29:
-		world.step(DT, MoveInput.new())
-		hits.append_array(_hits(world))
-	assert_eq(hits.size(), 1)
-	if hits.size() == 1:
-		assert_true(hits[0].crit, "Beginner's basic attack can crit")
-	assert_eq(world.rng.state, combat_before, "basic damage and crit rolls both stay on stream5")
-
-
 func test_passive_crit_adds_skill_percent_and_default_crit_multiplies_on_all_damage_types() -> void:
 	var world := RF.quiet_world(400, 153)
 	var mob := RF.put_mob(world, 100100, 550, 190, 10000)
@@ -193,14 +177,14 @@ func test_passive_crit_adds_skill_percent_and_default_crit_multiplies_on_all_dam
 				"damage_min": 100.0, "damage_max": 100.0, "damage_pct": 1.5,
 				"crit": 1.0, "crit_mult": 1.5, "crit_damage_bonus": bonus}, -1)
 			var hit: Dictionary = _hits(world)[0]
-			assert_true(hit.crit, dtype + " can crit, including fixed Three Snails")
+			assert_true(hit.crit, dtype + " can crit, including fixed damage")
 			assert_eq(hit.damage, 225 if bonus == 0 else 250, "passive100 adds to skill150%, otherwise x1.5")
 
 
 func test_skill_runner_resolves_physical_lines_and_projectiles_from_canonical_damage() -> void:
 	for kind: String in ["instant", "projectile"]:
 		var data := RF.quiet_data()
-		data.balance.player.skills = ["fixture"]
+		data.jobs_survivor.jobs["212"]["starting_skill"] = "fixture"
 		data.balance.crit.per_acc = 0.0
 		data.balance.player.stats = {"str": 100, "dex": 50, "int": 4, "luk": 200}
 		data.skills.skills.fixture = {"skill_id": 1001004, "book": "100", "kind": kind,
@@ -210,6 +194,7 @@ func test_skill_runner_resolves_physical_lines_and_projectiles_from_canonical_da
 		setup.equipment_info[1302000].incPAD = 100
 		setup.skill_imgs["100"] = {"skill": {"1001004": {"level": {"1": {"damage": 200, "attackCount": 2}}}}}
 		var world := RunWorld.new(setup)
+		world.wear_new_item(1302000) # Explicit Sword for the worked physical-damage examples.
 		world.god = true
 		RF.place_player(world, 400)
 		var mob := RF.put_mob(world, 100100, 500, 190, 10000)
@@ -236,6 +221,7 @@ func test_live_defence_buff_reduces_instant_and_airborne_physical_hits() -> void
 		var setup := MF.setup([112], 153)
 		setup.mob_skill_img["112"].level["1"].interval = 0.05
 		var world := RunWorld.new(setup)
+		world.wear_new_item(1302000) # Explicit Sword for the worked physical-damage examples.
 		world.god = true
 		RF.place_player(world, 400)
 		for tick in 120: # Let the spawned boss finish fading in before its defence skill can act.
@@ -246,11 +232,11 @@ func test_live_defence_buff_reduces_instant_and_airborne_physical_hits() -> void
 		if projectile:
 			world.projectiles.spawn({"x": world.mob_center(mob).x, "y": world.mob_center(mob).y, "vx": 0.0,
 				"range": 100, "damage_type": "physical", "dmg_min": 100.0, "dmg_max": 100.0,
-				"player_level": 20, "damage_pct": 2.0, "skill": "fixture"})
+				"damage_pct": 2.0, "skill": "fixture"})
 			world.step(DT, MoveInput.new())
 		else:
 			world.hit_mob(mob, {"skill": "fixture", "damage_type": "physical", "magic": false,
-				"damage_min": 100.0, "damage_max": 100.0, "player_level": 20, "damage_pct": 2.0,
+				"damage_min": 100.0, "damage_max": 100.0, "damage_pct": 2.0,
 				"crit": 0.0, "crit_mult": 1.5}, -1)
 		var hits := _hits(world)
 		assert_eq(hits.size(), 1)

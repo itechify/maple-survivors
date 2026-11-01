@@ -51,14 +51,6 @@ func test_monster_damage_rounding_and_mitigation() -> void:
 	assert_eq(CombatMath.monster_damage(100.0, 1.0, 20.0, 100.0), 1, "complete resistance still costs 1")
 
 
-func test_magic_guard_split() -> void:
-	assert_eq(CombatMath.magic_guard_split(100, 11.0, 500), Vector2i(89, 11), "L1: 11% to MP")
-	assert_eq(CombatMath.magic_guard_split(100, 80.0, 30), Vector2i(70, 30), "MP runs out: the rest hits HP")
-	assert_eq(CombatMath.magic_guard_split(7, 11.0, 100), Vector2i(7, 0), "floor(0.77) = 0")
-	assert_eq(CombatMath.magic_guard_split(100, 0.0, 100), Vector2i(100, 0), "no Magic Guard")
-	assert_eq(CombatMath.magic_guard_split(50, 80.0, 0), Vector2i(50, 0), "no MP")
-
-
 func test_crit_roll() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3

@@ -59,7 +59,7 @@ func test_stage_select_ignores_retired_save_records() -> void:
 	assert_eq(int(s.best_for("henesys").kills), 400, "playable best remains")
 	assert_eq(s.runs_for("henesys"), 1)
 	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
-	assert_eq(offered.map(func(c: Dictionary) -> String: return String(c.key)),
+	assert_eq(offered.map(func(c: Dictionary) -> String: return String(c.key)).slice(0, 5),
 		["henesys", "ellinia", "perion", "kerning", "sleepywood"])
 	assert_eq(STAGE_SELECT.best_text(s.best_for(String(offered[0].key))),
 		"Best: Survived 05:00, Lv. 12, 400 kills")
@@ -204,6 +204,8 @@ func test_creation_arrows_change_every_live_preview_field_for_both_genders() -> 
 	creation.create_button.pressed.emit()
 	for gender in 2:
 		for field: String in CharacterCreation.FIELDS:
+			if field == "weapon":
+				continue # the job's creation weapon: shown on the Look step, not chosen (#286)
 			var values: Array = creation.model.options(gender, field)
 			for option in values.size():
 				var before: Dictionary = creation.avatar.look.duplicate(true)
@@ -211,7 +213,7 @@ func test_creation_arrows_change_every_live_preview_field_for_both_genders() -> 
 				var after: Dictionary = creation.avatar.look
 				assert_ne(after, before, "%s gender %d option %d really changes the rendered look" % [field, gender, option])
 				assert_eq(after, DataRepo.character_look({"job_id": 0, "look": creation.model.look(gender, creation.choices),
-					"beginner_weapon": creation.model.weapon(gender, creation.choices)}, DataRepo.load_all()))
+					"beginner_weapon": 1372005}, DataRepo.load_all()))
 		(creation.find_child("Next_gender", true, false) as BaseButton).pressed.emit()
 
 
@@ -235,6 +237,25 @@ func test_creation_opens_on_name_and_cancel_returns_one_step() -> void:
 	assert_true(closed[0], "Name Cancel closes creation back to character select")
 
 
+func test_creation_look_ok_opens_the_job_page_and_job_cancel_returns_to_look() -> void:
+	# Look OK stays disabled until the cache supplies the hair and face columns (CharacterCreateModel.available()).
+	if not require_cache():
+		return
+	var flow := _flow()
+	flow.goto_character_select()
+	flow.current.show_creation()
+	var creation: Control = flow.current.creation
+	creation.name_edit.text = "Phase218"
+	creation.create_button.pressed.emit()
+	creation.create_button.pressed.emit()
+	assert_eq(creation.phase, "job", "Look OK goes to the Job page")
+	assert_eq(creation.create_button, creation._job_ok)
+	assert_true(212 in creation.job_ids, "the Arch Mage is listed")
+	assert_eq(creation.job_id, 212, "the default job is chosen")
+	creation._return_look()
+	assert_eq(creation.phase, "look", "Job Cancel goes back to Look")
+
+
 func test_creation_defaults_to_male_and_the_look_row_flips_to_female() -> void:
 	if not require_cache():
 		return
@@ -245,11 +266,12 @@ func test_creation_defaults_to_male_and_the_look_row_flips_to_female() -> void:
 	assert_eq(creation.gender, 0, "gender defaults to Male")
 	assert_eq(creation.option_labels.gender.text, "Male")
 	assert_eq(creation.avatar.look, DataRepo.character_look({"job_id": 0, "look": creation.model.look(0, {}),
-		"beginner_weapon": creation.model.weapon(0, {})}, DataRepo.load_all()), "the preview starts as the Male look")
+		"beginner_weapon": 1372005}, DataRepo.load_all()), "the preview starts as the Male look with the job's wand")
 	creation.name_edit.text = "Boy21800"
 	creation.create_button.pressed.emit()
 	creation.create_button.pressed.emit()
-	assert_eq(flow.current_name, "stage_select")
+	creation.create_button.pressed.emit()
+	assert_eq(flow.current_name, "free_market")
 	var male: Dictionary = flow.save.slot(0).character
 	assert_eq(male.look.face, creation.model.look(0, {}).face, "untouched gender row creates a Male character")
 	assert_eq(male.look.hair, creation.model.look(0, {}).hair)
@@ -259,6 +281,7 @@ func test_creation_defaults_to_male_and_the_look_row_flips_to_female() -> void:
 	(creation.find_child("Next_gender", true, false) as BaseButton).pressed.emit()
 	assert_eq(creation.option_labels.gender.text, "Female")
 	creation.name_edit.text = "Girl21800"
+	creation.create_button.pressed.emit()
 	creation.create_button.pressed.emit()
 	creation.create_button.pressed.emit()
 	var female: Dictionary = flow.save.slot(1).character
@@ -283,8 +306,8 @@ func test_character_selection_click_keys_details_delete_cancel_and_history() -> 
 	assert_eq(screen.selected, 2)
 	assert_eq(screen.find_child("CharacterInfo", true, false).position, first_info + Vector2(250, 0))
 	assert_eq(screen.selected_info.name, "Select702")
-	assert_eq(screen.selected_info.level, 1)
-	assert_eq(screen.selected_info.attributes, flow.save.slot(2).character.attributes)
+	assert_eq(screen.selected_info.level, 1, "a character has no level between rounds")
+	assert_eq(screen.selected_info.job, "Arch Mage (Fire, Poison)")
 	if require_cache():
 		assert_eq(screen.avatars[2].stance, "walk1")
 		assert_eq(screen.avatars[0].stance, "stand1")
@@ -363,31 +386,15 @@ func test_results_helpers() -> void:
 	assert_eq(RESULTS.group_digits(-1000), "-1,000")
 
 
-func test_create_character_enters_saved_tier_one_map_select() -> void:
-	var flow := _flow()
-	assert_eq(flow.create_character("Maple69"), 0)
-	assert_eq(flow.current_name, "stage_select")
-	var saved := SaveData.new(save_path).slot(0)
-	assert_eq(saved.name, "Maple69")
-	assert_eq(int(saved.tier), 0)
-	assert_eq(saved.phase, "map_select")
-	assert_eq(int(saved.character.level), 1)
-	assert_eq(int(saved.character.job_id), 0)
-	assert_eq(flow.current.stages.map(func(c: Dictionary) -> String: return String(c.key)),
-		["henesys", "ellinia", "perion", "kerning"], "tier 1 offers the four Victoria Island job towns' regions")
-	assert_eq(flow.create_character("maple69"), -1, "living names are unique ignoring case")
-	assert_eq(flow.create_character("no!"), -1)
-
-
-func test_creation_persists_one_authoritative_look_and_the_beginner_weapon() -> void:
+func test_creation_persists_one_authoritative_look_and_the_job_weapon() -> void:
 	var flow := _flow()
 	var look := {"skin": 3, "face": 21002, "hair": 31057, "equips": [1041011, 1061008, 1072038]}
-	assert_eq(flow.create_character("Maple70", look, 1322005), 0)
+	assert_eq(flow.create_character("Maple70", look, 212), 0)
 	var saved := SaveData.new(save_path).slot(0)
 	assert_eq(saved.character.look, JSON.parse_string(JSON.stringify({"skin": 3, "face": 21002, "hair": 31057})),
 		"look survives JSON's numeric conversion; its equips are worn equipment now")
-	assert_eq(Equipment.worn_ids(saved.character.equipment.worn), [1041011, 1061008, 1072038, 1322005],
-		"the creation outfit and weapon are the first worn equipment")
+	assert_eq(Equipment.worn_ids(saved.character.equipment.worn), [1041011, 1061008, 1072038, 1372005],
+		"the creation outfit and the job's weapon are the first worn equipment")
 	assert_eq(int(saved.character.format), CharacterSnapshot.FORMAT)
 	assert_false(saved.has("look"), "new run wrappers never duplicate the character's look")
 	flow.save_and_quit()
@@ -398,45 +405,11 @@ func test_creation_persists_one_authoritative_look_and_the_beginner_weapon() -> 
 	assert_eq(FileAccess.get_file_as_string(save_path), bytes, "cancelling creation writes nothing")
 
 
-func test_clear_carries_character_to_next_tier_and_refills_pools() -> void:
-	var flow := _flow()
-	flow.create_character("Carry69")
-	var character: Dictionary = flow.save.slot(0).character
-	character.level = 35
-	character.exp = 17
-	character.job_id = 210
-	flow.finish_run(summary(true, 900, 35, 3000), character)
-	assert_eq(flow.current_name, "free_market")
-	var boundary := SaveData.new(save_path).slot(0)
-	assert_eq(boundary.phase, "free_market", "arrival autosaves the hub boundary")
-	assert_eq(int(boundary.tier), 1)
-	assert_eq(int(boundary.tiers_cleared), 1)
-	assert_eq(int(boundary.rounds_played), 1)
-	assert_eq(boundary.character, JSON.parse_string(JSON.stringify(character)))
-	flow.save_and_quit()
-	assert_eq(flow.current_name, "character_select")
-	flow.save = SaveData.new(save_path)
-	flow.continue_character(0)
-	assert_eq(flow.current_name, "free_market", "Continue returns to the saved hub")
-	flow.goto_stage_select()
-	assert_eq(flow.current.stages.size(), 1, "single-stage tiers still show map select")
-	assert_eq(flow.current.stages[0].key, "sleepywood")
-	var setup := preload("res://tests/fixtures/run_fixtures.gd").setup("henesys", 7)
-	setup.character = boundary.character
-	var next := RunWorld.new(setup)
-	assert_eq(next.player_state.hp, next.player_state.max_hp)
-	assert_eq(next.player_state.mp, next.player_state.max_mp)
-	assert_eq(next.progression.exp, 17)
-	assert_true(next.potions.is_ready("hp"))
-	assert_eq(flow.save.runs_for("henesys"), 1)
-
-
-func test_free_market_walk_to_scripted_exit_saves_next_map_select() -> void:
+func test_free_market_walk_to_scripted_exit_opens_map_select() -> void:
 	if not require_cache():
 		return
 	var flow := _flow()
 	flow.create_character("Market71")
-	flow.finish_run(summary(true, 900, 35, 3000), flow.save.slot(0).character)
 	var hub := flow.current as FreeMarket
 	assert_true(hub.has_method("step_input"), "the hub accepts the normal fixed-tick movement input")
 	if not hub.has_method("step_input"):
@@ -447,8 +420,7 @@ func test_free_market_walk_to_scripted_exit_saves_next_map_select() -> void:
 		hub.step_input(1.0 / 60.0, MoveInput.make(false, true))
 	hub.step_input(1.0 / 60.0, MoveInput.make(false, false, true))
 	assert_eq(flow.current_name, "stage_select")
-	assert_eq(SaveData.new(save_path).slot(0).phase, "map_select")
-	assert_eq(flow.current.stages[0].key, "sleepywood")
+	assert_eq(flow.current.stages[0].key, "henesys", "map select lists the progression, Henesys first")
 
 
 
@@ -460,8 +432,11 @@ func test_the_autoplay_option_reaches_the_hub_and_its_shop_visit() -> void:
 	flow.create_character("Auto112")
 	var character: Dictionary = flow.save.slot(0).character
 	character.mesos = 200000
+	var slot := flow.save.slot(0)
+	slot.character = character
+	flow.save.update_slot(0, slot)
 	flow.autoplay = true
-	flow.finish_run(summary(true, 900, 35, 3000), character)
+	flow.continue_character(0)
 	var hub := flow.current as FreeMarket
 	assert_true(hub != null and RunScene.option_flag(hub.options, "autoplay"), "the hub got the autoplay option")
 	if hub != null:
@@ -476,7 +451,6 @@ func test_free_market_equip_window_changes_the_saved_character_at_once() -> void
 		return
 	var flow := _flow()
 	flow.create_character("Market108")
-	flow.finish_run(summary(true, 900, 35, 3000), flow.save.slot(0).character)
 	var hub := flow.current as FreeMarket
 	assert_true(hub != null and hub.ui_windows != null, "the hub hosts a window stack")
 	if hub == null or hub.ui_windows == null:
@@ -495,17 +469,17 @@ func test_free_market_equip_window_changes_the_saved_character_at_once() -> void
 	for tick in 10:
 		hub.step_input(1.0 / 60.0, MoveInput.make(false, true))
 	assert_eq(hub.motion.player.pos.x, x, "movement holds while a window is open")
-	assert_true(1302000 in hub.avatar.look.equips, "drawn with the creation sword")
+	assert_true(1372005 in hub.avatar.look.equips, "drawn with the creation wand")
 	assert_eq(ew.take_off("weapon"), "")
-	assert_false(1302000 in hub.avatar.look.equips, "the hub redraws the character bare-handed at once")
+	assert_false(1372005 in hub.avatar.look.equips, "the hub redraws the character bare-handed at once")
 	var saved := SaveData.new(save_path).slot(0)
 	assert_false(saved.character.equipment.worn.has("weapon"), "the slot's character was saved at once")
-	assert_eq(saved.character.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)), [1302000])
+	assert_eq(saved.character.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)), [1372005])
 	key.physical_keycode = KEY_I
 	key.keycode = KEY_I
 	assert_true(hub.handle_hotkey(key), "I opens the Item window")
 	var iw := hub.ui_windows.top() as ItemWindow
-	assert_true(iw != null and iw.cell(0).get("id") == 1302000, "the Item window lists the sword")
+	assert_true(iw != null and iw.cell(0).get("id") == 1372005, "the Item window lists the wand")
 	assert_eq(hub.ui_windows.ids(), PackedStringArray(["equip", "item"]))
 	key.physical_keycode = KEY_ESCAPE
 	key.keycode = KEY_ESCAPE
@@ -521,78 +495,10 @@ func test_free_market_equip_window_changes_the_saved_character_at_once() -> void
 	assert_true(hub.pause_menu.is_open(), "with no window open Esc pauses")
 
 
-func test_death_and_final_clear_end_run_and_results_return_to_characters() -> void:
-	var flow := _flow()
-	flow.create_character("Dead69")
-	var character: Dictionary = flow.save.slot(0).character
-	character.level = 17
-	flow.finish_run(summary(false, 512, 17, 1342), character)
-	assert_eq(flow.current_name, "results")
-	assert_true(flow.save.slot(0).is_empty())
-	assert_eq(flow.save.history[0].ending, "died")
-	assert_eq(int(flow.save.history[0].level), 17)
-	assert_true(flow.last_new_best)
-	flow.current.to_character_select()
-	assert_eq(flow.current_name, "character_select")
-	flow.create_character("Win69")
-	character = flow.save.slot(0).character
-	for tier in SceneFlow.tiers().size():
-		flow.finish_run(summary(true, 900, 35, 3000), character)
-	assert_eq(flow.current_name, "results")
-	assert_eq(flow.save.history[1].ending, "victory")
-	assert_eq(int(flow.save.history[1].tiers_cleared), 2)
-	assert_eq(RESULTS.headline(flow.last_summary), "Victory!")
-	assert_true(RESULTS.stat_rows(flow.last_summary).has(["Tiers cleared", "2"]))
-	flow.current.to_character_select()
-	assert_eq(flow.current_name, "character_select")
-
-
-func test_finale_sweep_quit_replays_start_then_carries_settled_rewards_once() -> void:
-	if not require_cache():
-		return
-	var rf := preload("res://tests/fixtures/run_fixtures.gd")
-	var flow := _flow()
-	flow.create_character("Sweep71")
-	flow.start_round("henesys", 71)
-	var bytes := FileAccess.get_file_as_string(save_path)
-	var start: Dictionary = flow.save.slot(0).character
-	for attempt in 2:
-		var w: RunWorld = (flow.current as RunScene).world
-		w.bosses = BossDirector.new([{"mob_id": 2220000, "time": 0.0}])
-		w.bosses.records[0].dead = true
-		w.pending_bonus_choices = 1
-		w._advance_queue()
-		w.pickups.spawn(Vector2(10000, -10000), w.progression.exp_to_next(), 4000000, w.player.pos)
-		w.spawn_meso(Vector2(10000, -10000), 123)
-		w.apply_choice(String(w.pending_cards[0].id))
-		assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "sweep level choice precedes the outgoing snapshot")
-		assert_eq(w.progression.level, 2)
-		assert_eq(FileAccess.get_file_as_string(save_path), bytes, "settlement never writes mid-choice")
-		if attempt == 0:
-			flow.quit_round()
-			flow.save = SaveData.new(save_path)
-			flow.continue_character(0)
-			assert_eq((flow.current as RunScene).world.character_snapshot(), start, "Continue replays the saved start")
-		else:
-			if w.pending_cards.is_empty():
-				return
-			w.apply_choice(String(w.pending_cards[0].id))
-			assert_eq(w.state, RunWorld.CLEARED)
-			flow.finish_run(summary(true, w.time, w.progression.level, w.kills), w.character_snapshot())
-	var boundary := SaveData.new(save_path).slot(0)
-	assert_eq(boundary.phase, "free_market")
-	assert_eq(int(boundary.character.mesos), int(start.mesos) + 123, "only the completed attempt carries")
-	assert_eq(int(boundary.character.level), 2)
-	flow.save_and_quit()
-	flow.save = SaveData.new(save_path)
-	flow.continue_character(0)
-	assert_eq(flow.save.slot(0), boundary, "Continue at the hub never reapplies settlement")
-
-
 func test_same_tick_boss_projectile_kill_and_contact_death_ends_run_with_last_valid_character() -> void:
 	var rf := preload("res://tests/fixtures/run_fixtures.gd")
 	var data := rf.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	STAGE_FIXTURES.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000,
 		"rewards": {"bonus_choices": 1, "exp_mult": 0}}])
 	var world := RunWorld.new(rf.setup("quiet", 32, data))
@@ -622,85 +528,27 @@ func test_same_tick_boss_projectile_kill_and_contact_death_ends_run_with_last_va
 	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "player_hit" and e.source_kind == "touch"))
 	var flow := _flow()
 	flow.create_character("Dead32")
-	var saved: Dictionary = flow.save.slot(0).character
-	flow.finish_run(summary(false, world.time, world.progression.level, world.kills))
-	assert_eq(flow.current_name, "results", "terminal death needs no clear-grade snapshot")
+	flow.finish_run(summary(false, world.time, world.progression.level, world.kills), world.character_snapshot())
+	assert_eq(flow.current_name, "results", "a death with an unanswered boss reward still ends the round")
 	assert_eq(int(flow.last_summary.level), 17, "results retain actual round-end progress")
 	var disk := SaveData.new(save_path)
-	assert_true(disk.slot(0).is_empty(), "death frees the living slot on disk")
+	assert_eq(disk.slot(0).name, "Dead32", "death does not free the slot")
 	assert_eq(disk.history.size(), 1)
 	if disk.history.size() == 1:
 		assert_eq(disk.history[0].ending, "died")
-		assert_eq(int(disk.history[0].level), int(saved.level), "history retains the last valid boundary character")
-	assert_eq(flow.active_slot, -1)
+		assert_eq(int(disk.history[0].level), 17, "history keeps the level reached")
+	assert_eq(flow.active_slot, 0)
 
 
-func test_quit_round_then_continue_replays_saved_first_minute() -> void:
-	if not require_cache():
-		return
-	var flow := _flow()
-	flow.create_character("Replay69")
-	flow.start_round("henesys", 2026)
-	var first := flow.current as RunScene
-	assert_true(first != null and first.world != null)
-	var bytes := FileAccess.get_file_as_string(save_path)
-	var events := _first_minute(first.world)
-	flow.quit_round()
-	assert_eq(flow.current_name, "character_select")
-	assert_eq(FileAccess.get_file_as_string(save_path), bytes, "Quit round never changes the boundary")
-	flow.save = SaveData.new(save_path)
-	flow.continue_character(0)
-	var replay := flow.current as RunScene
-	assert_eq(replay.stage_key, "henesys")
-	assert_eq(replay.run_seed, 2026)
-	assert_eq(_first_minute(replay.world), events)
-	assert_eq(FileAccess.get_file_as_string(save_path), bytes)
-
-
-func _first_minute(world: RunWorld) -> String:
-	var events := ""
-	var memo := {}
-	for tick in 3600:
-		BotInput.auto_choose(world)
-		world.step(1.0 / 60.0, BotInput.decide(world, memo))
-		events += JSON.stringify(world.drain_events(), "", false, true)
-	return events
-
-
-func test_continue_migrates_a_format_one_slot_once_and_keeps_its_look() -> void:
-	var flow := _flow()
-	var old := RunWorld.new({"data": DataRepo.load_all()}).character_snapshot()
-	for key: String in ["equipment", "scrolls", "mesos"]:
-		old.erase(key)
-	old.format = 1
-	old.job_id = 200
-	old.look = {"skin": 3, "face": 21002, "hair": 31057, "equips": [1041011, 1061008, 1072038]}
-	old.beginner_weapon = 1322005
-	assert_eq(flow.save.create_slot({"name": "Older69", "character": old, "created": "2026-10-16", "tier": 0,
-		"phase": "map_select", "rounds_played": 1, "tiers_cleared": 0}), 0, "a spec #32 save still loads")
-	var drawn := DataRepo.character_look(flow.save.slot(0).character, DataRepo.load_all())
-	flow.continue_character(0)
-	assert_eq(flow.current_name, "stage_select")
-	var saved := SaveData.new(save_path).slot(0).character as Dictionary
-	assert_eq(int(saved.format), CharacterSnapshot.FORMAT, "migrated and written back")
-	assert_eq(Equipment.worn_ids(saved.equipment.worn), [1041011, 1061008, 1072038, 1372005],
-		"the outfit plus the old rule's Magician weapon")
-	var now := DataRepo.character_look(saved, DataRepo.load_all())
-	assert_eq(now.equips, drawn.equips, "it looks exactly as before")
-	for field: String in ["skin", "face", "hair"]:
-		assert_eq(int(now[field]), int(drawn[field]), field)
-	assert_eq(int(saved.mesos), 0)
-
-
-func test_save_and_quit_continue_map_select_and_delete_history() -> void:
+func test_save_and_quit_continue_the_hub_and_delete_history() -> void:
 	var flow := _flow()
 	flow.create_character("Slots69")
 	flow.start_round("sleepywood", 7)
-	assert_eq(flow.current_name, "stage_select", "a later tier cannot be selected early")
+	assert_eq(flow.current_name, "free_market", "a locked region cannot be started early")
 	flow.save_and_quit()
 	assert_eq(flow.current_name, "character_select")
 	flow.continue_character(0)
-	assert_eq(flow.current_name, "stage_select")
+	assert_eq(flow.current_name, "free_market", "Continue opens the hub")
 	assert_eq(flow.current.snapshot.name, "Slots69")
 	assert_true(flow.delete_character(0))
 	assert_eq(flow.current_name, "character_select")
@@ -716,10 +564,10 @@ func test_one_off_character_round_leaves_existing_save_bytes_unchanged() -> void
 	var flow := _flow()
 	flow.create_character("Tool69")
 	var bytes := FileAccess.get_file_as_string(save_path)
-	var path := ProjectSettings.globalize_path("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var path := ProjectSettings.globalize_path("res://tests/fixtures/characters/fp_arch_mage.json")
 	flow.start_run("henesys", 7, {"character": path})
 	var run := flow.current as RunScene
-	assert_eq(int(run.world.player_state.level), 38)
+	assert_eq(int(run.world.player_state.level), 1, "a tool character also starts the round at Lv1")
 	assert_eq(flow.active_slot, -1)
 	flow.finish_run(summary(true, 900, 35, 3000))
 	assert_eq(flow.current_name, "results")

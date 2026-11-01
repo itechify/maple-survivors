@@ -3,6 +3,8 @@ extends Node
 ## ISOLATE=t60 bash scripts/run.sh res://scenes/debug/teleport_driver.tscn -- --branch=210 --shots=<abs evidence dir>
 ## Saves departure/arrival and unaffordable HUD views plus summary.json. No cache import or balance edits.
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 var run: RunScene
 var shots := ""
 
@@ -29,10 +31,9 @@ func _drive() -> void:
 	run.set_process(false)
 	var w := run.world
 	w.god = true
-	w.change_job(200)
-	w.change_job(branch)
-	w.upgrades.apply(key + "_new", w)
-	w.heal_fraction("mp", 1.0)
+	RF.as_job(w, 200)
+	RF.as_job(w, branch)
+	w.learn_skill(key)
 	run.handle_events(w.drain_events())
 	# WZ effects advance in presentation time, independently of this driver's fixed simulation ticks.
 	await get_tree().create_timer(2.0).timeout
@@ -45,12 +46,9 @@ func _drive() -> void:
 	await get_tree().create_timer(0.08).timeout
 	await _shot("teleport.png")
 	var arrival := w.player.pos
-	w.spend_mp(int(w.player_state.mp))
-	run.advance_frame(1.0 / 60.0)
-	await _shot("teleport_no_mp.png")
 	var summary := run.perf_summary()
 	summary["teleport_probe"] = {"departure": [departure.x, departure.y], "arrival": [arrival.x, arrival.y],
-		"key": "X", "skill": key, "affordable": w.teleport_affordable()}
+		"key": "X", "skill": key}
 	var file := FileAccess.open(shots.path_join("summary.json"), FileAccess.WRITE)
 	file.store_string(JSON.stringify(summary, "\t"))
 	get_tree().quit()

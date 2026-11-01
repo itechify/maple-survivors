@@ -1,5 +1,12 @@
 # A run is a series of rounds with one persistent character
 
+> **Superseded by ADR 0006** (2026-10-27) on the `redesign` branch, and landed by #286 (save format 3): rounds are
+> standalone, every round starts at Lv1, tiers unlock per character and death ends only the round. A character now
+> keeps only its identity and belongings (name, look, job, equipment, inventory, scrolls, mesos, cash, pet, unlocked
+> tiers); the run snapshot with a next stage and seed is gone, and the hub is where saves happen. Format 1 and 2
+> characters are not migrated: they move to the history. The rule against saving live simulation state still holds,
+> and so does "quitting mid-round loses that round" (Quit round ends it like a death and keeps the pickups).
+
 A single 15:00 stage capped a character in the mid-30s, so later jobs could never be reached. A run is now one
 character playing one stage per tier, round after round, with level, EXP, job, AP stats and skills carried
 over, and HP and MP refilled at every round boundary. Death ends the run, and clearing the last tier is a victory

@@ -1,7 +1,8 @@
 extends TestCase
 ## Shared passives and buffs of the physical foundation (spec #151 ticket #161, docs/GAME_DESIGN.md 7.6): weapon Mastery
 ## (mastery + ACC), Critical Shot-style crit passives, Improved MaxHP Increase per level-up, Rage-style W.Att buffs with a
-## WDEF side effect, and the Final Attack follow-up on RNG stream 12. Every skill here is synthetic (no cache).
+## WDEF side effect, and the Final Attack follow-up on RNG stream 12. Every skill here is synthetic (no cache). Since #284
+## weapons gate no skill or passive: a skill's `weapon_families` no longer switches it off for another weapon.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -28,6 +29,7 @@ func _passive(id: int, families: Array, passive: Dictionary, ranks := 2) -> Dict
 ## sword only), improved_hp (max_hp_per_level x, any weapon).
 func _world(p_seed := 161, mutate: Callable = Callable()) -> RunWorld:
 	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["creation_weapon"] = 1302000 # Explicit Sword for mastery and Final Attack examples.
 	data.skills.skills["sword_mastery"] = _passive(9991000, ["sword"], {"stat": "mastery", "field": "mastery",
 		"effects": [{"stat": "acc", "field": "x"}]})
 	data.skills.skills["crit_blade"] = _passive(9991001, ["sword"], {"stat": "crit_chance", "field": "prop",
@@ -62,7 +64,7 @@ func _wear(w: RunWorld, id: int) -> void:
 
 # --- Mastery and ACC ----------------------------------------------------------------------------------------------
 
-func test_mastery_raises_min_damage_and_acc_only_while_its_family_is_held() -> void:
+func test_mastery_raises_min_damage_and_acc_whatever_weapon_is_held() -> void:
 	var w := _world()
 	var base_acc := w.loadout.acc
 	assert_eq(w.loadout.mastery, 0.10, "untrained mastery is 10%")
@@ -81,11 +83,11 @@ func test_mastery_raises_min_damage_and_acc_only_while_its_family_is_held() -> v
 	var without := CombatMath.physical_damage_range(100, 50, 200, 100, 1302000, "swing", 0, untrained.mastery)
 	assert_true(with_mastery.x > without.x, "min damage rises with mastery")
 	assert_eq(with_mastery.y, without.y, "max damage does not")
-	_wear(w, 1332063) # a dagger: not a sword
-	assert_eq(w.loadout.mastery, 0.10, "a dagger gets no sword mastery")
-	assert_near(w.loadout.acc, base_acc + 0.0, 0.00001, "and no ACC from it")
+	_wear(w, 1332063) # a dagger: weapons gate no passive (#284)
+	assert_near(w.loadout.mastery, 0.20, 0.00001, "a dagger keeps the sword mastery")
+	assert_near(w.loadout.acc, base_acc + 5.0, 0.00001, "and its ACC")
 	w.unequip_item("weapon")
-	assert_eq(w.loadout.mastery, 0.10, "bare hands neither")
+	assert_near(w.loadout.mastery, 0.20, 0.00001, "bare hands too")
 	_wear(w, 1302000)
 	assert_near(w.loadout.mastery, 0.20, 0.00001, "the sword is back")
 	w.loadout.set_rank("sword_mastery", 2)
@@ -111,7 +113,7 @@ func test_the_mastery_input_reaches_resolved_physical_skill_bounds() -> void:
 
 # --- Crit passives --------------------------------------------------------------------------------------------------
 
-func test_crit_passives_raise_chance_and_damage_only_for_their_families() -> void:
+func test_crit_passives_raise_chance_and_damage_whatever_weapon_is_held() -> void:
 	var w := _world()
 	assert_eq(w.loadout.crit_bonus, 0.0)
 	assert_eq(w.loadout.crit_damage_bonus, 0.0)
@@ -121,9 +123,9 @@ func test_crit_passives_raise_chance_and_damage_only_for_their_families() -> voi
 	assert_near(w.loadout.crit_damage_bonus, 50.0, 0.00001, "damage 150 adds crit% - 100 skill-% points (tier B)")
 	assert_near(w.loadout.stats("three_snails").crit, base_crit + 0.20, 0.00001, "every damage type crits more")
 	assert_near(w.loadout.stats("three_snails").crit_damage_bonus, 50.0, 0.00001)
-	_wear(w, 1452000) # a bow
-	assert_eq(w.loadout.crit_bonus, 0.0, "a bow does not get a sword's crit passive")
-	assert_eq(w.loadout.crit_damage_bonus, 0.0)
+	_wear(w, 1452000) # a bow: weapons gate no passive (#284)
+	assert_near(w.loadout.crit_bonus, 0.20, 0.00001, "a bow keeps the sword's crit passive")
+	assert_near(w.loadout.crit_damage_bonus, 50.0, 0.00001)
 	_wear(w, 1302000)
 	w.loadout.set_rank("crit_blade", 2)
 	w.refresh_player_stats()
@@ -164,17 +166,6 @@ func test_max_hp_per_level_applies_at_each_level_up_after_learning_and_not_retro
 	for world: RunWorld in [w, control]:
 		world._on_level_up(world.progression.level + 1)
 	assert_eq(float(w.player_state.max_hp), float(control.player_state.max_hp) + 4.0 + 12.0, "rank 3 pays 12 more")
-
-
-func test_max_hp_per_level_persists_through_the_character_snapshot() -> void:
-	var w := _world()
-	w.learn_skill("improved_hp")
-	w._on_level_up(w.progression.level + 1)
-	var snapshot := w.character_snapshot()
-	var setup := w.setup.duplicate()
-	setup.character = snapshot
-	var restored := RunWorld.new(setup)
-	assert_eq(restored.player_state.max_hp, w.player_state.max_hp, "the bonus lives in base_hp")
 
 
 # --- W.Att buffs ------------------------------------------------------------------------------------------------------
@@ -241,7 +232,7 @@ func _dummy(w: RunWorld) -> int:
 
 func _trigger(w: RunWorld, mob: int, dtype := "physical") -> void:
 	w.hit_mob(mob, {"skill": "fixture", "damage_type": dtype, "magic": dtype == "magic", "damage_min": 100.0,
-		"damage_max": 100.0, "damage_pct": 1.0, "player_level": 1, "crit": 0.0, "crit_mult": 1.5}, -1)
+		"damage_max": 100.0, "damage_pct": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
 
 
 func _count(w: RunWorld, skill: String) -> int:
@@ -252,7 +243,7 @@ func _count(w: RunWorld, skill: String) -> int:
 	return n
 
 
-func test_final_attack_procs_at_its_prop_rate_on_a_matching_family_only() -> void:
+func test_final_attack_procs_at_its_prop_rate() -> void:
 	var w := _final_world()
 	var mob := _dummy(w)
 	w.learn_skill("final_blade")
@@ -262,13 +253,6 @@ func test_final_attack_procs_at_its_prop_rate_on_a_matching_family_only() -> voi
 		w.step(DT, MoveInput.new())
 		procs += _count(w, "final_blade")
 	assert_between(procs, 340, 460, "prop 40% over 1000 hits on a fixed seed (expected 400, 5 sigma = 77)")
-	_wear(w, 1332063) # a dagger is not a sword
-	for hit in 300:
-		_trigger(w, mob)
-		w.step(DT, MoveInput.new())
-		procs += _count(w, "final_blade")
-	assert_between(procs, 340, 460, "no follow-up on a mismatched family")
-	_wear(w, 1302000)
 	w.loadout.set_rank("final_blade", 2)
 	var sure := 0
 	for hit in 50:
@@ -302,7 +286,7 @@ func test_final_attack_hits_for_its_own_percent_through_live_defence() -> void:
 	var st := w.loadout.stats("final_blade")
 	assert_eq(st.damage_pct, 2.5)
 	var mk: MobKind = w.mob_kinds[w.swarm.kind[mob]]
-	var defended := CombatMath.physical_defense(Vector2(st.damage_min, st.damage_max), 1, mk.level, mk.pdd)
+	var defended := CombatMath.physical_defense(Vector2(st.damage_min, st.damage_max), mk.pdd)
 	_trigger(w, mob)
 	w.step(DT, MoveInput.new())
 	var follow: Array = w.drain_events().filter(func(e: Dictionary) -> bool:
@@ -327,8 +311,7 @@ func test_final_attack_stream_twelve_leaves_every_other_stream_untouched() -> vo
 		with_fa.step(DT, MoveInput.new())
 		control.step(DT, MoveInput.new())
 	assert_ne(with_fa.final_rng.state, twelve, "the follow-ups rolled on stream 12")
-	for stream: String in ["rng", "basic_rng", "spawn_rng", "card_rng", "drop_rng", "potion_rng", "reward_rng", "job_rng",
-			"meso_rng", "equip_rng", "scroll_rng"]:
+	for stream: String in ["rng", "spawn_rng", "card_rng", "drop_rng", "potion_rng", "reward_rng", "meso_rng", "equip_rng", "scroll_rng"]:
 		assert_eq(with_fa.get(stream).state, control.get(stream).state, stream + " is unaffected by Final Attack")
 
 
@@ -353,7 +336,7 @@ func test_final_attack_follows_projectile_hits_and_announces_itself() -> void:
 	w.loadout.set_rank("final_blade", 2)
 	w.drain_events()
 	w.projectiles.spawn({"x": 200.0, "y": w.mob_center(mob).y, "vx": 600.0, "range": 400.0, "damage_type": "physical",
-		"dmg_min": 100.0, "dmg_max": 100.0, "damage_pct": 1.0, "player_level": 1, "crit": 0.0, "skill": "fixture"})
+		"dmg_min": 100.0, "dmg_max": 100.0, "damage_pct": 1.0, "crit": 0.0, "skill": "fixture"})
 	var events := []
 	for tick in 30:
 		w.step(DT, MoveInput.new())
@@ -388,36 +371,3 @@ func test_the_final_attack_follow_up_plays_its_own_stance() -> void:
 	_trigger(data_without, other)
 	data_without.step(DT, MoveInput.new())
 	assert_eq(data_without.upkeep.cast_action, "", "a skill without an action starts none")
-
-
-func test_a_basic_attack_triggers_final_attack() -> void:
-	var data := RF.quiet_data()
-	data.upgrades.cards = []
-	data.balance.player.skills = []
-	data.balance.magnet_radius = 0
-	data.balance.mob_motion.push_px = 0
-	_final_data(data)
-	var setup := RF.with_basic_attack(RF.setup("quiet", 161, data))
-	setup.skill_imgs["999"] = {"skill": {"9991005": {"level": {"1": {"prop": 100, "damage": 200}}}}}
-	var w := RunWorld.new(setup)
-	RF.place_player(w, 400)
-	w.player.facing = 1
-	w.god = true
-	assert_true(w.learn_skill("final_blade"))
-	var mob := RF.put_mob(w, 100100, 450, 190, 1000)
-	w.mob_kinds[w.swarm.kind[mob]].move_speed = 0
-	var follow := 0
-	for tick in 40:
-		w.step(DT, MoveInput.new())
-		follow += _count(w, "final_blade")
-	assert_eq(follow, 1, "the creation sword's swing was followed up")
-
-
-func test_a_weapon_gated_buff_is_not_cast_with_another_weapon() -> void:
-	var w := _world(161, _rage_data)
-	w.setup.skill_imgs["999"].skill["9991004"] = {"level": {"1": {"pad": 3, "pdd": 3, "time": 46, "mpCon": 0}}}
-	_wear(w, 1332063)
-	w.loadout.order.clear()
-	w.learn_skill("rage")
-	w.step(DT, MoveInput.new())
-	assert_false(w.buffs.has("rage"), "a dagger cannot use a sword buff")

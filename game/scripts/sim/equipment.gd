@@ -1,6 +1,6 @@
 class_name Equipment
 extends RefCounted
-## A character's equipment (GLOSSARY "Mesos and equipment"): equipment instances, equip slots, v83 requirements and
+## A character's equipment (GLOSSARY "Mesos and equipment"): equipment instances, equip slots, the job requirement and
 ## the stat sums the combat math reads. Pure and static: plain JSON-safe Dictionaries in and out, no nodes.
 ##
 ## Equipment instance: {"id": int, "stats": {"incMAD": 23, ...}, "slots": int, "scrolls": int}. `stats` holds only
@@ -16,7 +16,8 @@ extends RefCounted
 ## (balance.player.inventory_slots).
 ##
 ## Mutators change the state in place and return "" on success, otherwise a reason and the state is unchanged:
-##   reqLevel, reqJob, reqSTR, reqDEX, reqINT, reqLUK - the v83 requirement the character fails (requirement_error)
+##   reqJob - the item's job-class requirement the character fails (requirement_error). Level and stat requirements
+##     (reqLevel, reqSTR, reqDEX, reqINT, reqLUK) are ignored: ADR 0006, #292.
 ##   inventory_full - the items that would move to the inventory do not fit
 ##   no_item - no inventory item at that index; empty - nothing worn in that slot
 ##   not_equipment - the item has no equip slot
@@ -36,8 +37,6 @@ const JUMP_CAP := 123
 ## tier A: v83 reqJob bits by job branch (job id / 100): 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate.
 const JOB_BIT_THIEF := 8
 const JOB_BITS := {1: 1, 2: 2, 3: 4, 4: JOB_BIT_THIEF, 5: 16}
-## Requirement fields checked against the character's total main stats, in reporting order.
-const STAT_REQS := {"reqSTR": "str", "reqDEX": "dex", "reqINT": "int", "reqLUK": "luk"}
 
 
 ## The equip slot of an item id ("" when it is not equipment worn in one of SLOTS).
@@ -141,18 +140,14 @@ static func total(worn: Dictionary, key: String) -> float:
 	return sum
 
 
-## The first v83 requirement of `info` that `character` ({level, job_id, str, dex, int, luk}, total main stats
-## including equipment) fails, as its WZ field name; "" when every requirement is met.
+## The requirement of `info` that `character` ({job_id}) fails: "reqJob" when the item's job mask excludes the
+## character's job, else "". Only the job class is checked; reqLevel and reqSTR/DEX/INT/LUK are ignored (ADR 0006,
+## tier C: owner call, #292).
 @warning_ignore("integer_division")
 static func requirement_error(info: Dictionary, character: Dictionary) -> String:
-	if int(character.get("level", 1)) < int(info.get("reqLevel", 0)):
-		return "reqLevel"
 	var mask := int(info.get("reqJob", 0))
 	if mask != 0 and mask & int(JOB_BITS.get(int(character.get("job_id", 0)) / 100, 0)) == 0:
 		return "reqJob"
-	for field: String in STAT_REQS:
-		if int(character.get(STAT_REQS[field], 0)) < int(info.get(field, 0)):
-			return field
 	return ""
 
 
@@ -168,7 +163,7 @@ static func auto_wear_error(worn: Dictionary, id: int, info: Dictionary, charact
 	return requirement_error(info, character)
 
 
-## Wears inventory[index] (canonical `info` for its requirements) after checking `character`'s requirements; the item
+## Wears inventory[index] (canonical `info` for its job requirement) after checking `character`; the item
 ## it replaces (a worn top and bottom for an overall, a worn overall for a top or bottom) takes its inventory place,
 ## any second one is appended.
 static func equip(state: Dictionary, index: int, info: Dictionary, character: Dictionary, capacity: int) -> String:

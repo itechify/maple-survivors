@@ -4,6 +4,8 @@ extends Node
 ## ISOLATE=s33t109 bash scripts/run.sh res://scenes/debug/equipment_drop_driver.tscn -- --shots=<abs evidence dir>
 ## Saves ground.png, full.png, picked.png and summary.json. No cache import or balance edits.
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 var run: RunScene
 var shots := ""
 ## Wand, hat, overall, shoes, gloves, staff (Magician list items across the level range).
@@ -27,7 +29,7 @@ func _drive() -> void:
 	run.set_process(false)
 	var w := run.world
 	w.god = true
-	w.change_job(200)
+	RF.as_job(w, 200)
 	w.progression.level = 45
 	var infos: Dictionary = w.setup.get("equipment_info", {})
 	var rng := RandomNumberGenerator.new()

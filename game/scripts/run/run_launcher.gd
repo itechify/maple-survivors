@@ -6,10 +6,11 @@ extends Node
 ##       --autoplay --autopick --speed=4 --shots=C:/abs/dir --shot-every=30 --quit-after=900 --perf
 ##
 ## Flags: --run=<stage key> (default henesys), --seed=<n> (default random), --autoplay (BotInput plays),
-## --autopick (BotInput's choices, no windows: the first available job and BotInput.pick_card_for's card),
+## --autopick (BotInput's choices, no windows: BotInput.pick_card_for's card), --job=<id> (a fresh character's job; only
+## a playable job from JobTree.playable_jobs()),
 ## --speed=<ticks per frame>, --shots=<abs dir> with --shot-every=<run s> (t<s>.png + final.png),
 ## --quit-after=<run s> (writes <shots>/summary.json and quits), --perf (perf overlay on at start with --autoplay; F3
-## toggles it any time), --name=<character name>, --window-autopick=<s> (level-up / job windows open and answer
+## toggles it any time), --name=<character name>, --window-autopick=<s> (level-up windows open and answer
 ## themselves after s seconds), --vsync=off (uncapped frame rate for perf runs; otherwise the Settings autoload caps it
 ## at the refresh rate), --warp=<run s> (fast-forward the sim before the first frame).
 ## main.gd can reuse has_run_args() / options_from_args() / start() to go straight into a run.
@@ -57,7 +58,7 @@ static func options_from_args(args: Dictionary) -> Dictionary:
 	if args.has("warp"):
 		o["warp"] = float(args.warp)
 	if args.has("job"):
-		JobTree.put_forced(o, str(args.job)) # --job=<id>[:<weapon path>]
+		JobTree.put_job(o, str(args.job)) # --job=<id>: the tool character's job (#284)
 	return o
 
 

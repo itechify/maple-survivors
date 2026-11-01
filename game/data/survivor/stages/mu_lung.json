@@ -1,0 +1,82 @@
+{
+	"drop_band": [50, 60],
+	"_tier": "Tier A: map IDs, widths, original_life and the three bosses from v83 Map.wz / Mob.wz. Tier C: region, map order and pool rules (spec #449 C4, ticket #466, progression step 9), the 900 s duration and every pacing value, which copy Sleepywood's keyframe numbers (rate, max_alive, hp, speed), bursts, elites, exp_mult and hard_cap exactly (Sleepywood carries no post_duration_slope). Only the pools differ, and there is no opening_ramp: level_scale takes its place. Keyframes from 300 s carry no pool because map 1 picks only keyframes with t < 300 (maps 2 and 3 use their own life lists).",
+	"name": "Mu Lung Garden",
+	"region": "Mu Lung",
+	"continent": "Ossyria",
+	"duration": 900,
+	"hard_cap": 400,
+	"_bosses": "Tier C: owner schedule (Giant Centipede, Tae Roon, King Sage Cat; spec #449); hp_mult, dmg_mult and attack_dmg_mult are the first draft of game/tools/level_scale_draft.gd (--step=9 --stage=mu_lung), not tuned. 8 s per-attack cadence as every boss. Canonical attacks, timing, stats and elements stay in Mob.wz. All bosses and reward choices must finish to clear.",
+	"map_seconds": 300,
+	"_maps": "Tier C: owner map order and pool rules, spec #449; #270's three picks kept after the in-engine arena check (#466), no Herb Town or Practice Field alternate needed. Each boss time is relative to map entry. Map 1 is a hand-written curve pool of its own roster (Black Porky, the two Flower Serpents); maps 2 and 3 use their v83 life lists, which hold no timed, hidden or event entries (Wild Bear Area 1: Grizzly only; Peach Farm 3: Reindeer and Peach Monkey). Checked with a god-mode bot round: Snake Area (1530 px) holds 40-66 monsters through its 300 s, Wild Bear Area 1 (1980 px) and Peach Farm 3 (1980 x 1050) fill to the stage's 330 alive with monsters spread over every ledge and ground floor, nothing jammed. Giant Centipede is native to Herb Town and Tae Roon and King Sage Cat to their own 1530-1620 px territories, so all three fight in these fields. Alternates not used: Herb Town Old Swamp 251010400 (2111 px, Mr. Alli Lv64 and Kru Lv68, all pirates), Practice Field 250020200 (2340 px, target dummies).",
+	"maps": [
+		{
+			"map_id": 250010300,
+			"pool": "curve",
+			"boss": {
+				"time": 300,
+				"mob_id": 5220004,
+				"hp_mult": 139.77,
+				"dmg_mult": 0.949,
+				"attacks": ["attack1", "attack2", "attack3"],
+				"attack_interval": 8,
+				"attack_dmg_mult": 0.712,
+				"_tier": "tier C (#466): first draft of level_scale_draft.gd --step=9 --stage=mu_lung, not tuned: arrives at curve time 300 (E_sw 10.80, level 22.80); hp_mult/dmg_mult/attack_dmg_mult carry the Sleepywood map-1 boss's effective HP, touch and attack damage by the level scale's ratios; attack1-3 (type 0, magic) are matched on MAD; 8 s cadence. Giant Centipede's kit holds no mob skills. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
+			}
+		},
+		{
+			"map_id": 250010301,
+			"pool_from_life": true,
+			"boss": {
+				"time": 300,
+				"mob_id": 7220000,
+				"hp_mult": 21.58,
+				"dmg_mult": 0.736,
+				"attacks": ["attack1", "attack2"],
+				"attack_interval": 8,
+				"attack_dmg_mult": 0.916,
+				"_tier": "tier C (#466): first draft of level_scale_draft.gd --step=9 --stage=mu_lung, not tuned: arrives at curve time 600 (E_sw 36.44, level 48.44); attack1 (type 1) and attack2 (type 2, a ball) are magic and matched on MAD; 8 s cadence. Its kit (weapon immunity 140, buffs 110/112/113, and MobSkill 200 level 83 summoning Grizzlies 5120500 at <= 80% HP) runs as written in Skill.wz. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
+			}
+		},
+		{
+			"map_id": 250010700,
+			"pool_from_life": true,
+			"boss": {
+				"time": 300,
+				"mob_id": 7220002,
+				"hp_mult": 29.211,
+				"dmg_mult": 1.59,
+				"attacks": ["attack1"],
+				"attack_interval": 8,
+				"attack_dmg_mult": 1.986,
+				"_tier": "tier C (#466): first draft of level_scale_draft.gd --step=9 --stage=mu_lung, not tuned: arrives at curve time 900 (E_sw 56.85, level 68.85); attack1 (type 0, magic) is matched on MAD; 8 s cadence. Its kit (heal 114, buffs 110/112/113, weapon immunity 140) runs as written in Skill.wz. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
+			}
+		}
+	],
+	"exp_mult": 1.0,
+	"_level_scale": "Tier C (#466, #449 first draft): pasted from level_scale_draft.gd --step=9 --stage=mu_lung, not tuned. exp_level(t) is Sleepywood's effective level E_sw at each keyframe time, and level(t) = E_sw(t) + 3 x (9 - 5), so every region levels the character at Sleepywood's pace and this step is twelve effective levels harder than Sleepywood. Without it the stage would run its canonical monsters at full strength from 0:00 for a Lv1 character. C13 (#475, tier C, calibrated on training seeds 1-4): level(t) = lerp(1, E_sw(t) + 3, min(1, t/600)): the stage starts at effective level 1 and reaches this step's level at 10:00, because a Lv1 character cannot take Lv13-and-up damage from the first second; 3 levels above Sleepywood here (0.75 per step to step 12, 0.25 per step after it: the first draft's +3 per step out-ran what a band's equipment adds).",
+	"level_scale": {"keyframes": [
+		{"t": 0, "level": 1.0, "exp_level": 9.15},
+		{"t": 120, "level": 3.35, "exp_level": 9.73},
+		{"t": 300, "level": 7.4, "exp_level": 10.8},
+		{"t": 480, "level": 20.38, "exp_level": 22.22},
+		{"t": 600, "level": 39.44, "exp_level": 36.44},
+		{"t": 780, "level": 51.23, "exp_level": 48.23},
+		{"t": 900, "level": 59.85, "exp_level": 56.85}]},
+	"_pools": "Tier C weights (#466), map 1 only: Black Porky 4230502 (Lv43) opens alone, then the Flower Serpents 4230503 / 4230504 (Lv45) join at 2:00, the map's own three monsters in the order of their level (Porky 2, Blue 1, Red 1: roughly their 9/11/7 spawn points once the Porky is the lone opener).",
+	"keyframes": [
+		{"t": 0, "rate": 3.0, "max_alive": 50, "hp": 1.0, "speed": 1.0,
+			"pool": {"4230502": 1}},
+		{"t": 120, "rate": 4.5, "max_alive": 80, "hp": 1.0, "speed": 1.05,
+			"pool": {"4230502": 2, "4230503": 1, "4230504": 1}},
+		{"t": 300, "rate": 7.0, "max_alive": 130, "hp": 1.15, "speed": 1.1},
+		{"t": 480, "rate": 10.0, "max_alive": 180, "hp": 1.3, "speed": 1.15},
+		{"t": 600, "rate": 12.0, "max_alive": 220, "hp": 1.4, "speed": 1.2},
+		{"t": 780, "rate": 15.0, "max_alive": 280, "hp": 1.5, "speed": 1.25},
+		{"t": 900, "rate": 18.0, "max_alive": 330, "hp": 1.6, "speed": 1.3}
+	],
+	"bursts": {"first": 90, "every": 90, "count_min": 10, "count_max": 40},
+	"elites": {"first": 75, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
+	"note": "Snakes, bears and peach monkeys of the Mu Lung Garden. Defeat Giant Centipede, Tae Roon and King Sage Cat.",
+	"original_life": {"4230502": 9, "4230503": 11, "4230504": 7}
+}

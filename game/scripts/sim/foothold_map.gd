@@ -280,7 +280,7 @@ func walk_blocked(p: int, xa: float, xb: float) -> bool:
 func slide_along(fh: int, x: float, side: int, distance: float, lo: float, hi: float) -> Dictionary:
 	var f := fh
 	var cur := x
-	var start := {"x": x, "y": y_at(fh, x) if fh >= 0 else 0.0, "fh": fh, "moved": 0.0}
+	var start := {"x": x, "y": y_at(fh, x) if fh >= 0 and fh < count() else 0.0, "fh": fh, "moved": 0.0}
 	if fh < 0 or fh >= count() or not is_floor(fh) or side == 0 or distance <= 0.0:
 		return start
 	var dir := 1.0 if side > 0 else -1.0
@@ -493,6 +493,49 @@ func ceiling_hit(xa: float, ya: float, xb: float, yb: float) -> int:
 			continue
 		best_y = gb
 		best = i
+	return best
+
+
+## The first x on the horizontal path from (xa, y) to xb where a floor rises to the path's height or a ceiling comes down
+## to it, or NAN when the path is clear. A floor counts when the path starts on or above its line where the floor first
+## meets the path and the floor is above the path at its far end (the body would end inside the ground); a ceiling
+## counts the same from below. Surfaces the path runs under (a floor above it) or over (a ceiling below it) never
+## count, platforms stay one-way. Walls are wall_hit's job. Used by Flash Jump, which keeps its height (#405 review).
+func surface_crossing_x(xa: float, y: float, xb: float) -> float:
+	if xa == xb or _gn == 0:
+		return NAN
+	var right := xb > xa
+	var lo := minf(xa, xb)
+	var hi := maxf(xa, xb)
+	var b0 := clampi(int(floor((lo - _gx0) / BUCKET_W)), 0, _gn - 1)
+	var b1 := clampi(int(floor((hi - _gx0) / BUCKET_W)), 0, _gn - 1)
+	var best := NAN
+	for pass_ceilings in 2:
+		var start := _ceil_start if pass_ceilings == 1 else _floor_start
+		var items := _ceil_items if pass_ceilings == 1 else _floor_items
+		for b in range(b0, b1 + 1):
+			for k in range(start[b], start[b + 1]):
+				var i := items[k]
+				var left := minf(x1[i], x2[i])
+				var rightmost := maxf(x1[i], x2[i])
+				var from_x := maxf(lo, left)
+				var to_x := minf(hi, rightmost)
+				if from_x > to_x:
+					continue
+				var enter_x := from_x if right else to_x
+				var exit_x := to_x if right else from_x
+				var ge := y_at(i, enter_x)
+				var gx := y_at(i, exit_x)
+				var crossing := false
+				if pass_ceilings == 1:
+					crossing = y >= ge - EPS and gx > y + EPS
+				else:
+					crossing = y <= ge + EPS and gx < y - EPS
+				if not crossing:
+					continue
+				var hit_x := enter_x + (exit_x - enter_x) * (y - ge) / (gx - ge)
+				if is_nan(best) or (hit_x < best if right else hit_x > best):
+					best = hit_x
 	return best
 
 

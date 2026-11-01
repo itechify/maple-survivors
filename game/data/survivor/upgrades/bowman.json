@@ -1,5 +1,5 @@
 {
-	"_doc": "Bowman first-job cards (#199), followed by Hunter (#202) and Crossbowman (#203) cards. Crossbowman ranks20/30/20/20/30; attacks learn/rank4/3 and passives/buff2/2; behaviour +1/max3/weight2, exact job320, held crossbow, shared rarities. Tier A: rank caps16/20/8/20/20/20. Tier C: attacks learn/rank weights4/3, other skills2/2; +1 shot per behaviour step, max3, weight2; shared Potential rarity magnitudes and held-weapon eligibility. First-job cards carry to310/320, but never displace their own advancement draws. Untuned.",
+	"_doc": "#284 (ADR 0006): this line is unplayable until ported; its cards are kept for the line's skill tests. A card is on offer to every job on the line of its requires.jobs (UpgradePool.on_line), weapons gate no card, and the carried-attack and advancement-draw rules below are gone. Bowman first-job cards (#199), followed by Hunter (#202) and Crossbowman (#203) cards. Crossbowman ranks20/30/20/20/30; attacks learn/rank4/3 and passives/buff2/2; behaviour +1/max3/weight2, exact job320, held crossbow, shared rarities. Tier A: rank caps16/20/8/20/20/20. Tier C: attacks learn/rank weights4/3, other skills2/2; +1 shot per behaviour step, max3, weight2; shared Potential rarity magnitudes and held-weapon eligibility. First-job cards carry to310/320, but never displace their own advancement draws. Untuned.",
 	"cards": [
 		{
 			"id": "blessing_of_amazon_new",
@@ -11,7 +11,7 @@
 			"icon": "Skill.wz/300.img/skill/3000000/icon",
 			"max_rank": 1,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": []
 		},
 		{
@@ -24,7 +24,7 @@
 			"icon": "Skill.wz/300.img/skill/3000000/icon",
 			"max_rank": 16,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "rank", "op": "add", "value": 1}
 			]
@@ -39,7 +39,7 @@
 			"icon": "Skill.wz/300.img/skill/3000001/icon",
 			"max_rank": 1,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": []
 		},
 		{
@@ -52,7 +52,7 @@
 			"icon": "Skill.wz/300.img/skill/3000001/icon",
 			"max_rank": 20,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "rank", "op": "add", "value": 1}
 			]
@@ -67,7 +67,7 @@
 			"icon": "Skill.wz/300.img/skill/3000002/icon",
 			"max_rank": 1,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": []
 		},
 		{
@@ -80,7 +80,7 @@
 			"icon": "Skill.wz/300.img/skill/3000002/icon",
 			"max_rank": 8,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "rank", "op": "add", "value": 1}
 			]
@@ -95,7 +95,7 @@
 			"icon": "Skill.wz/300.img/skill/3001003/icon",
 			"max_rank": 1,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": []
 		},
 		{
@@ -108,97 +108,9 @@
 			"icon": "Skill.wz/300.img/skill/3001003/icon",
 			"max_rank": 20,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "rank", "op": "add", "value": 1}
-			]
-		},
-		{
-			"id": "arrow_blow_new",
-			"power": true,
-			"kind": "skill_new",
-			"skill": "arrow_blow",
-			"name": "Arrow Blow",
-			"desc": "Learn Arrow Blow: Fires a powerful arrow at the nearest monster.",
-			"icon": "Skill.wz/300.img/skill/3001004/icon",
-			"max_rank": 1,
-			"weight": 4,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
-			"effects": []
-		},
-		{
-			"id": "arrow_blow_rank",
-			"power": true,
-			"kind": "skill_rank",
-			"skill": "arrow_blow",
-			"name": "Arrow Blow",
-			"desc": "Arrow Blow +{magnitude} skill level.",
-			"icon": "Skill.wz/300.img/skill/3001004/icon",
-			"max_rank": 20,
-			"weight": 3,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
-			"effects": [
-				{"stat": "rank", "op": "add", "value": 1}
-			]
-		},
-		{
-			"id": "arrow_blow_shots",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "arrow_blow",
-			"name": "Arrow Blow",
-			"desc": "Arrow Blow fires +{value} more arrow.",
-			"value": 1,
-			"icon": "Skill.wz/300.img/skill/3001004/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
-			"effects": [
-				{"stat": "count", "op": "add", "value": 1}
-			]
-		},
-		{
-			"id": "bow_double_shot_new",
-			"power": true,
-			"kind": "skill_new",
-			"skill": "bow_double_shot",
-			"name": "Double Shot",
-			"desc": "Learn Double Shot: Fires two arrows at nearby monsters.",
-			"icon": "Skill.wz/300.img/skill/3001005/icon",
-			"max_rank": 1,
-			"weight": 4,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
-			"effects": []
-		},
-		{
-			"id": "bow_double_shot_rank",
-			"power": true,
-			"kind": "skill_rank",
-			"skill": "bow_double_shot",
-			"name": "Double Shot",
-			"desc": "Double Shot +{magnitude} skill level.",
-			"icon": "Skill.wz/300.img/skill/3001005/icon",
-			"max_rank": 20,
-			"weight": 3,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
-			"effects": [
-				{"stat": "rank", "op": "add", "value": 1}
-			]
-		},
-		{
-			"id": "bow_double_shot_shots",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "bow_double_shot",
-			"name": "Double Shot",
-			"desc": "Double Shot fires +{value} more arrow.",
-			"value": 1,
-			"icon": "Skill.wz/300.img/skill/3001005/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
-			"effects": [
-				{"stat": "count", "op": "add", "value": 1}
 			]
 		},
 		{
@@ -294,7 +206,7 @@
 			"kind": "skill_new",
 			"skill": "bow_booster",
 			"name": "Bow Booster",
-			"desc": "Learn Bow Booster: Uses HP and MP to temporarily increase bow attack speed.",
+			"desc": "Learn Bow Booster: Uses HP to temporarily increase bow attack speed.",
 			"icon": "Skill.wz/310.img/skill/3101002/icon",
 			"max_rank": 1,
 			"weight": 2,
@@ -361,42 +273,6 @@
 			]
 		},
 		{
-			"id": "arrow_bomb_new",
-			"power": true,
-			"kind": "skill_new",
-			"skill": "arrow_bomb",
-			"name": "Arrow Bomb: Bow",
-			"desc": "Learn Arrow Bomb: Bow: Fires an explosive arrow that damages a group and may stun each monster.",
-			"icon": "Skill.wz/310.img/skill/3101005/icon",
-			"max_rank": 1,
-			"weight": 4,
-			"requires": {
-				"jobs": [310]
-			},
-			"effects": []
-		},
-		{
-			"id": "arrow_bomb_rank",
-			"power": true,
-			"kind": "skill_rank",
-			"skill": "arrow_bomb",
-			"name": "Arrow Bomb: Bow",
-			"desc": "Arrow Bomb: Bow +{magnitude} skill level.",
-			"icon": "Skill.wz/310.img/skill/3101005/icon",
-			"max_rank": 30,
-			"weight": 3,
-			"requires": {
-				"jobs": [310]
-			},
-			"effects": [
-				{
-					"stat": "rank",
-					"op": "add",
-					"value": 1
-				}
-			]
-		},
-		{
 			"id": "power_knockback_bow_targets",
 			"power": true,
 			"kind": "skill_mod",
@@ -413,50 +289,6 @@
 			"effects": [
 				{
 					"stat": "count",
-					"op": "add",
-					"value": 1
-				}
-			]
-		},
-		{
-			"id": "arrow_bomb_shots",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "arrow_bomb",
-			"name": "Arrow Bomb: Bow",
-			"desc": "Arrow Bomb: Bow fires +{value} more arrow.",
-			"value": 1,
-			"icon": "Skill.wz/310.img/skill/3101005/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {
-				"jobs": [310]
-			},
-			"effects": [
-				{
-					"stat": "count",
-					"op": "add",
-					"value": 1
-				}
-			]
-		},
-		{
-			"id": "arrow_bomb_targets",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "arrow_bomb",
-			"name": "Arrow Bomb: Bow",
-			"desc": "Arrow Bomb: Bow blasts +{value} more monster.",
-			"value": 1,
-			"icon": "Skill.wz/310.img/skill/3101005/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {
-				"jobs": [310]
-			},
-			"effects": [
-				{
-					"stat": "blast_targets",
 					"op": "add",
 					"value": 1
 				}
@@ -579,7 +411,7 @@
 					320
 				]
 			},
-			"desc": "Learn Crossbow Booster: Uses HP and MP to temporarily boost the attack speed of your crossbow.",
+			"desc": "Learn Crossbow Booster: Uses HP to temporarily boost the attack speed of your crossbow.",
 			"max_rank": 1,
 			"weight": 2,
 			"effects": []
@@ -648,46 +480,6 @@
 			]
 		},
 		{
-			"id": "iron_arrow_new",
-			"kind": "skill_new",
-			"power": true,
-			"skill": "iron_arrow",
-			"name": "Iron Arrow: Crossbow",
-			"icon": "Skill.wz/320.img/skill/3201005/icon",
-			"requires": {
-				"jobs": [
-					320
-				]
-			},
-			"desc": "Learn Iron Arrow: Crossbow: Fires a piercing arrow that loses damage with each monster struck.",
-			"max_rank": 1,
-			"weight": 4,
-			"effects": []
-		},
-		{
-			"id": "iron_arrow_rank",
-			"kind": "skill_rank",
-			"power": true,
-			"skill": "iron_arrow",
-			"name": "Iron Arrow: Crossbow",
-			"icon": "Skill.wz/320.img/skill/3201005/icon",
-			"requires": {
-				"jobs": [
-					320
-				]
-			},
-			"desc": "Iron Arrow: Crossbow +{magnitude} skill level.",
-			"max_rank": 30,
-			"weight": 3,
-			"effects": [
-				{
-					"stat": "rank",
-					"op": "add",
-					"value": 1
-				}
-			]
-		},
-		{
 			"id": "power_knockback_crossbow_targets",
 			"power": true,
 			"kind": "skill_mod",
@@ -696,56 +488,6 @@
 			"desc": "Power Knock-Back strikes +{value} more monster.",
 			"value": 1,
 			"icon": "Skill.wz/320.img/skill/3201003/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {
-				"jobs": [
-					320
-				]
-			},
-			"effects": [
-				{
-					"stat": "count",
-					"op": "add",
-					"value": 1
-				}
-			],
-			"_tier": "Tier C: +1 per behaviour step, max3, weight2; shared Potential rarity magnitudes. Exact Crossbowman branch and held crossbow. Untuned."
-		},
-		{
-			"id": "iron_arrow_pierce",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "iron_arrow",
-			"name": "Iron Arrow: Crossbow",
-			"desc": "Iron Arrow: Crossbow pierces +{value} more monster; damage fall-off continues.",
-			"value": 1,
-			"icon": "Skill.wz/320.img/skill/3201005/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {
-				"jobs": [
-					320
-				]
-			},
-			"effects": [
-				{
-					"stat": "pierce",
-					"op": "add",
-					"value": 1
-				}
-			],
-			"_tier": "Tier C: +1 per behaviour step, max3, weight2; shared Potential rarity magnitudes. Exact Crossbowman branch and held crossbow. Untuned."
-		},
-		{
-			"id": "iron_arrow_shots",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "iron_arrow",
-			"name": "Iron Arrow: Crossbow",
-			"desc": "Iron Arrow: Crossbow fires +{value} more arrow.",
-			"value": 1,
-			"icon": "Skill.wz/320.img/skill/3201005/icon",
 			"max_rank": 3,
 			"weight": 2,
 			"requires": {

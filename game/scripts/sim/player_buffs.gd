@@ -104,7 +104,7 @@ func _refresh() -> void:
 		_ends_on_hp = _ends_on_hp or float(buff.get("end_hp_above", 0.0)) > 0.0
 
 
-## Sum of active canonical effects feeding a hit-rule stat (e.g. mp_guard or pdd).
+## Sum of active canonical effects feeding a hit-rule stat (e.g. pdd or avoid).
 func effect_total(stat: String) -> float:
 	var total := 0.0
 	for buff: Dictionary in active.values():
@@ -118,15 +118,6 @@ func skill_with_effect(stat: String) -> String:
 		if float(active[skill].effects.get(stat, 0.0)) > 0.0:
 			return skill
 	return ""
-
-
-## effect_total over the buffs whose skill key `keep` (a Callable(skill: String) -> bool) accepts.
-func effect_total_where(stat: String, keep: Callable) -> float:
-	var total := 0.0
-	for skill: String in active:
-		if keep.call(skill):
-			total += float(active[skill].effects.get(stat, 0.0))
-	return total
 
 
 ## Detached presentation snapshot, in cast order.

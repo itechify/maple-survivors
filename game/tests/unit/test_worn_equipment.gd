@@ -1,6 +1,6 @@
 extends TestCase
 ## Worn equipment in the live character through RunWorld's public interface (equip_item, unequip_item, discard_item,
-## change_job, character_snapshot, player_state), seeded on the synthetic quiet stage with canonical-shaped info.
+## character_snapshot, player_state), seeded on the synthetic quiet stage with canonical-shaped info.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -16,25 +16,28 @@ const INFO := {
 	1050010: {"reqLevel": 15, "incPDD": 20, "tuc": 10},
 	1092005: {"reqLevel": 10, "incPDD": 10, "incMDD": 3, "tuc": 7}, # a shield
 	1402000: {"incPAD": 40, "attackSpeed": 6, "tuc": 7}, # a two-handed sword
+	1402001: {"reqJob": 1, "incPAD": 41, "attackSpeed": 6, "tuc": 7}, # a Warrior's two-handed sword
 }
 
 
 func _setup(character: Dictionary = {}) -> Dictionary:
 	var setup := RF.setup("quiet", 7, RF.quiet_data())
 	setup.equipment_info = INFO.duplicate(true)
-	if not character.is_empty():
-		setup.character = character
+	# This equipment fixture deliberately starts with a sword; bare tools use each job's creation weapon.
+	setup.character = character if not character.is_empty() else {"format": 3, "job_id": 212, "look": {},
+		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
+		"scrolls": {}, "mesos": 0, "cleared_regions": []}
 	return setup
 
 
 ## A fresh world's character with `inventory` ids added to its inventory (as later drops will).
 func _world(inventory: Array = [], change: Callable = Callable()) -> RunWorld:
-	var character := RunWorld.new(_setup()).character_snapshot()
+	var character := RF.character_with_round_state(RunWorld.new(_setup()))
 	for id: int in inventory:
 		character.equipment.inventory.append(Equipment.create(id, INFO[id]))
 	if change.is_valid():
 		change.call(character)
-	var world := RunWorld.new(_setup(character))
+	var world := RF.world_from(_setup(), character)
 	RF.place_player(world, 400)
 	return world
 
@@ -43,7 +46,7 @@ func _ids(list: Array) -> Array:
 	return list.map(func(i: Dictionary) -> int: return int(i.id))
 
 
-func test_a_new_character_wears_the_first_creation_outfit_with_plain_wz_stats() -> void:
+func test_an_explicit_character_wears_its_outfit_with_plain_wz_stats() -> void:
 	var world := RunWorld.new(_setup())
 	assert_eq(Equipment.worn_ids(world.equipment.worn), [1040002, 1060002, 1072001, 1302000])
 	assert_eq(world.equipment.worn.top, {"id": 1040002, "stats": {"incPDD": 3}, "slots": 7, "scrolls": 0})
@@ -52,7 +55,7 @@ func test_a_new_character_wears_the_first_creation_outfit_with_plain_wz_stats() 
 	assert_eq(world.weapon_attack(), 17.0)
 	assert_eq(world.player_state.pdd, 7.0, "W.DEF 3 + 2 + 2")
 	var snapshot := world.character_snapshot()
-	assert_eq(int(snapshot.format), 2)
+	assert_eq(int(snapshot.format), 3)
 	assert_eq(snapshot.equipment, world.equipment)
 	assert_eq(snapshot.scrolls, {})
 	assert_eq(snapshot.mesos, 0)
@@ -73,7 +76,7 @@ func test_equipping_and_unequipping_changes_every_derived_stat() -> void:
 	assert_near(float(ps.avoid) - float(before.avoid), 6.0 + 2 * RunWorld.AVOID_DEX_FACTOR + 5 * RunWorld.AVOID_LUK_FACTOR,
 		1e-6, "avoid gains incEVA and the DEX/LUK it adds")
 	assert_eq(int(ps.max_hp) - int(before.max_hp), 40)
-	assert_eq(int(ps.max_mp) - int(before.max_mp), 25)
+	assert_false(ps.has("max_mp"), "the cap's incMMP does nothing: there is no MP (#285)")
 	assert_eq(float(ps.mdd) - float(before.mdd), 9.0)
 	assert_near(world.player_speed_stat() - speed, 20.0, 1e-6)
 	assert_eq(world.player.jump_stat, 115)
@@ -99,56 +102,38 @@ func test_weapon_attack_and_magic_attack_come_from_every_worn_item() -> void:
 	assert_near(world.loadout.matk - matk, 28.0, 1e-6)
 
 
-func test_max_mp_equipment_swaps_only_clamp_current_mp_with_a_passive() -> void:
+func test_max_hp_equipment_swaps_only_clamp_current_hp() -> void:
 	var world := _world([1002001])
-	world.change_job(200)
-	world.learn_skill("improved_max_mp")
 	assert_eq(world.equip_item(0), "")
-	world.spend_mp(int(world.player_state.max_mp) - 10)
-	var before := world._mp
+	world._hp = 10.0
+	world._write_player_state(0.0)
 	for swap in 5:
 		assert_eq(world.unequip_item("hat"), "")
-		assert_near(world._mp, before, 1e-6, "taking off gear preserves MP below the smaller pool")
+		assert_eq(int(world.player_state.hp), 10, "taking off gear preserves HP below the smaller pool")
 		assert_eq(world.equip_item(world.equipment.inventory.size() - 1), "")
-		assert_near(world._mp, before, 1e-6, "putting it back grants no MP")
+		assert_eq(int(world.player_state.hp), 10, "putting it back grants no HP")
 	assert_eq(world.time, 0.0, "equipment windows hold simulation time")
-	world.restore_player("mp", int(world.player_state.max_mp), "test")
+	var full := int(world.player_state.max_hp)
+	world.restore_player("hp", full, "test")
 	assert_eq(world.unequip_item("hat"), "")
-	assert_near(world._mp, world._max_mp, 1e-6, "taking off gear clamps MP above the smaller pool")
-	var clamped := world._mp
+	assert_eq(int(world.player_state.hp), full - 40, "taking off the +40 HP cap clamps HP to the smaller pool")
 	assert_eq(world.equip_item(world.equipment.inventory.size() - 1), "")
-	assert_near(world._mp, clamped, 1e-6, "the clamped MP is not refunded")
+	assert_eq(int(world.player_state.hp), full - 40, "the clamped HP is not refunded")
 
 
-func test_max_mp_passive_rank_growth_still_preserves_current_mp_ratio() -> void:
-	var world := _world([1002001])
-	world.change_job(200)
-	world.learn_skill("improved_max_mp")
-	assert_eq(world.equip_item(0), "")
-	world.spend_mp(int(world.player_state.max_mp) - 10)
-	var before := world._mp / world._max_mp
-	var old_max := world._max_mp
-	world.loadout.set_rank("improved_max_mp", 2)
-	world.refresh_player_stats()
-	assert_true(world._max_mp > old_max)
-	assert_near(world._mp / world._max_mp, before, 1e-6, "#41 passive growth keeps the fraction")
-
-
-func test_max_mp_equipment_and_passive_restore_full_pools_at_a_round_boundary() -> void:
+func test_max_hp_equipment_restores_a_full_pool_at_a_round_boundary() -> void:
 	var source := _world([1002001])
-	source.change_job(200)
-	source.learn_skill("improved_max_mp")
 	assert_eq(source.equip_item(0), "")
-	source.spend_mp(int(source.player_state.max_mp) - 10)
+	source._hp = 10.0
 	var character: Dictionary = JSON.parse_string(JSON.stringify(source.character_snapshot()))
-	assert_false(character.has("mp"), "spec #32 snapshots carry growth, not current pools")
+	assert_false(character.has("hp"), "spec #32 snapshots carry growth, not current pools")
 	var restored := RunWorld.new(_setup(character))
 	assert_eq(restored.character_snapshot(), source.character_snapshot())
-	assert_eq(restored._max_mp, source._max_mp, "the worn gear and passive still count on restore")
-	assert_near(restored._mp, restored._max_mp, 1e-6, "Continue refills the computed pool under spec #32")
-	restored.spend_mp(int(restored.player_state.max_mp) - 10)
+	assert_eq(int(restored.player_state.max_hp), int(source.player_state.max_hp), "the worn gear still counts on restore")
+	assert_eq(int(restored.player_state.hp), int(restored.player_state.max_hp), "Continue refills the computed pool")
+	restored._hp = 10.0
 	restored.refresh_player_stats(false)
-	assert_near(restored._mp, 10.0, 1e-6, "refreshing restored equipment grants no MP")
+	assert_eq(int(restored.player_state.hp), 10, "refreshing restored equipment grants no HP")
 
 
 func test_speed_and_jump_are_capped_at_the_v83_limits() -> void:
@@ -171,9 +156,8 @@ func test_the_overall_rule_holds_for_the_live_character() -> void:
 	assert_eq(world.player_state.pdd, 5.0)
 
 
-func test_each_requirement_blocks_the_live_character_and_changes_nothing() -> void:
-	for spec: Array in [[1372005, {}, "reqLevel"], [1050010, {}, "reqLevel"],
-			[1082019, {"level": 30}, "reqJob"], [1082019, {"level": 30, "job_id": 200}, "reqINT"]]:
+func test_only_the_job_class_blocks_the_live_character_and_changes_nothing() -> void:
+	for spec: Array in [[1082019, {"job_id": 0}, "reqJob"], [1402001, {}, "reqJob"]]:
 		var fields: Dictionary = spec[1]
 		var world := _world([spec[0]], func(c: Dictionary) -> void: c.merge(fields, true))
 		var snapshot := world.character_snapshot()
@@ -183,13 +167,14 @@ func test_each_requirement_blocks_the_live_character_and_changes_nothing() -> vo
 		assert_eq(world.character_snapshot(), snapshot)
 		assert_eq(world.player_state, state)
 		assert_eq(world.drain_events(), [])
-	var lucky := _world([1082019, 1002001], func(c: Dictionary) -> void:
-		c.level = 30
-		c.job_id = 200
-		c.base_attributes.int = 36)
-	assert_eq(lucky.equip_item(0), "reqINT", "INT 36 < 40")
-	assert_eq(lucky.equip_item(1), "", "the hat adds INT 4")
-	assert_eq(lucky.equip_item(0), "", "total INT including equipment meets reqINT 40")
+
+
+func test_level_and_stat_requirements_never_block_a_level_one_character() -> void:
+	var world := _world([1372005, 1082019, 1050010])
+	assert_eq(world.progression.level, 1)
+	assert_eq(world.equip_item(0), "", "the Lv8 wand")
+	assert_eq(world.equip_item(0), "", "reqLevel 20 / reqINT 40 gloves for the Magician (the wand took inventory slot 0)")
+	assert_eq(world.equip_item(0), "", "the Lv15 overall")
 
 
 func test_equipment_changes_emit_one_event_and_discard_removes_inventory_items() -> void:
@@ -213,38 +198,7 @@ func test_a_full_inventory_blocks_unequipping() -> void:
 	assert_eq(world.weapon_id(), 1302000)
 
 
-func test_magician_advancement_grants_and_wears_the_wooden_wand() -> void:
-	var world := _world()
-	world.drain_events()
-	world.change_job(200)
-	assert_eq(world.weapon_id(), 1372005)
-	assert_eq(world.equipment.worn.weapon, Equipment.create(1372005, INFO[1372005]))
-	assert_eq(_ids(world.equipment.inventory), [1302000], "the creation weapon moves to the inventory")
-	assert_eq(world.weapon_attack(), 15.0)
-	var changed := world.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "equipment_changed")
-	assert_eq(changed, [{"type": "equipment_changed", "action": "grant", "slot": "weapon", "item_id": 1372005}])
-	world.change_job(210)
-	assert_eq(_ids(world.equipment.inventory), [1302000], "second job grants nothing")
-
-
-func test_a_full_inventory_wears_the_wand_and_drops_the_old_weapon_at_the_feet() -> void:
-	var world := _world([], func(c: Dictionary) -> void:
-		for i in 24:
-			c.equipment.inventory.append(Equipment.create(1040002, INFO[1040002])))
-	world.drain_events()
-	world.change_job(200)
-	assert_eq(world.progression.job_id, 200, "the advancement itself still happens")
-	assert_eq(world.weapon_id(), 1372005, "the grant is worn (spec #151 #157: advancing never fails)")
-	assert_eq(world.equipment.inventory.size(), 24, "the inventory is unchanged")
-	var events := world.drain_events()
-	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "equipment_changed"),
-		[{"type": "equipment_changed", "action": "grant", "slot": "weapon", "item_id": 1372005}])
-	var spawned := events.filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned")
-	assert_eq(spawned.map(func(e: Dictionary) -> int: return int(e.item_id)), [1302000],
-		"the creation sword lies on the ground as a normal pickup")
-
-
-func test_format_two_round_trips_through_json_text_into_an_identical_world() -> void:
+func test_format_three_round_trips_through_json_text_into_an_identical_world() -> void:
 	var source := _world([1002001, 1050010], func(c: Dictionary) -> void:
 		c.mesos = 1234
 		c.scrolls = {"2040002": 3})
@@ -266,7 +220,7 @@ func test_a_snapshot_with_a_shield_round_trips_and_a_pre_shield_snapshot_loads_u
 	# A snapshot saved before the shield slot existed: its worn map has no "shield" key at all.
 	var old := RunWorld.new(_setup()).character_snapshot()
 	assert_false(old.equipment.worn.has("shield"))
-	assert_eq(int(old.format), 2, "no format bump")
+	assert_eq(int(old.format), 3)
 	var old_parsed: Dictionary = JSON.parse_string(JSON.stringify(old))
 	assert_eq(CharacterSnapshot.validation_error(old_parsed), "")
 	var loaded := RunWorld.new(_setup(old_parsed))

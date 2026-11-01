@@ -31,15 +31,10 @@ func _flow(nx: int = 0) -> SceneFlow:
 	return flow
 
 
-func _clear_into_free_market(flow: SceneFlow) -> void:
-	var summary := UI_FLOW.summary(true, 900.0, 20, 1000)
-	summary["nx_awarded"] = 0
-	flow.finish_run(summary, flow.save.slot(0).character)
-
-
 func test_a_new_character_can_open_the_shop_from_map_select_and_leave_back_to_it() -> void:
 	var flow := _flow()
 	flow.create_character("Shopper118")
+	flow.goto_stage_select()
 	assert_eq(flow.current_name, "stage_select")
 	flow.current.shop_button.pressed.emit()
 	assert_eq(flow.current_name, "cash_shop")
@@ -47,22 +42,21 @@ func test_a_new_character_can_open_the_shop_from_map_select_and_leave_back_to_it
 	flow.current.leave()
 	assert_eq(flow.current_name, "stage_select")
 	assert_eq(flow.current.snapshot.name, "Shopper118")
-	assert_eq(flow.save.slot(0).phase, "map_select")
 
 
-func test_the_shop_opens_at_every_tier_of_map_select() -> void:
+func test_the_shop_opens_whatever_regions_are_unlocked() -> void:
 	var flow := _flow()
-	flow.create_character("Tiers118")
+	flow.create_character("Regions118")
 	var snapshot := flow.save.slot(0)
-	snapshot.tier = 1
+	snapshot.character.cleared_regions = ["ellinia", "henesys", "kerning", "perion"]
 	flow.save.update_slot(0, snapshot)
 	flow.goto_stage_select()
 	flow.current.shop_button.pressed.emit()
 	assert_eq(flow.current_name, "cash_shop")
-	assert_eq(int(flow.current.snapshot.tier), 1)
+	assert_eq(flow.current.snapshot.character.cleared_regions.size(), 4)
 	flow.current.leave()
 	assert_eq(flow.current_name, "stage_select")
-	assert_eq(int(flow.current.snapshot.tier), 1)
+	assert_eq(flow.current.unlocked_keys().size(), 5)
 
 
 func test_the_free_market_shop_returns_to_the_free_market() -> void:
@@ -70,23 +64,22 @@ func test_the_free_market_shop_returns_to_the_free_market() -> void:
 		return
 	var flow := _flow()
 	flow.create_character("Market118")
-	_clear_into_free_market(flow)
 	assert_eq(flow.current_name, "free_market")
 	assert_true((flow.current as FreeMarket).shop_button != null)
 	(flow.current as FreeMarket).shop_button.pressed.emit()
 	assert_eq(flow.current_name, "cash_shop")
 	flow.current.leave()
 	assert_eq(flow.current_name, "free_market")
-	assert_eq(flow.save.slot(0).phase, "free_market", "shopping does not move the round boundary")
+	assert_eq(flow.current.snapshot.name, "Market118")
 
 
-func test_continue_after_closing_in_the_shop_resumes_the_boundary_it_was_opened_from() -> void:
+func test_continue_after_closing_in_the_shop_opens_the_hub() -> void:
 	var flow := _flow()
 	flow.create_character("Resume118")
 	flow.goto_cash_shop("stage_select")
 	flow.save = SaveData.new(save_path)
 	flow.continue_character(0)
-	assert_eq(flow.current_name, "stage_select")
+	assert_eq(flow.current_name, "free_market")
 
 
 func test_there_is_no_shop_without_a_living_character() -> void:

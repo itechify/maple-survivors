@@ -8,7 +8,7 @@ const DT := 1.0 / 60.0
 
 
 func _world(mode: String) -> RunWorld:
-	var w := CF.ranged_final(1452004, 310, 40)
+	var w := CF.ranged_final(1452004, 312, 40)
 	var mob := RF.put_mob(w, 1110100, w.player.pos.x + 60, w.player.pos.y, 1000000.0)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 	if mode == "final":
@@ -26,7 +26,7 @@ func _world(mode: String) -> RunWorld:
 		assert_eq(w.mob_defense(mob, false), 10.0)
 		w.projectiles.spawn({"x": w.swarm.x[mob], "y": w.swarm.y[mob] - 10, "vx": 600,
 			"range": 600, "radius": 1, "dmg_min": 100, "dmg_max": 100, "damage_type": "physical",
-			"player_level": 40, "skill": "fixture", "crit": 0.0})
+			"skill": "fixture", "crit": 0.0})
 	w.drain_events()
 	return w
 

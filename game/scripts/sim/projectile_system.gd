@@ -15,10 +15,9 @@ extends RefCounted
 ##
 ## spawn(spec) keys: x, y, vx, vy (px/s), range, radius, visual (index into paths), hit_visual (index or -1),
 ## rotate (bool), dmg_min, dmg_max, damage_type (fixed/magic/physical; defaults from legacy magic bool), damage_pct
-## (skill% / 100, default 1), player_level, element, crit, crit_mult, crit_damage_bonus (skill-% points), pierce,
-## skill (survivor key), level (canonical skill level at cast), alt_rng (bool: roll this shot on `alt_rng`, the basic-attack
-## stream 5, instead of `rng`; the ranged basic attack of #155). Defence and target level are live at impact.
-## Optional pierce_falloff is linear damage lost per previous contact (floor set by survivor combat data). impact_blast is a
+## (skill% / 100, default 1), element, crit, crit_mult, crit_damage_bonus (skill-% points), pierce,
+## skill (survivor key), level (canonical skill level at cast). Defence is live at impact.
+## Optional signed pierce_falloff loses damage when positive and rises when negative (combat data bounds it). impact_blast is a
 ## cast-time {box: Rect2, count: int, visual: String} that explodes at the first contact instead of piercing.
 
 ## Most mobs one shot can hit (1 + pierce is clamped to this).
@@ -44,7 +43,6 @@ var dmg_max := PackedFloat32Array()
 ## Per shot CombatMath.DAMAGE_FIXED / DAMAGE_MAGIC / DAMAGE_PHYSICAL (CombatMath.DAMAGE_TYPE_NAMES gives the name).
 var damage_kind := PackedByteArray()
 var damage_pct := PackedFloat64Array()
-var player_level := PackedInt32Array()
 var crit_damage_bonus := PackedFloat64Array()
 ## Canonical attacking skill elemAttr; resistance is resolved against each target at impact.
 var element := PackedStringArray()
@@ -53,8 +51,10 @@ var crit_mult := PackedFloat32Array()
 ## Hits left before the shot dies (1 + pierce at spawn).
 var hits_left := PackedInt32Array()
 var hit_count := PackedInt32Array()
-## Optional linear damage lost per earlier contact; 0 keeps the shipped full-damage pierce behaviour.
+## Signed linear fraction per earlier contact; negative rises, zero keeps full damage.
 var pierce_falloff := PackedFloat64Array()
+## Rise ceiling captured at launch, including on reused slots.
+var pierce_limit := PackedFloat64Array()
 ## Cast-time blast state; a zero target cap marks an ordinary shot. Rect2 components retain Vector2 precision.
 var blast_position := PackedVector2Array()
 var blast_size := PackedVector2Array()
@@ -66,23 +66,40 @@ var hit_visual := PackedInt32Array()
 var skill := PackedInt32Array()
 ## Canonical skill level at launch; later rank changes do not alter on-hit status parameters.
 var level := PackedInt32Array()
+## Shared cast receipts are cold metadata, never copied between shots of the same cast.
+var meter_receipts: Array[Dictionary] = []
+## Whole damage per second of the burn a hit of this shot applies (0: none), snapshotted at launch from the cast (B5).
+var burn_pulse := PackedInt32Array()
+## Optional cast-time grant snapshots by projectile slot (slot -> Array of resolved StatusBonus grants); absent slots allocate
+## nothing. The list is the cast snapshot's own and is never written after the cast, so every shot of a cast shares it.
+var status_grants: Dictionary = {}
+## 1 for a shot an echo clone threw (EchoCast): its hits carry `echo` so they heal and earn nothing.
+var echo := PackedByteArray()
+const NO_RECEIPT := {}
+## The grant list of a shot without status grants (shared, never written).
+const NO_GRANTS: Array = []
 
 ## RunWorld.visual_paths (shared).
 var paths: Array = []
 ## Survivor skill keys referenced by `skill`.
 var skill_names := PackedStringArray()
 var rng: RandomNumberGenerator
-## The stream shots spawned with `alt_rng` roll on (RunWorld: the basic-attack stream); `rng` when unset.
-var alt_rng: RandomNumberGenerator
-## 1 when the shot rolls on `alt_rng`.
-var uses_alt := PackedByteArray()
 var bounds := Rect2()
 var magic_defense_k := CombatMath.MAGIC_DEFENSE_K
+## Per mob slot, 0 = magic damage blocked (magic immunity 141); empty = nothing blocked. RunWorld lends it for one step.
+var magic_allowed := PackedByteArray()
+## Set by RunWorld while some boss reflects (MobSkill 143/144/145): `(slot, magic, damage) -> bool`, true when the boss
+## reflects the hit, which then deals it 0 (no event, no on-hit effect). Invalid otherwise.
+var reflect_hit := Callable()
 ## tier C: minimum per-contact multiplier, configured from balance.combat.pierce_floor by RunWorld.
 var pierce_floor := 0.0
+## tier C: rise cap supplied from balance.combat.pierce_ceiling by RunWorld.
+var pierce_ceiling := 1.0
 ## Mob slots killed during the last step() (cleared at the start of each step).
 var kills := PackedInt32Array()
 var _halted := false
+## While true every projectile hit rolls no critical (Darkness 121, #458; RunWorld sets it each tick).
+var crit_suppressed := false
 ## Total damage dealt by every hit so far.
 var dealt := 0
 
@@ -134,14 +151,20 @@ func spawn(spec: Dictionary) -> int:
 	damage_kind[i] = CombatMath.damage_type_code(
 		CombatMath.damage_type_of(String(spec.get("damage_type", "")), bool(spec.get("magic", false))))
 	damage_pct[i] = float(spec.get("damage_pct", 1.0))
-	player_level[i] = int(spec.get("player_level", 1))
 	crit_damage_bonus[i] = float(spec.get("crit_damage_bonus", 0.0))
 	element[i] = String(spec.get("element", ""))
 	crit[i] = float(spec.get("crit", 0.0))
 	crit_mult[i] = float(spec.get("crit_mult", 1.5))
 	hits_left[i] = clampi(1 + int(spec.get("pierce", 0)), 1, MAX_HITS)
 	hit_count[i] = 0
-	pierce_falloff[i] = maxf(0.0, float(spec.get("pierce_falloff", 0.0)))
+	meter_receipts[i] = spec.get("meter_receipt", NO_RECEIPT)
+	burn_pulse[i] = int(spec.get("burn_pulse", 0))
+	status_grants.erase(i)
+	if not spec.get("status_grants", []).is_empty():
+		status_grants[i] = spec.status_grants
+	echo[i] = 1 if bool(spec.get("echo", false)) else 0
+	pierce_falloff[i] = float(spec.get("pierce_falloff", 0.0))
+	pierce_limit[i] = float(spec.get("pierce_ceiling", pierce_ceiling))
 	blast_count[i] = 0
 	blast_visual[i] = ""
 	if spec.has("impact_blast"):
@@ -160,7 +183,6 @@ func spawn(spec: Dictionary) -> int:
 		skill_names.append(key)
 	skill[i] = si
 	level[i] = int(spec.get("level", 0))
-	uses_alt[i] = 1 if bool(spec.get("alt_rng", false)) else 0
 	_count += 1
 	_hi = maxi(_hi, i + 1)
 	return i
@@ -168,6 +190,7 @@ func spawn(spec: Dictionary) -> int:
 
 ## Removes shot i.
 func despawn(i: int) -> void:
+	status_grants.erase(i)
 	if i < 0 or i >= capacity() or active[i] == 0:
 		return
 	active[i] = 0
@@ -273,13 +296,13 @@ static func segment_enter(ax: float, ay: float, bx: float, by: float, r: Rect2) 
 ## Legacy calls infer fixed/magic from is_magic; explicit damage_type selects physical. Returns damage and crit0/1.
 static func roll_damage(lo: float, hi: float, is_magic: bool, defense: float, k: float, crit_chance: float, cmult: float,
 		r: RandomNumberGenerator, element_mult: float = 1.0, damage_type: String = "", damage_pct: float = 1.0,
-		player_level: int = 1, mob_level: int = 1, crit_damage_bonus: float = 0.0,
+		crit_damage_bonus: float = 0.0,
 		damage_multiplier: float = 1.0) -> Vector2i:
 	if element_mult <= 0.0:
 		return Vector2i.ZERO
 	var dtype := CombatMath.damage_type_of(damage_type, is_magic)
 	if dtype == "physical":
-		var defended := CombatMath.physical_defense(Vector2(lo, hi), player_level, mob_level, defense)
+		var defended := CombatMath.physical_defense(Vector2(lo, hi), defense)
 		lo = defended.x
 		hi = defended.y
 	var dmg := r.randf_range(lo, hi) if hi > lo else lo
@@ -304,7 +327,7 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 		hit_count[i] += 1
 	hits_left[i] -= 1
 	_damage(i, m, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd, on_kill,
-		maxf(pierce_floor, 1.0 - pierce_falloff[i] * (hit_count[i] - 1)))
+		PierceCurve.factor(hit_count[i], pierce_falloff[i], pierce_floor, pierce_limit[i]))
 
 
 ## A blast consumes the projectile at its first contact. Select before hits move or kill any targets.
@@ -362,13 +385,17 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 	var is_magic := kind == CombatMath.DAMAGE_MAGIC
 	if not is_magic and m < physical_allowed.size() and physical_allowed[m] == 0:
 		return
+	if is_magic and m < magic_allowed.size() and magic_allowed[m] == 0:
+		return # magic immunity (141): the contact is consumed like 140's, with no roll or event
 	var mk: MobKind = swarm.kinds[swarm.kind[m]]
 	var defense := (float(live_pdd[m]) if m < live_pdd.size() else float(mk.pdd)) \
 		if kind == CombatMath.DAMAGE_PHYSICAL else (float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd))
-	var roll := roll_damage(dmg_min[i], dmg_max[i], is_magic, defense, magic_defense_k, crit[i],
-		crit_mult[i], alt_rng if uses_alt[i] != 0 and alt_rng != null else rng, mk.element_multiplier(element[i]),
-		CombatMath.DAMAGE_TYPE_NAMES[kind], damage_pct[i], player_level[i], mk.level, crit_damage_bonus[i],
+	var roll := roll_damage(dmg_min[i], dmg_max[i], is_magic, defense, magic_defense_k, 0.0 if crit_suppressed else crit[i],
+		crit_mult[i], rng, swarm.element_multiplier(m, element[i]),
+		CombatMath.DAMAGE_TYPE_NAMES[kind], damage_pct[i], crit_damage_bonus[i],
 		multiplier)
+	if reflect_hit.is_valid() and bool(reflect_hit.call(m, is_magic, roll.x)):
+		return
 	var dir := 1 if vx[i] >= 0.0 else -1
 	var head := Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y)
 	var hv := hit_visual[i]
@@ -379,8 +406,17 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 	})
 	dealt += roll.x
 	if roll.x > 0 and on_hit.is_valid():
-		on_hit.call(m, {"skill": skill_names[skill[i]], "level": level[i], "magic": is_magic,
-			"damage": roll.x, "element": element[i], "damage_type": CombatMath.DAMAGE_TYPE_NAMES[kind]})
+		var hit := {"skill": skill_names[skill[i]], "level": level[i], "magic": is_magic,
+			"damage": roll.x, "element": element[i], "damage_type": CombatMath.DAMAGE_TYPE_NAMES[kind]}
+		if not meter_receipts[i].is_empty():
+			hit["meter_receipt"] = meter_receipts[i]
+		if burn_pulse[i] > 0:
+			hit["burn_pulse"] = burn_pulse[i]
+		if status_grants.has(i):
+			hit["status_grants"] = status_grants[i]
+		if echo[i] != 0:
+			hit["echo"] = true
+		on_hit.call(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
 		if on_kill.is_valid():
@@ -408,13 +444,14 @@ func _grow(n: int) -> void:
 	var old := capacity()
 	if n <= old:
 		return
-	for arr: Variant in [active, rotate, damage_kind, uses_alt]:
+	for arr: Variant in [active, rotate, damage_kind, echo]:
 		arr.resize(n)
-	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff]:
+	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff, pierce_limit]:
 		arr.resize(n)
-	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, player_level, blast_count]:
+	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, blast_count, burn_pulse]:
 		arr.resize(n)
 	hit_list.resize(n * MAX_HITS)
+	meter_receipts.resize(n)
 	generation.resize(n)
 	element.resize(n)
 	blast_position.resize(n)

@@ -11,8 +11,7 @@ extends RefCounted
 ## - Mob defence against magic: x (1 - MDD / (MDD + 150)) (tier C).
 ## - Monster damage to the player: roll 85-100% of attack, subtract floor(0.75 x defense), apply elemental
 ##   resistance and source multipliers, round once and enforce at least 1. Owner-selected formula (tier C).
-## - Magic Guard: floor(damage x x%) moves to MP while MP lasts, the rest (and any overflow) hits HP
-##   (the split Cosmic applies, docs/research/cosmic-data.md section 5).
+## - No level gap: neither the monster's nor the character's level enters any damage or hit-chance formula (ADR 0006).
 
 ## tier C: the k of MDD / (MDD + k).
 const MAGIC_DEFENSE_K := 150.0
@@ -108,11 +107,11 @@ static func physical_damage_range(str_stat: float, dex_stat: float, luk_stat: fl
 	return Vector2(minf(lo, hi), hi)
 
 
-## Physical bounds after level gap and live PDD (tier B: AGF/Stereo), each floored at 1 before rolling.
-static func physical_defense(bounds: Vector2, player_level: int, mob_level: int, pdd: float) -> Vector2:
-	var level_factor := 1.0 - 0.01 * maxi(0, mob_level - player_level)
-	var hi := maxf(1.0, bounds.y * level_factor - 0.5 * pdd)
-	var lo := maxf(1.0, bounds.x * level_factor - 0.6 * pdd)
+## Physical bounds after live PDD (tier B: AGF/Stereo), each floored at 1 before rolling. No level-gap term: the
+## monster's level never changes damage (ADR 0006).
+static func physical_defense(bounds: Vector2, pdd: float) -> Vector2:
+	var hi := maxf(1.0, bounds.y - 0.5 * pdd)
+	var lo := maxf(1.0, bounds.x - 0.6 * pdd)
 	return Vector2(minf(lo, hi), hi)
 
 
@@ -147,15 +146,6 @@ static func monster_damage(attack: float, roll: float, defense: float, resistanc
 	var mitigated := attack * r - floorf(HIT_DEFENSE_FACTOR * maxf(defense, 0.0))
 	var elemental := mitigated * (1.0 - clampf(resistance, 0.0, 100.0) / 100.0)
 	return maxi(1, roundi(elemental * multiplier))
-
-
-## Magic Guard split of `damage` with x% to MP while `mp` lasts: Vector2i(hp_loss, mp_loss).
-static func magic_guard_split(damage: int, x_pct: float, mp: int) -> Vector2i:
-	if x_pct <= 0.0 or damage <= 0:
-		return Vector2i(maxi(damage, 0), 0)
-	var to_mp := floori(damage * x_pct / 100.0)
-	var mp_loss := mini(to_mp, maxi(mp, 0))
-	return Vector2i(damage - mp_loss, mp_loss)
 
 
 ## Shared monster-hit calculation from attack, physical/magic defense and optional per-element resistance.

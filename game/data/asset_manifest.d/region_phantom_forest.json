@@ -1,0 +1,7 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Phantom Forest region (spec #449 C9, ticket #471, progression step 14). maps: Phantom Forest Forgotten Path 610010005, Crimsonwood Mountain Cavern of Fortitude 610020014 and Phantom Forest Twisted Paths 610010103 (each map's native life, Windraider and the Leprechauns among it, is imported with the map). mobs: the pooled ordinary monsters Firebrand's flying form 9400578, Elderwraith 9400580 and Nightshadow 9400579, the Forgotten Path's own spawn list Stormbreaker 9400581 and Firebrand 9400577 (original_life, in no pool: their EXP is off the level curve), and the three bosses Headless Horseman 9400549, Master Guardian 9400594 and Bigfoot 9400575. Master Guardian's Seal (MobSkill 120) is skipped, so no skill art is imported. items: the Etc items their mobs.json entries use as the EXP pickup (Stormbreaker, Firebrand and Nightshadow Badges, Elder Ashes, Jack O'Lantern, Crimson Heart, Bigfoot's Toe).",
+	"maps": [610010005, 610020014, 610010103],
+	"mobs": [9400581, 9400577, 9400578, 9400580, 9400579, 9400549, 9400594, 9400575],
+	"items": [4032006, 4032008, 4032010, 4032009, 4031903, 4032012, 4032013]
+}

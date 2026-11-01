@@ -82,6 +82,8 @@ var merged := false
 var collected_exp := 0
 ## Mesos collected in the most recent step() (read by RunWorld) and in total.
 var step_mesos := 0
+## Meso drops collected this step (the `count` of RunWorld's `meso_picked` event).
+var step_meso_count := 0
 var collected_mesos := 0
 ## Drops expired so far and the EXP they held.
 var expired := 0
@@ -235,6 +237,7 @@ func _reset_collected() -> void:
 	collected_equipment = []
 	pet_collected = 0
 	step_mesos = 0
+	step_meso_count = 0
 
 
 func _collect(i: int, by_pet: bool, events: Array) -> int:
@@ -244,6 +247,7 @@ func _collect(i: int, by_pet: bool, events: Array) -> int:
 	var is_meso := kind[i] == MESO
 	if is_meso:
 		step_mesos += meso[i]
+		step_meso_count += 1
 	var is_equip := kind[i] == EQUIP
 	var kind_name: String = KIND_NAMES[kind[i]]
 	# A meso event carries its amount in count; the equipment instance goes to collected_equipment.

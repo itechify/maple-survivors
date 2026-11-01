@@ -185,9 +185,13 @@ func select_slot(index: int) -> void:
 	if selected < 0:
 		return
 	var slot := flow.save_data().slot(selected)
-	var jobs := JobTree.from_data(DataRepo.load_all().jobs, DataRepo.load_all().jobs_survivor)
-	selected_info = {"name": slot.name, "level": int(slot.character.level), "job": jobs.name_of(int(slot.character.job_id)),
-		"job_id": int(slot.character.job_id), "attributes": slot.character.attributes.duplicate(), "fame": 0, "world_ranking": 0}
+	var data := DataRepo.load_all()
+	var jobs := DataRepo.jobs(data)
+	# A character has no level or stats between rounds (ADR 0006, #286): the scroll shows the Lv1 a round starts at.
+	var stats: Dictionary = data.balance.get("player", {}).get("stats", {})
+	selected_info = {"name": slot.name, "level": 1, "job": jobs.name_of(int(slot.character.job_id)),
+		"job_id": int(slot.character.job_id), "attributes": {"str": int(stats.get("str", 4)), "dex": int(stats.get("dex", 4)),
+			"int": int(stats.get("int", 4)), "luk": int(stats.get("luk", 4))}, "fame": 0, "world_ranking": 0}
 	_effect.position = Vector2(SLOT_X[selected], FEET_Y - LIGHT_HEIGHT)
 	_sparkle.position = _effect.position
 	_info.position = Vector2(SLOT_X[selected], FEET_Y) + INFO_FROM_FEET
@@ -251,9 +255,9 @@ func _draw_info() -> void:
 		[str(int(selected_info.attributes.luk)), Vector2(143, 75), 54], ["Ranking Not Available", Vector2(17, 118), 183]]
 	for row: Array in values:
 		var text := String(row[0])
-		# tier C: long second-job names compact to the job family here; full job remains on hover and in history.
+		# tier C: a job title wider than its cell is trimmed here; the full title remains on hover and in history.
 		if MapleText.width(text, MapleText.SMALL) > float(row[2]):
-			text = "Magician" if int(selected_info.job_id) in range(200, 233) else text.left(20)
+			text = MapleText.ellipsize(text, float(row[2]), MapleText.SMALL)
 		MapleText.draw_centered(_info, row[1].x, row[1].y, row[2], text, INK, MapleText.SMALL)
 	# tier C: compact Ranking Not Available variant matched to period charselect_2.png, without a badge below.
 
@@ -282,7 +286,7 @@ func _history() -> void:
 	parchment.position = Vector2(144, 67)
 	_surface.add_child(parchment)
 	parchment.unroll(true)
-	_label(parchment.content, "Run history", Vector2(40, 148), Vector2(432, 24), 18, true)
+	_label(parchment.content, "Round history", Vector2(40, 148), Vector2(432, 24), 18, true)
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2(43, 178)
 	scroll.size = Vector2(428, 198)
@@ -293,15 +297,32 @@ func _history() -> void:
 	entries.add_theme_constant_override("separation", 12)
 	scroll.add_child(entries)
 	if flow.save_data().history.is_empty():
-		_history_line(entries, "No ended runs yet. Your characters' journeys will appear here.")
+		_history_line(entries, "No rounds played yet. Every round of your characters will appear here.")
 	var history := flow.save_data().history.duplicate(true)
 	history.reverse()
 	for entry: Dictionary in history:
-		_history_line(entries, "%s   ·   Lv. %d %s" % [entry.name, int(entry.level), entry.job_name], true)
-		var ending: String = {"died": "Died", "victory": "Victory", "deleted": "Deleted"}.get(entry.ending, entry.ending)
-		_history_line(entries, "%s   ·   %d tiers cleared   ·   %d rounds\n%s" % [ending,
-			int(entry.tiers_cleared), int(entry.rounds_played), String(entry.date).replace("T", "  ")])
+		var lines := history_lines(entry)
+		_history_line(entries, lines[0], true)
+		_history_line(entries, lines[1])
 	_button(_surface, "Common/BtStart", "Back", BACK_AT, flow.goto_character_select)
+
+
+## The two lines of one history entry: the character and what it reached, then how that round (or the character) ended.
+## An entry of a format-2 save keeps its tiers cleared and rounds played.
+static func history_lines(entry: Dictionary) -> Array[String]:
+	var data := DataRepo.load_all()
+	var ending: String = {"cleared": "Cleared", "died": "Died", "quit": "Quit the round", "victory": "Victory",
+		"deleted": "Character deleted", "retired": "Retired (old save)"}.get(entry.ending, entry.ending)
+	var where := String(DataRepo.stage_labels(data.get("stages", {}), String(entry.stage)).region)
+	var parts: Array[String] = [ending]
+	if where != "":
+		parts.append(where)
+	if entry.has("tiers_cleared"):
+		parts.append("%d tiers cleared" % int(entry.tiers_cleared))
+	if entry.has("rounds_played"):
+		parts.append("%d rounds" % int(entry.rounds_played))
+	return ["%s   ·   Lv. %d %s" % [entry.name, int(entry.level), entry.job_name],
+		"%s\n%s" % ["   ·   ".join(parts), String(entry.date).replace("T", "  ")]]
 
 
 func _history_line(parent: Node, text: String, bold: bool = false) -> void:

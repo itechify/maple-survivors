@@ -1,22 +1,44 @@
 #!/usr/bin/env bash
 # Headless pacing report: whole rounds across the real maps with the kiting autoplay bot and a card policy (default: the
 # sensible picks of BotInput.pick_card_for; --policy=random: a careless player who takes a random card of the three),
-# the first available job, one Godot process per seed in parallel (game/tools/balance_run.gd). Needs the asset cache.
+# the default job (Arch Mage, 212), one Godot process per seed in parallel (game/tools/balance_run.gd). Needs the asset cache.
 #
 #   bash scripts/balance.sh                                # henesys, training seeds 1..6
-#   bash scripts/balance.sh 1 2 --job=210     # force a first or second job (a second job takes its first job at the first
-#   # window); one the build cannot offer fails at startup (see the seed log). --branch=<id> is the deprecated alias. --job=100:spear / --job=120:blunt select an advancement family.
+#   bash scripts/balance.sh 1 2 --job=212     # the character's job (ADR 0006: chosen at creation, never changes); only a playable
+#   # job is accepted, anything else fails at startup (see the seed log). --branch=<id> is the deprecated alias.
+#   # --job=112 is Hero (spec #296, playable).
+#   # --job=132 is the Dark Knight (spec #348, playable; pass --character=game/tests/fixtures/characters/dark_knight_t2.json for
+#   # the spear: a fresh --job=132 round wears the default outfit sword).
+#   # --job=222 selects the playable I/L Arch Mage (spec #319); 212 remains the default.
+#   # --job=122 selects the Paladin (spec #308, P9 #317 flipped playable); --character=game/tests/fixtures/characters/paladin_t2.json is its first-four-regions kit.
+#   # --job=232 selects the Bishop (spec #372) on shipped data since BS10; 212 stays the default.
+#   # --job=312 selects the playable Bowmaster with its creation bow and starting arrows.
+#   # --job=322 selects the Marksman (spec #360, MS10); it ships playable since MS11 #371;
+#   # --character=<marksman_t2.json> is its tier-1 crossbow kit (a Marksman needs a crossbow in hand).
+
+#   # --job=512 selects the playable Buccaneer (spec #412); --character=<buccaneer_t2.json> is its first-four-regions kit.
+#   # --job=412 selects the playable Night Lord (spec #383, NL12 #411);
+#   # --character=<night_lord_t2.json> is its first-four-regions claw kit (a Night Lord needs a claw in hand).
+#   # --job=522 selects the playable Corsair (spec #384, C15 #399); --character=<corsair_t2.json> is its first-four-regions kit. Its records carry a
+#   # "corsair" block (ship boardings/seconds, hull broken/absorbed, landed hits per skill, marks applied, marked monster-seconds).
+#   # --job=422 is the Shadower (spec #425, SH13 #438; playable since SH14 #439); --character=<shadower_t2.json> is its first-four-regions dagger kit.
+#   # Its records carry a "shadower" block (meso charge mean / peak, Dark Sight windows, casts and hits per skill, Assassinate crits, Smokescreen zones, negated hits).
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
 #   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
-#   # "cash": {slot: id}, "pet": id, "alert": {"hp": f, "mp": f}} (all optional; nx ignored). owned = the account's cash items,
-#   # cash/pet = what the run's character wears/has out (replacing a --character's), alert = HP/MP ALERT fractions. Works with
-#   # --tier chains. No flag = an empty account and byte-identical records. The record gets "account": <file name> and the
+#   # "cash": {slot: id}, "pet": id, "alert": {"hp": f}} (all optional; nx and an old alert.mp ignored). owned = the account's
+#   # cash items, cash/pet = what the run's character wears/has out (replacing a --character's), alert = the HP ALERT fraction. Works with
+#   # --chain runs. No flag = an empty account and byte-identical records. The record gets "account": <file name> and the
 #   # output files <stage>_<policy>_acct-<name>_<seed>.json, so runs with different accounts never overwrite each other.
-#   bash scripts/balance.sh 1 2 2026 --tier=2               # tier-1 clears feed tier 2, one chain per seed
-#   bash scripts/balance.sh 1 --tier=2 --stage=ellinia  # select tier 1 (default Henesys)
-#   # --tier=N reads stages.json tiers, selecting the first stage of each later tier through N.
-#   # No --character/camper with --tier. First-round seed = run seed; later seed = Godot's
-#   # hash("balance-round-<run seed>-<zero-based tier>"). No saves or UI; only CLEARED feeds the next tier.
+#   bash scripts/balance.sh 1 2 2026 --chain=5             # the first five progression regions in order, one chain per seed
+#   bash scripts/balance.sh 1 --chain=3 --stage=ellinia    # start the chain at another region (default the first)
+#   bash scripts/balance.sh 1 2 2026 --chain=5 --retries=1 # a death or TIMEOUT replays the region once, with the loot kept
+#   # --chain=N (1 <= N <= the progression size, spec #447, #454) plays N regions of stages.json progression from --stage
+#   # (default the first). Each CLEARED round feeds the next with the carried character (equipment, mesos, scrolls, cleared
+#   # set) after a Free Market visit. --retries=K (default 0) replays the same region up to K more times after a death or
+#   # TIMEOUT, with the character as the failed round returned it (ADR 0006 keeps the loot), as a player farming gear would;
+#   # the chain ends when a region is not cleared in 1+K attempts. --character starts the chain from that character (#475: a per-step fixture), no camper with --chain. Round seed = run seed
+#   # for the first step, hash("balance-round-<run seed>-<zero-based step>") after it, and a replay hashes its attempt in too.
+#   # --tier is gone and fails at startup naming --chain.
 #   bash scripts/balance.sh 7 11 13                        # these seeds
 #   bash scripts/balance.sh 1..12                          # a seed range (inclusive)
 #   bash scripts/balance.sh --policy=random 1..12          # the careless player (random cards)
@@ -34,8 +56,8 @@
 # (zero-based index, v83 id); boss_fights[] includes map_index/map_id, including not_spawned/skipped encounters.
 # SUMMARY deaths_by_map uses one-based string keys; map_entry_seconds["2"/"3"] gives count/min/median/max/mean
 # for reached maps only. Unreached/legacy entries have no samples (null stats), never invented zero entry times.
-# Keys: henesys/ellinia/sleepywood. Old henesys_hg1/tree_that_grew_1/dark_cave flags remain aliases, including
-# --tier chains and --character one-offs. Campers park only on their own map 1, then use the sensible bot.
+# Keys: the stages.json progression keys (henesys, ellinia, perion, kerning, sleepywood). Old henesys_hg1/tree_that_grew_1/dark_cave flags remain aliases, including
+# --chain runs and --character one-offs. Campers park only on their own map 1, then use the sensible bot.
 #
 # Every record carries nx_awarded (plus bosses_killed, levels_gained): the NX the round would pay (balance.json nx_award,
 # tier C). Tools never credit it and never write a save; the table's NX column and the summary report it per run.
@@ -50,22 +72,22 @@
 # swarm engagement at 6/9/12 min (live mobs within 400 x 200 px of the player over the minute centred there, see
 # balance_run.gd), the stale share at 6/9/12 min (live mobs outside that box for 20 s or more in a row; a relocated
 # mob keeps its time), recycled mobs per spawn and relocated mobs per spawn) and a summary, and writes every run's
-# full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. Potion fields: potions_used {hp, mp} counts player drinks;
-# potion_uses [{time, level, kind, item_id, restored, capacity_waste}] records each player drink; pet.potions_used {hp, mp}
+# full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. Potion fields: potions_used {hp} counts player drinks;
+# potion_uses [{time, level, kind, item_id, restored, capacity_waste}] records each player drink; pet.potions_used {hp}
 # counts pet drinks separately when a pet is out. Unlimited potions have no collection/stock metrics or collection/use ratio.
-# SYSTEMS reports player potions used, MP wait, completed boss fight times, time to Magician, late MP waits with observation counts, first-five-minute
+# SYSTEMS reports player potions used, completed boss fight times, first-five-minute
 # lifetime hits per ordinary kill, death-only times and whole boss-hit HP fractions; *_summary.json/log preserve the aggregate.
 # Per-run card_tiers_offered/picked count the displayed Potential tiers; SYSTEMS totals include an observed-run count.
-# Chain files use <stage>_chain_tier<N>_<policy>_<seed>.json and retain rounds[]; summaries group by tier,
-# showing tier-1 feed count, rounds started/cleared, start/end levels and Lv70 reach alongside death/boss metrics.
-# Each round records tier (1-based), stage, seed, start_character and lv70_reached; character is the outgoing
-# snapshot only on CLEARED ({} otherwise). missing=[] confirms setup asset validation, not rendering lookups.
+# Chain files use <stage>_chain<N>_<policy>_<seed>.json and retain rounds[]; summaries group by step, showing rounds
+# started/cleared, attempts per clear, end levels and Lv70 reach alongside death/boss metrics.
+# Each round records stage, step (1-based), attempt (1-based), seed, start_character and lv70_reached; character is the
+# outgoing snapshot only on CLEARED ({} otherwise). missing=[] confirms setup asset validation, not rendering lookups.
 # Equipment and mesos (spec #33, #112): every bot wears the best item it owns at each equipment pickup, level-up and job
-# change (BotShop.auto_equip; equips_worn, equipment_worn {slot: item id}, scrolls_on_worn per round). In a --tier chain
-# the CLEARED round's record gets `shop`, the Free Market visit before the next tier (BotShop.visit: sensible plan for
-# bot/first, careless random one for --policy=random): equipped, sold/sale_mesos, bought/spent, used/succeeded/failed/
+# change (BotShop.auto_equip; equips_worn, equipment_worn {slot: item id}, scrolls_on_worn per round). In a --chain run
+# a round's record gets `shop` (a CLEARED one, or a failed one with retries left), the Free Market visit before the next round
+# (BotShop.visit: sensible plan for bot/first, careless random one for --policy=random): equipped, sold/sale_mesos, bought/spent, used/succeeded/failed/
 # destroyed, refused, scrolls_left, mesos_before/after, worn. Mesos earned in a round stay `mesos_earned`; the summary
-# adds "shop ... per visit" lines. The last tier has no visit.
+# adds "shop ... per visit" lines. The last round has no visit.
 set -uo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="$REPO/game"
@@ -78,7 +100,8 @@ EXTRA_CAP=""
 EXTRA_CAMP=""
 EXTRA_CHARACTER=""
 EXTRA_ACCOUNT=""
-EXTRA_TIER=""
+EXTRA_CHAIN=""
+EXTRA_RETRIES=""
 SEEDS=()
 for a in "$@"; do
   case "$a" in
@@ -88,14 +111,16 @@ for a in "$@"; do
     --job=*|--branch=*)
       [[ "$a" == --branch=* ]] && echo "balance.sh: --branch is deprecated: use --job=<id>" >&2
       JOB_ID="${a#--*=}"
-      [[ "$JOB_ID" =~ ^[0-9]+(:[a-z_]+)?$ ]] || { echo "--job must be a job id with an optional weapon family (e.g. 100:spear, 120:blunt)" >&2; exit 2; }
+      [[ "$JOB_ID" =~ ^[0-9]+$ ]] || { echo "--job must be a job id (e.g. 212)" >&2; exit 2; }
       EXTRA_JOB="--job=$JOB_ID" ;;
     --idle-after=*) EXTRA_IDLE="$a" ;;
     --cap=*) EXTRA_CAP="$a" ;;
     --camp-after=*) EXTRA_CAMP="$a" ;;
     --character=*) EXTRA_CHARACTER="$a" ;;
     --account=*) EXTRA_ACCOUNT="$a" ;;
-    --tier=*) EXTRA_TIER="$a" ;;
+    --chain=*) EXTRA_CHAIN="$a" ;;
+    --retries=*) EXTRA_RETRIES="$a" ;;
+    --tier=*|--tier) echo "balance.sh: --tier was replaced by --chain=N (--retries=K replays a failed region)" >&2; exit 2 ;;
     *..*) for ((s = ${a%%..*}; s <= ${a##*..}; s++)); do SEEDS+=("$s"); done ;;
     *) SEEDS+=("$a") ;;
   esac
@@ -103,9 +128,13 @@ done
 if [[ "$STAGE_EXPLICIT" -eq 0 && "$POLICY" == "camper_tree_top" ]]; then STAGE="ellinia"; fi
 [[ ${#SEEDS[@]} -gt 0 ]] || SEEDS=(1 2 3 4 5 6)
 RUN_KEY="${STAGE}_${POLICY}"
-if [[ -n "$EXTRA_TIER" ]]; then
-  [[ "${EXTRA_TIER#--tier=}" =~ ^[0-9]+$ ]] || { echo "--tier must be an integer >= 2" >&2; exit 2; }
-  RUN_KEY="${STAGE}_chain_tier${EXTRA_TIER#--tier=}_${POLICY}"
+if [[ -n "$EXTRA_CHAIN" ]]; then
+  [[ "${EXTRA_CHAIN#--chain=}" =~ ^[0-9]+$ && "${EXTRA_CHAIN#--chain=}" -ge 1 ]] || { echo "--chain must be an integer >= 1" >&2; exit 2; }
+  RUN_KEY="${STAGE}_chain${EXTRA_CHAIN#--chain=}_${POLICY}"
+fi
+if [[ -n "$EXTRA_RETRIES" ]]; then
+  [[ -n "$EXTRA_CHAIN" ]] || { echo "--retries needs --chain=N" >&2; exit 2; }
+  [[ "${EXTRA_RETRIES#--retries=}" =~ ^[0-9]+$ ]] || { echo "--retries must be an integer >= 0" >&2; exit 2; }
 fi
 if [[ -n "$EXTRA_ACCOUNT" ]]; then
   # The account file's name is part of the output names, so runs with different accounts do not overwrite each other.
@@ -135,7 +164,8 @@ EXTRA=()
 [[ -n "$EXTRA_CAMP" ]] && EXTRA+=("$EXTRA_CAMP")
 [[ -n "$EXTRA_CHARACTER" ]] && EXTRA+=("$EXTRA_CHARACTER")
 [[ -n "$EXTRA_ACCOUNT" ]] && EXTRA+=("$EXTRA_ACCOUNT")
-[[ -n "$EXTRA_TIER" ]] && EXTRA+=("$EXTRA_TIER")
+[[ -n "$EXTRA_CHAIN" ]] && EXTRA+=("$EXTRA_CHAIN")
+[[ -n "$EXTRA_RETRIES" ]] && EXTRA+=("$EXTRA_RETRIES")
 MAXJ="${JOBS:-12}"
 PIDS=()
 for s in "${SEEDS[@]}"; do
@@ -153,10 +183,10 @@ done
 
 # Tabulate with awk on the JSON fields that matter (no Python/Node needed).
 echo "stage $STAGE, policy $POLICY${PATCH:+, patch $PATCH}"
-if [[ -z "$EXTRA_TIER" ]]; then
-printf '%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-14s %-9s %-11s %-11s %s\n' seed Lv8 Lv10 Lv20 \
+if [[ -z "$EXTRA_CHAIN" ]]; then
+printf '%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-14s %-9s %-11s %-11s %-6s %s\n' seed Lv8 Lv10 Lv20 \
   Lv30 "lv@4/8/12" "alive4/8/12" "near4/8/12" "hit<6" "hit8+" "drop8" kills level end "eng6/9/12" "stale6/9/12" \
-  "recyc/reloc" NX
+  "recyc/reloc" NX revives
 for s in "${SEEDS[@]}"; do
   f="$OUT/${RUN_KEY}_${s}.json"
   [[ -s "$f" ]] || continue
@@ -193,11 +223,11 @@ for s in "${SEEDS[@]}"; do
       sp = field("spawned") + 0; rc = field("recycled") + 0; rl = field("relocated") + 0
       h = 0; for (i = 9; i <= k; i++) h += H[i]
       e = 0; for (i = 1; i <= 6 && i <= k; i++) e += H[i]
-      printf "%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-8s %-5s %-9s %-11s %-11s %s\n", seed, reach(8),
+      printf "%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-8s %-5s %-9s %-11s %-11s %-6s %s\n", seed, reach(8),
         reach(10), reach(20), reach(30), L[4] "/" L[8] "/" L[12], A[4] "/" A[8] "/" A[12],
         r0(N[4]) "/" r0(N[8]) "/" r0(N[12]), e, h, v(D[8]), field("kills"), field("level"), field("state"),
         mmss(field("time")), pc(G[6]) "/" pc(G[9]) "/" pc(G[12]), pc(S[6]) "/" pc(S[9]) "/" pc(S[12]),
-        (sp > 0 ? pc(rc / sp) "/" pc(rl / sp) : "-/-"), v(field("nx_awarded"))
+        (sp > 0 ? pc(rc / sp) "/" pc(rl / sp) : "-/-"), v(field("nx_awarded")), v(field("revive_count"))
     }' "$f"
 done | tee "$OUT/.table"
 # Summary: runs, clears, deaths (times), and min / median / max of the milestone times and the final level.
@@ -223,6 +253,7 @@ awk '
     for (k = 1; k <= 3; k++) { if (g[k] != "-") eg[k, ++neg[k]] = g[k] + 0; if (q[k] != "-") sg[k, ++nsg[k]] = q[k] + 0 }
     if (rr[1] != "-") { rcy[++nrc] = rr[1] + 0; rlc[nrc] = rr[2] + 0 }
     if ($19 != "-") nxv[++nnx] = $19 + 0
+    if ($20 != "-" && $20 + 0 > 0) revived++
   }
   function med(v, n,   i, j, t) {
     if (n == 0) return "-"
@@ -248,9 +279,10 @@ awk '
     for (i = 1; i <= nrc; i++) { r1[i] = rcy[i]; r2[i] = rlc[i] }
     printf "  recycled %% of spawns %s; relocated per spawn %% %s\n", med(r1, nrc), med(r2, nrc)
     printf "  NX awarded per run (recorded, never credited) %s\n", med(nxv, nnx)
+    printf "  revived %d/%d runs (a ready reaction skill turned a lethal hit into a survived one)\n", revived, runs
   }' "$OUT/.table"
 else
-  # A chain envelope has no single outcome/time. Keep each round visible, then summarize separately by tier.
+  # A chain envelope has no single outcome/time. Keep each round visible, then summarize separately by step.
   for s in "${SEEDS[@]}"; do sed -n '/^CHAIN /,$p' "$OUT/${RUN_KEY}_${s}.log"; done
 fi
 # Supplemental systems metrics use Godot's JSON parser; nested records stay intact.

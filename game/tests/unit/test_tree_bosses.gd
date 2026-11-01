@@ -2,7 +2,6 @@ extends TestCase
 ## Tree bosses through the seeded fixed-tick world, including immunity at live impact time.
 const TF := preload("res://tests/fixtures/tree_boss_fixtures.gd")
 const DT := 1.0 / 60.0
-const BF := preload("res://tests/fixtures/basic_attack_fixtures.gd")
 
 
 func _until(w: RunWorld, t: float) -> void:
@@ -65,30 +64,6 @@ func test_shell_immunity_is_checked_at_impact_not_at_launch() -> void:
 	_shell(w, slot)
 	_until(w, 37.0)
 	assert_eq(w.swarm.hp[slot], hp - 40, "shell launched while immune lands after expiry and damages")
-
-
-func test_basic_swings_are_blocked_during_immunity_then_resume() -> void:
-	var setup := TF.setup()
-	var basic := BF.world()
-	setup.body_img = basic.setup.body_img
-	setup.afterimage_imgs = basic.setup.afterimage_imgs
-	setup.equipment_info = basic.setup.equipment_info
-	var w := RunWorld.new(setup)
-	w.god = true
-	_until(w, 1.0)
-	var slot := int(w.bosses.records[0].slot)
-	_hit(w, slot, 12000)
-	_until(w, 30.5)
-	w.player.facing = 1 if w.swarm.x[slot] >= w.player.pos.x else -1
-	w.drain_events()
-	var hp := w.swarm.hp[slot]
-	_until(w, 34.5)
-	var events := w.drain_events()
-	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "basic_attack"), "real basic swings occur")
-	assert_false(events.any(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "basic_attack"))
-	assert_eq(w.swarm.hp[slot], hp)
-	_until(w, 37.0)
-	assert_true(w.swarm.hp[slot] < hp, "basic attacks resume once the timed status expires")
 
 
 func test_dyle_heal_uses_hp90_interval20_and_zero_effect_delay() -> void:
@@ -207,10 +182,27 @@ func test_scheduled_king_slime_does_not_flinch_despite_missing_canonical_boss_fl
 func test_tree_stage_lists_three_bosses_and_loads_their_summon_and_revive_families() -> void:
 	var data := DataRepo.load_all()
 	var bosses: Array = DataRepo.stage_bosses(data.stages.stages.ellinia)
-	assert_eq(bosses.map(func(e: Dictionary) -> int: return int(e.mob_id)), [3220000, 9300003, 6220000])
+	# #452: Prime Minister, Grey Yeti and King Pepe, Faust (no boss repeats across the progression).
+	assert_eq(bosses.map(func(e: Dictionary) -> int: return int(e.mob_id)), [3300008, 3300005, 5220002])
 	assert_eq(bosses.map(func(e: Dictionary) -> int: return int(e.time)), [300, 600, 900])
 	var ids := DataRepo.stage_mob_ids(data, "ellinia")
-	assert_true(ids.has(9300003) and ids.has(6220000) and ids.has(210100))
+	assert_true(ids.has(3300005) and ids.has(5220002) and ids.has(210100))
+
+
+## #452: their canonical MobSkill 200 summons come in through StageRoster once the images are loaded (real cache).
+func test_ellinia_bosses_bring_in_their_canonical_summons() -> void:
+	if not require_cache():
+		return
+	var data := DataRepo.load_all()
+	var lib := AssetLibrary.new()
+	lib.open()
+	var imgs := {}
+	for id: int in [3300008, 3300005, 5220002]:
+		imgs[id] = lib.mob_root(id)
+	var all := StageRoster.mob_ids(data.stages.stages.ellinia, imgs, lib.img("Skill.wz/MobSkill.img").root)
+	for id: int in [3300000, 3300001, 3300003, 3300004, 4230101]:
+		assert_true(all.has(id), "summoned mob %d is in the Ellinia roster" % id)
+	lib.free()
 
 
 func test_immunity_and_encounter_identity_follow_relocation_but_not_pool_reuse() -> void:

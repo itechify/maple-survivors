@@ -27,6 +27,8 @@ var source_pos := PackedVector2Array()
 ## 1 for an ordinary (non-boss) mob's ball: its hit is a "mob_attack" (elite-scaled like contact), not a boss "projectile".
 var ordinary := PackedByteArray()
 var elite := PackedByteArray()
+## Schedule index of the scheduled boss that threw the ball (-1 for an ordinary monster's): its level-scale damage key.
+var boss_index := PackedInt32Array()
 var _free := PackedInt32Array()
 var _hi := 0
 var _count := 0
@@ -67,6 +69,7 @@ func spawn(spec: Dictionary) -> int:
 	source_pos[slot] = spec.source_pos
 	ordinary[slot] = 1 if bool(spec.get("ordinary", false)) else 0
 	elite[slot] = 1 if bool(spec.get("elite", false)) else 0
+	boss_index[slot] = int(spec.get("boss_index", -1))
 	_count += 1
 	_hi = maxi(_hi, slot + 1)
 	return slot
@@ -91,7 +94,7 @@ func step(dt: float, world: RunWorld) -> void:
 		# Hidden (#194): balls in flight pass through the character.
 		if enter >= 0.0 and not world.is_hidden():
 			var source := {"mob": mob[slot], "mob_id": mob_id[slot], "accuracy": accuracy[slot],
-				"dmg_mult": multiplier[slot], "boss": true, "source_kind": "projectile"}
+				"dmg_mult": multiplier[slot], "boss": true, "boss_index": boss_index[slot], "source_kind": "projectile"}
 			if ordinary[slot] != 0:
 				source.boss = false
 				source.source_kind = "mob_attack"
@@ -99,10 +102,13 @@ func step(dt: float, world: RunWorld) -> void:
 			# tier C (spec #88): an ordinary ball the hit window turns away is neither a hit nor used up; it flies on
 			# and can still land once the window ends (also from inside the body box: the sweep then enters at t = 0).
 			if not world.hit_window_blocks(source):
+				# A ball a safe zone negates (M18) is still used up, but bursts no hit art: no mob_projectile_hit.
+				var negated := world.safe_zone_covers_player()
 				world.take_hit(damage[slot], magic[slot] != 0, element[slot], source_pos[slot], source)
-				world.emit("mob_projectile_hit", {"proj": slot, "mob": mob[slot], "mob_id": mob_id[slot],
-					"pos": from.lerp(to, enter), "hit": hit_visual[slot], "facing": 1 if vx[slot] > 0.0 else -1,
-					"time": world.time})
+				if not negated:
+					world.emit("mob_projectile_hit", {"proj": slot, "mob": mob[slot], "mob_id": mob_id[slot],
+						"pos": from.lerp(to, enter), "hit": hit_visual[slot], "facing": 1 if vx[slot] > 0.0 else -1,
+						"time": world.time})
 				despawn(slot)
 				continue
 		if range_left[slot] <= 1e-6:
@@ -122,7 +128,7 @@ func _grow(size: int) -> void:
 	var old := active.size()
 	for property: String in ["active", "generation", "x", "y", "vx", "vy", "visual", "rotate", "range_left", "radius",
 		"mob", "mob_id", "damage", "multiplier", "accuracy", "magic", "element", "hit_visual", "source_pos",
-		"ordinary", "elite"]:
+		"ordinary", "elite", "boss_index"]:
 		var array: Variant = get(property)
 		array.resize(size)
 		set(property, array)

@@ -103,7 +103,7 @@ func test_listing_files_items_under_their_v83_tab_and_sub_tab_and_drops_owned_on
 	assert_true(CashShop.listing(_catalog, [], "equip", "Weapon").has(1092031), "shields are filed under Weapon (SN 2/8)")
 	assert_eq(CashShop.listing(_catalog, [], "pet", "Pet"), [5000000, 5000001, 5000002])
 	var upgrades := CashShop.listing(_catalog, [], "pet", "Pet Equip.")
-	assert_eq(upgrades, [1812002, 1812003, 1812004, 1812005, VAC], "VAC has no SN and goes last")
+	assert_eq(upgrades, [1812002, 1812004, 1812005, VAC], "VAC has no SN and goes last (no Auto MP Pouch, #285)")
 
 
 func test_every_equipment_item_is_on_a_listed_sub_tab() -> void:

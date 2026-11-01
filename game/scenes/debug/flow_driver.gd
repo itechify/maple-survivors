@@ -6,163 +6,118 @@ extends Node
 ##   bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=C:/abs/dir
 ##
 ## Scenarios (--scenario=):
-##   maps    diagnostic Henesys map 1 -> 2, Quit round/Continue from map 1, then all three maps -> Free Market.
-##           --stage=<tier-1 key> (#257, default henesys) selects that card with Down on the real map select.
-##           Invulnerable EXP-drop Warrior/Sword climb and lethal hits after each map timer; real CLEAR/fade/arrival
-##           presentation. Shots: maps_stage_select, map_N_cleared, map_N_fade, map_N_enter, maps_replayed,
-##           maps_free_market.
-##   rounds  creates two characters, chooses Warrior/Sword on the real job/weapon pages, clears tier 1 (diagnostic warp), walks to
-##           Free Market out00, saves/reloads map select, starts tier 2, quits/reloads the same boundary/seed,
-##           plays to death, deletes the spare character and checks both history entries. --diagnostic-victory=1
-##           also makes tier 2 invulnerable and applies diagnostic lethal boss hits after 15:00 to inspect victory;
-##           tier 1 always uses invulnerability/EXP drops and diagnostic boss hits after its timer (#232).
-##           Unavailable later jobs show their configured reason and are declined through the real OK button.
-##           This is presentation evidence, not balance evidence. Bosses/rewards still finish through RunWorld.
-##   full    title -> character select -> Explorer creation -> tier-1 map select -> keyboard-steered round -> job/cards ->
-##           pause/resume -> death -> results -> character select -> new character -> Quit round confirmation ->
-##           continue the saved round/seed -> Quit round -> history -> characters -> title -> quit.
-##           Slots/history go only to shots_dir/driver_save.json. Delete that file for a fresh repeat.
-##   clear   --run tool one-off: waits for clear -> results -> character select -> title -> quit; never saves.
+##   redesign the F/P slice end to end (#294): title -> create an Arch Mage (name, look, Job page) -> Free Market -> map select
+##           (only Henesys open: Ellinia locked, Start refused) -> an invulnerable diagnostic Henesys round (fixed-tick bot warp, lethal boss
+##           hits after each map timer, the real CLEAR/fade/arrival presentation; the first level-up, the first full-slots
+##           offer, the first Mastery offer and the boss bonus draw open the real window and are answered with a number key)
+##           -> results -> Free Market (Ellinia unlocked, loot kept) -> the highest-reqLevel drop worn at Lv1 by a double-click
+##           -> Ellinia round (loot picked up, a lethal diagnostic hit) -> results -> Free Market (loot, worn item and the
+##           unlock kept) -> Save & quit -> delete the character -> history. Shots redesign_*.png; summary.json holds the
+##           offers (kinds, rarities, picks), the showcased windows and the history. `--seed` (default 1).
+##   progression the region progression (spec #447, ADR 0007, #455): title -> create a character (`--job=<id>`, default 212) -> map select
+##           (only Henesys startable, a locked Ellinia refused, Henesys the frontier and selected) -> a diagnostic invulnerable
+##           Henesys clear (fixed-tick bot warp, lethal boss hits after each map timer) -> results -> Free Market -> map select
+##           (Henesys CLEAR, Ellinia NEW and selected by default) -> the same for Ellinia (Perion unlocked) -> Save & quit, character
+##           select, Continue: the cleared set survives on disk and on map select -> a Perion round and a lethal hit: the set is
+##           unchanged -> the slot swapped for a HubTestKit all-cleared character: map select reads "Regions cleared 5/5" with
+##           nothing locked. Shots progression_*.png, summary.json. `--seed` (default 1). tier C: automation, not survival evidence.
+##           `--through=<n>` (#476, C14; 16 climbs the whole list) runs instead the climb: a fresh character clears the first n
+##           regions in order, each with the diagnostic invulnerable warp. At every step map select shows exactly the cleared,
+##           frontier and locked states, the header "Regions cleared k/16", exactly the next region unlocked and the frontier
+##           selected; Save & quit, character select and Continue halfway keep the cleared set (on disk and on map select); the
+##           16th clear leaves "Regions cleared 16/16" with nothing locked. Shots `<step>_<region>_*` (start, boss arrival and
+##           clear of each map, results) and `select_step<k>` at steps 1, 6, 11 and 16, summary.json.
+##   creation the Job page and character creation (spec #296, H9): title -> create a character of each job in `--jobs=<id,id>` (at most three)
+##           (default: every playable job, in separate slots, then the Job page is checked to list them in order and to show the
+##           chosen row) -> Free Market each time -> character select with all character slots. Shots creation_*.png, job_<id>_*.png.
 ##   title   the title screen only: waits for it, saves the shot, quits (e.g. to check an exported build:
 ##           MapleSurvivors.exe res://scenes/debug/flow_driver.tscn -- --scenario=title --shots=<dir>).
-##   windows the in-run window system (#85): title -> new character -> map select -> run; S opens the Stat window (the
-##           sim is checked to hold), its title bar is dragged with the mouse, Esc closes it (the sim runs again); an
-##           EXP drop levels the player up, S opens Stat over the level-up choice, Esc returns to the choice, 1 picks;
-##           the status bar's Menu button opens the Menu popup, its Stat entry is clicked, Esc closes Stat; Esc pauses,
-##           Esc resumes, quit. Shots: stat_window, stat_dragged, stat_over_levelup, menu_popup, menu_stat.
-##   skill   the Skill window (#86): title -> new character -> map select -> run; the build is set up directly
-##           (Magician, then Wizard (Ice, Lightning), Twin Claw x2, Quick Claw, Forking Storm); K opens Skill
-##           on the 2nd-job tab (the sim is checked to hold), Down selects Thunder Bolt (keyboard tooltip), Left
-##           switches to the Magician tab, the wheel scrolls Magic Claw into view and hovering it shows its Upgrades, a
-##           click picks the Beginner tab (there is no star tab, spec #225), 1 switches to the Beginner tab, Esc closes; then
-##           K over a level-up choice (1 switches the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots:
-##           skill_window, skill_keyboard_tooltip, skill_tooltip_upgrades, skill_beginner_tab, skill_over_levelup.
-##   skill_weapon  weapon-gated skills (#156): a Magician owning Magic Claw and Energy Bolt, with Magic Claw tagged claw-only
-##           through the survivor weapon_families override (debug setup; no shipping skill needs a weapon yet); K opens Skill
-##           (the held weapon cannot use Magic Claw: greyed row, tooltip "Weapon : Claw (not held)"), Esc closes. Shots:
-##           skill_weapon_greyed, skill_weapon_tooltip.
-##   skill_warrior  the Warrior's Skill window (#163): a Warrior owning all six skills and a Cleaving Strike card (debug
-##           setup); K opens Skill on the Warrior tab, hovering Slash Blast shows its HP / MP cost and weapon line, Esc
-##           closes and Iron Body casts itself (debug MP). Shots: skill_warrior_window, skill_warrior_tooltip,
-##           skill_warrior_iron_body.
-##   keys    Key Config and Options (#87): title -> new character -> map select -> run (no bot); Esc pauses, 2 opens
-##           Key Config over the pause menu, the jump icon is dragged from C onto F, OK; Esc resumes; C no
-##           longer jumps, F does; Menu -> Options, WASD is clicked; the right arrow no longer moves the player, D does;
-##           Options -> Arrows, Key Config -> Default -> OK. user://settings.cfg (the player's real one) is backed up
-##           first and restored before the driver quits, also on failure. Shots: key_config, key_config_rebound,
-##           options, options_wasd. These three create a character in the evidence-only driver_save.json (3 slots).
-##   inventory the Equip and Item windows (#108): title -> new character; the slot's character becomes the Lv38
-##           F/P fixture (tests/fixtures/characters/lv35_magician_2nd.json) holding Metal Gear, a Blue Sauna Robe,
-##           Work Gloves and a Dark Calas it cannot wear, with 123,456 mesos -> map select -> run; E opens
-##           Equip, I opens Item (the sim is checked to hold), the robe's tooltip, the Calas's tooltip with its
-##           red requirements and the refused double-click, the hat worn by double-click, the robe by dragging it
-##           onto the Equip window, the gloves by double-click (hat, overall, gloves and wand drawn on the
-##           character), the Calas dragged out and the YesNo box answered No, the Use tab, Esc closes both; then
-##           the slot is moved to the Free Market and Continue opens the hub: E and I there, the hat taken off and
-##           put back, Save & quit shows the dressed character on character select. Shots: equip_window,
-##           item_windows, item_tooltip, item_tooltip_unmet, equip_refused, equip_worn, character_dressed,
-##           drop_confirm, item_use_tab, hub_windows, hub_hat_off, hub_dressed, character_select_dressed.
-##   scrolls scrolls on worn equipment (#110): the Lv38 F/P fixture holds three 100% wand scrolls, six 10% and thirty
-##           dark 30% wand scrolls and two 100% hat scrolls, wears Metal Gear -> run; E and I, the Use tab; a 100%
-##           scroll is dragged from the Use tab onto the Wooden Wand (Enchant Success plays, the stats and counts
-##           follow, the tooltip shows the new upgrade slots), then 10% scrolls until one fails (Enchant Failure, only
-##           the slot is spent), then dark scrolls until the wand is destroyed (the character is bare-handed); the slot
-##           moves to the Free Market and Continue opens the
-##           hub: a hat scroll is dragged onto Metal Gear there (effect, saved slot). Shots: scroll_use_tab,
-##           scroll_success, scroll_tooltip, scroll_failure, scroll_destroyed, scroll_bare_handed, hub_scroll_success.
-##   shops   the Free Market scroll shops (#111): the Lv38 F/P fixture with 250,000 mesos, a few scrolls and spare
-##           equipment is put in the hub; the four scroll NPCs are shown; Space next to El Moth opens his shop; a wand
-##           scroll is selected and bought (quantity box, mesos charged), a refused purchase shows the notice; the
-##           Use tab sells a scroll stack, the Equip tab a spare item (YesNo box); Esc closes; a double-click on Barun
-##           opens his shop (60% stock); NPC Chat is rebound in Key Config's draft. All input is injected. Shots:
-##           shop_npcs, shop_open, shop_selected, shop_quantity, shop_bought, shop_refused, shop_sell_use, shop_sell_confirm,
-##           shop_sold, shop_barun, shop_vega.
-##   botshop the bot shop plan (#112) in the Free Market: the same fixture with 600,000 mesos and spare equipment; the
-##           hub's bot hook (FreeMarket.bot_shop, BotShop.visit) sells, buys and reads scrolls through RunWorld and
-##           saves; the Item and Equip windows show the result. Shots: botshop_before_item, botshop_after_equip,
-##           botshop_after_item.
-##   economy the whole spec-#33 loop (#113): title -> new character -> Warrior weapon-page probe -> Lv38 F/P fixture -> Henesys
-##           round; four meso sprites and two items (Metal Gear, a Dark Calas) lie on the ground, the character walks
-##           over them (HUD notices); Metal Gear auto-equips (#222), the Calas stays in Item; E and I show their tooltips;
-##           the bot's fixed-tick warp
-##           clears the round into the Free Market (saved boundary checked: worn hat, inventory, mesos); the
-##           character walks past the four scroll NPCs, Space opens El Moth's shop, a 100% hat INT scroll is bought
-##           (quantity box) and the spare Calas sold (YesNo box), Space at Tulcus buys three 10% hat scrolls; they are
-##           dragged from the Use tab onto the worn hat (Enchant success, then until one fails); Save & quit,
-##           Continue: mesos, worn equipment, inventory and scrolls equal the snapshot before quitting. The warp
-##           takes a few minutes. Shots: economy_drops_on_the_ground, economy_pickup_notices, economy_picked_up,
-##           economy_worn_hat_tooltip, economy_tooltip_unmet, economy_equip_window_hat_worn, economy_scroll_npcs,
-##           economy_shop_open, economy_shop_buying, economy_shop_sell_selected, economy_shop_selling,
-##           economy_shop_sold, economy_shop_tulcus, economy_scroll_success, economy_scrolled_tooltip, economy_scroll_failure, economy_character_scrolled,
-##           economy_save_and_quit, economy_character_select, economy_continue_restored; summary.json.
-##   warrior the Warrior first job end to end (spec #151 QA #164): title -> new character holding a spare Wooden Shield
-##           (debug setup, a kit item in the slot) -> round; EXP drops take it to Lv10 through the real level-up cards
-##           and the real job/weapon pages: Sword 1302077 is chosen, only the creation weapon waits in Equip; the bot's
-##           steering plays a few seconds, E and I wear the shield by double-click (Equip window, weapon + shield
-##           drawn); the slot moves to the Free Market (the carried snapshot is saved at the boundary, a debug
-##           shortcut for the multi-minute warp) and Continue opens the hub; Esc -> Save & quit -> character select
-##           -> Continue again: job, weapon, shield, skills and mesos equal the snapshot before quitting. Shots:
-##           warrior_job_window, warrior_job_confirm, warrior_advanced, warrior_playing, warrior_shield_worn,
-##           warrior_hub, warrior_save_and_quit, warrior_character_select, warrior_continue_restored; summary.json.
-##   warrior2 the Warrior second job end to end (spec #165 QA #185; `--job=110|120|130`, default 120): new character
-##           (invulnerable, debug) -> EXP drops through the real Lv10 job window (Warrior) and then up to Lv30, where the real
-##           job window takes the branch then Axe/Blunt Weapon/Polearm on its weapon page; only that weapon is granted,
-##           the displaced sword waits in Equip, and the real advancement draw teaches a branch skill; the whole
-##           branch book is learned through its cards (debug) for the Skill window (the other family's skills greyed, a
-##           tooltip); the slot moves to the Free Market (debug shortcut for the warp) and Continue opens the hub; Esc ->
-##           Save & quit -> character select -> Continue: job, weapons, skills and cards equal the snapshot before quitting.
-##           Shots: warrior2_<b>_job_window_100/_<b>, _job_confirm_*, _advancement_draw, _playing, _skill_window_top,
-##           _skill_window_bottom, _skill_greyed_tooltip, _hub, _character_select, _continue_restored; summary.json.
-##   thief   Thief QA (#215), --path=claw|dagger [--branch=410|420]: Lv10 job then weapon page, chosen-only gift, combat,
-##           advancement weapon, Free Market Save & quit / Continue. --disorder=1 keeps the first-job crowd probe.
-##           --disorder=1 captures Disorder on a prepared ordinary crowd instead (#210).
-##           Invulnerable EXP-drop climb; skill cards applied for evidence only. Save stays in shots_dir.
-##   pirate  the Pirate line end to end (spec #168 QA #195; `--path=knuckle|gun`, `--branch=510|520`): title -> new character
-##           -> round; EXP drops (debug warp, invulnerable meanwhile) take it through the real level-up cards to Lv10 and the
-##           real job then Knuckle/Gun weapon page (only the chosen weapon is given; creation weapon in Equip,
-##           Equip and Item windows shown), Dash learned (debug setup, card applied) and on to
-##           Lv30 and the real Lv 30 window (Brawler / Gunslinger; the Lv 30 weapon worn), a few seconds of the bot's
-##           steering, Dash on its real key X; the slot moves to the Free Market (debug boundary), Save & quit, Continue:
-##           job, path, weapons, skills and mesos equal the snapshot before quitting. Shots: pirate_equip_chosen_weapon,
-##           pirate_lv10_job_window/_job_confirm/_advanced, pirate_lv30_job_window/_job_confirm/_advanced, pirate_playing,
-##           pirate_dash, pirate_hub, pirate_save_and_quit, pirate_character_select, pirate_continue_restored; summary.json.
-##   bowman  Bowman -> Hunter/Crossbowman (#166 QA #204, --branch=310|320): real Lv10/Lv30 job windows via diagnostic
-##           invulnerable EXP drops, chosen Bow/Crossbow weapon only, Lv30 advancement weapon and Bronze arrow notice;
-##           Free Market boundary shortcut, Save & quit -> Continue restores job, weapons, skills and derived arrow tier.
+##   clear   --run tool one-off (`--run=<stage> --seed=<n> --autoplay --autopick --speed=<k>`): waits for the clear -> results ->
+##           character select -> title -> quit; never saves (the save file is checked unchanged).
 ##   import  a cache-less start, or the title's Re-import link when a cache exists: the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ##           Without --wz this checks the screen only and never writes the cache.
+##   windows the in-run window system (#85): title -> new character -> Free Market -> map select -> run; S opens the Stat window
+##           (the sim is checked to hold), its title bar is dragged with the mouse, Esc closes it (the sim runs again); an
+##           EXP drop levels the player up, S opens Stat over the level-up choice, Esc returns to the choice, 1 picks;
+##           the status bar's Menu button opens the Menu popup, its Stat entry is clicked, Esc closes Stat; Esc pauses,
+##           Esc resumes, quit. Shots: stat_window, stat_dragged, stat_over_levelup, menu_popup, menu_stat.
+##   skill   the Skill window (#86): a round with a small build set up directly (Magic Claw, Fire Arrow, Explosion with ranks and
+##           two common passives); K opens it on the job's own tab (the sim is checked to hold), Down selects the last row,
+##           Left switches to the previous job tab, a click picks the Common tab (nine passives) and its tooltip, the tab
+##           strip ends after the job's tab, 2 switches tabs, Esc closes; then K over a level-up choice (1 switches the tab
+##           instead of picking), Esc back to the choice, 1 picks. Shots: skill_window, skill_common_tab, skill_over_levelup.
+##   keys    Key Config and Options (#87): new character -> map select -> run (no bot); Esc pauses, 2 opens Key Config over the
+##           pause menu, the jump icon is dragged from C onto F, OK; Esc resumes; C no longer jumps, F does; Menu -> Options,
+##           WASD is clicked; the right arrow no longer moves the player, D does; Options -> Arrows, Key Config -> Default
+##           -> OK. user://settings.cfg (the player's real one) is backed up first and restored before the driver quits, also
+##           on failure. Shots: key_config, key_config_rebound, options, options_wasd.
+##   inventory the Equip and Item windows (#108): the slot's character becomes the F/P fixture (tests/fixtures/characters/
+##           fp_arch_mage.json) holding Metal Gear, a Blue Sauna Robe, Work Gloves and a Warrior shield it cannot wear (job
+##           only: no level or stat rows), with 123,456 mesos -> Free Market -> map select -> run; E opens Equip, I opens Item
+##           (the sim holds), the robe's tooltip, the shield's tooltip and the refused double-click, the hat worn by
+##           double-click, the robe by dragging it onto the Equip window, the gloves by double-click, the shield dragged out
+##           and the YesNo box answered No, the Use tab, Esc closes both; then the slot is moved to the Free Market and
+##           Continue opens the hub: E and I there, the hat taken off and put back, Save & quit shows the dressed character.
+##   scrolls scrolls on worn equipment (#110): the F/P fixture holds staff scrolls and hat scrolls -> run; E and I, the Use tab;
+##           a 100% scroll is dragged from the Use tab onto the weapon (Enchant Success plays, the stats and counts follow),
+##           then 10% scrolls until one fails (only the slot is spent), then dark scrolls until the weapon is destroyed (the
+##           character is bare-handed and still casts); the slot moves to the Free Market and Continue opens the hub: a hat
+##           scroll is dragged onto the hat there (effect, saved slot).
+##   shops   the Free Market scroll shops (#111): the F/P fixture with 250,000 mesos, a few scrolls and spare equipment is put in
+##           the hub; the four scroll NPCs are shown; Space next to El Moth opens his shop; a scroll is selected and bought
+##           (quantity box, mesos charged), a refused purchase shows the notice; the Use tab sells a scroll stack, the Equip tab a
+##           spare item (YesNo box); Esc closes; a double-click on Barun opens his shop; NPC Chat is rebound in Key Config's draft.
+##   botshop the bot shop plan (#112) in the Free Market: the same fixture with 600,000 mesos and spare equipment; the hub's bot
+##           hook (FreeMarket.bot_shop, BotShop.visit) sells, buys and reads scrolls through RunWorld and saves; the Item and
+##           Equip windows show the result.
 ##   cash_shop  the Cash Shop (#118) from a prepared test save (5,000 NX): title -> new character -> map select SHOP -> Equip tab
-##           (try-on, sub-tab, buy dialog, OK, a purchase that costs too much, Pet tab with locked upgrades) -> EXIT back to map
-##           select -> the saved boundary is turned into a Free Market one, Save & quit, Continue -> status bar SHOP -> EXIT
-##           back to the Free Market. Shots: shop_*.png (the first is the Cash Shop shot to compare with the v83 references).
-##   cash_equip  the Equip window's Cash tab and Pet page (#122), continuing the #118 purchase: 12,000 NX -> new character ->
-##           map select SHOP -> buy the first hat and the first pet -> Free Market (boundary patched, Save & quit, Continue) ->
-##           E, Cash tab, a double-click wears the hat -> PET EQUIP., a double-click brings the pet out -> out00 -> the next
-##           round has both. Shots: equip_00..07 (equip_02/03 Cash tab, equip_04/05 Pet page).
-##   account the whole NX and Cash Shop loop (#126): 11,000 NX prepared -> new character -> tier-1 map select SHOP (buy a hat
-##           and a pet) -> round 1: Equip window Cash tab wears the hat, Pet page brings the pet out -> warp clear -> Free
-##           Market "+N NX" notice and saved balance -> SHOP: buy Auto HP Potion Pouch -> Save & quit, Continue -> out00 ->
-##           tier-2 map select (balance) -> round 2 -> warp death -> results (NX earned) -> the slot is freed and the account
-##           keeps NX and every item -> a NEW character: shop shows everything owned, its round's Equip window wears the hat
-##           and brings the pet (with the upgrade) out. Shots acct_*.png (+ *_zoom.png crops around character and pet).
-##           --account-nx=<n> changes the prepared balance; --seed defaults to 4.
-## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
-## effects too), --stop-at=<run s> (full: 300), --seed=<n> (full: 1, rounds: 4), --wz=<folder> (import).
+##           (try-on, sub-tab, buy dialog, OK, a purchase that costs too much, Pet tab with locked upgrades) -> EXIT -> back to
+##           the Free Market, Save & quit, Continue -> status bar SHOP -> EXIT back to the Free Market. Shots: shop_*.png.
+##   cash_equip  the Equip window's Cash tab and Pet page (#122): 12,000 NX -> new character -> map select SHOP -> buy the first
+##           hat and the first pet -> Free Market (Save & quit, Continue) -> E, Cash tab, a double-click wears the hat -> PET
+##           EQUIP., a double-click brings the pet out -> out00 -> the next round has both. Shots: equip_00..07.
+##   account the whole NX and Cash Shop loop (#126): 11,000 NX prepared -> new character -> map select SHOP (buy a hat and a pet)
+##           -> round 1: Equip window Cash tab wears the hat, Pet page brings the pet out -> warp clear -> results -> Free Market
+##           "+N NX" notice and saved balance -> SHOP: buy Auto HP Potion Pouch -> Save & quit, Continue -> out00 -> Ellinia
+##           (the only region the clear unlocked; Perion stays locked) -> round 2 -> warp death -> results (NX earned) -> the character survives and the account
+##           keeps NX and every item -> a NEW character uses them. Shots acct_*.png (+ *_zoom.png crops). `--account-nx=<n>`
+##           changes the prepared balance; `--seed` defaults to 4; `--natural-clear=1` plays round 1 without invulnerability.
+## The scenarios of the removed systems (maps, rounds, full, economy and the Warrior, Pirate, Bowman and Thief job/weapon pages)
+## were deleted with job advancement, saved rounds and the old creation flow (#284, #286, #294).
+## The skill scenario accepts --job=<playable id> (default 212).
+## Other flags: --shots=<abs dir> (required), --seed=<n>, --wz=<folder> (import). The driver runs uncapped (vsync off).
 ##
 ## Screenshots are named NN_<step>.png; the driver prints one "flow_driver:" line per step and quits with exit code 1
-## when a step times out or the full scenario misses the Warrior weapon page / pause-resume path. Full also writes summary.json
-## from RunScene's public snapshot, including the seed, potion totals, tier counts and missing assets.
-## tier C: diagnostic names, seeds 1 (full) and 4 (rounds), 1800s combat cap, 600-tick yields, 100s progress logs,
-## 30s/8px exit-walk guard and UI waits/timeouts are automation choices, never survivor tuning.
+## when a step times out or a check fails. Saves go to shots_dir/driver_save.json (delete the folder to repeat a scenario).
+## tier C: diagnostic names, seeds 1 (redesign, progression) and 4 (account), the 1800 s combat cap, 600-tick yields, the 400 + 75 meso
+## loot, the 1e9 lethal hit, the Lv45 fallback staff, the card policy "rank the highest-ranked owned active once the slots are
+## full" and the UI waits/timeouts are automation choices, never survivor tuning.
 
 const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 const StageSelectScene := preload("res://scenes/ui/stage_select.gd")
 const MAIN := "res://scenes/main.tscn"
-## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q / End potions; E is
-## the Equip window).
+## Diagnostic build from the selected job's first three unlearned pool actives, plus common passives.
+## tier C: automation policy, not tuning. No job-specific card list.
+static func skill_build(w: RunWorld) -> Array:
+	var cards := []
+	var added := 0
+	for key: String in w.jobs.skill_pool(w.job_id()):
+		if not w.book.has(key) or w.loadout.has(key):
+			continue
+		cards.append(key + "_new")
+		cards.append(key + "_rank")
+		added += 1
+		if added == 3:
+			break
+	cards.append_array(["passive_might_new", "passive_speed_new", "passive_speed_rank"])
+	return cards
+
+
+## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q potion; E is the
+## Equip window).
 const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_C,
-	"drink_hp": KEY_Q, "drink_mp": KEY_END}
+	"drink_hp": KEY_Q}
 
 var args := {}
 var shots_dir := ""
@@ -174,6 +129,13 @@ var _memo := {}
 var _failed := false
 var _missing := PackedStringArray()
 var _rounds: Array[Dictionary] = []
+## The redesign scenario's card bookkeeping: every offer counted by kind and rarity, and the offers shown in a real window.
+var _offers := {"picks": 0, "bonus": 0, "kinds": {}, "tiers": {}, "taken": {}}
+var _showcased := {}
+## The progression scenario's `--through=N` mode (#476): names every shot after its region (`_shot_prefix`), takes a shot at each
+## boss arrival of a warped map and leaves out the map-fade shots (about 14 shots per region, 16 regions).
+var _shot_prefix := ""
+var _boss_shots := false
 ## The keys scenario: user://settings.cfg as it was before the run (null = there was none), restored on every exit.
 var _settings_backup: Variant = null
 var _settings_saved := false
@@ -187,39 +149,30 @@ func _ready() -> void:
 		get_tree().quit(2)
 		return
 	DirAccess.make_dir_recursive_absolute(shots_dir)
+	# tier C: automation choice. An unfocused or occluded window is throttled to about 1 frame per second under vsync, which
+	# starves every timeout below; uncapped frames keep the scripted run quick (and make `--vsync=off` the default here).
+	GameSettings.apply_frame_cap(-1, true)
 	flow = get_node_or_null("/root/Flow") as SceneFlow
 	# The scripted UI creates/deletes real slots, always in ignored evidence, never the player's save.
 	flow.save = SaveData.new(shots_dir.path_join("driver_save.json"))
 	add_child((load(MAIN) as PackedScene).instantiate())
 	match String(args.get("scenario", "full")):
-		"maps":
-			_scenario_maps()
-		"rounds":
-			_scenario_rounds()
 		"clear":
 			_scenario_clear()
 		"import":
 			_scenario_import()
+		"redesign":
+			_scenario_redesign()
+		"progression":
+			_scenario_progression()
+		"creation":
+			_scenario_creation()
 		"title":
 			_scenario_title()
 		"windows":
 			_scenario_windows()
 		"skill":
 			_scenario_skill()
-		"skill_weapon":
-			_scenario_skill_weapon()
-		"skill_warrior":
-			_scenario_skill_warrior()
-		"warrior":
-			_scenario_warrior()
-		"warrior2":
-			_scenario_warrior2()
-		"thief":
-			_scenario_thief()
-		"pirate":
-			_scenario_pirate()
-		"bowman":
-			_scenario_bowman()
 		"keys":
 			_scenario_keys()
 		"cash_shop":
@@ -236,10 +189,6 @@ func _ready() -> void:
 			_scenario_shops()
 		"botshop":
 			_scenario_botshop()
-		"economy":
-			_scenario_economy()
-		"full":
-			_scenario_full()
 		_:
 			_fail("unknown scenario: " + String(args.get("scenario")))
 
@@ -251,99 +200,13 @@ func _process(_delta: float) -> void:
 
 # --- scenarios ---------------------------------------------------------------------------------------------------
 
-## The map-select card index of the maps scenario's --stage (default henesys, #257); -1 when that card is not offered.
+## The map-select card index of the stage in flags `stage` (default henesys); -1 when that card is not offered.
 func maps_stage_card(flags: Dictionary, cards: Array[Dictionary]) -> int:
 	var key := String(flags.get("stage", "henesys"))
 	for i in cards.size():
 		if String(cards[i].key) == key:
 			return i
 	return -1
-
-
-## Three-map flow evidence through real transitions and boundary replay, never a natural-survival claim.
-func _scenario_maps() -> void:
-	if not args.has("seed"):
-		args["seed"] = "1" # tier C: retained training seed for diagnostic flow evidence.
-	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
-		return
-	await _sleep(2.0)
-	await _key(KEY_ENTER)
-	if not await _create_character("Maps248"):
-		return
-	await _sleep(1.5)
-	var select: StageSelectScene = flow.current
-	var card := maps_stage_card(args, select.stages)
-	if not _expect(card >= 0, "map select offers no %s card" % args.get("stage", "henesys")):
-		return
-	for i in card:
-		await _key(KEY_DOWN)
-	if not _expect(select.selected == card, "Down did not select the %s card" % select.stages[card].key):
-		return
-	await _shot("maps_stage_select")
-	var stage_key := String(select.stages[card].key)
-	await _start_selected(select)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
-		return
-	var run := flow.current as RunScene
-	var first_map := int(run.world.stage.maps[0].map_id)
-	if not _expect(run.stage_key == stage_key and run.world.current_map_id() == first_map,
-			"maps scenario must start %s map 1" % stage_key):
-		return
-	run.world.god = true
-	var saved := flow.save.slot(flow.active_slot)
-	var bytes := FileAccess.get_file_as_bytes(shots_dir.path_join("driver_save.json"))
-	if (await _climb_job_windows(run, 10, 100, "sword", "maps_lv10")).is_empty():
-		return
-	await _shot("map_1_enter")
-	if not await _warp_map(run):
-		return
-	if not _expect(run.world.map_index == 1, "first clear must enter map 2"):
-		return
-	var before_replay := run.build_summary()
-	# The existing in-round Quit round / Save & quit warning preserves the boundary snapshot.
-	await _quit_round_ui()
-	if _failed:
-		return
-	if not _expect(FileAccess.get_file_as_bytes(shots_dir.path_join("driver_save.json")) == bytes,
-			"quitting on map 2 changed the round boundary file"):
-		return
-	_reload_save()
-	await _click(flow.current.select_button)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "maps Continue"):
-		return
-	run = flow.current as RunScene
-	run.world.god = true
-	if not _expect(run.world.map_index == 0 and run.world.current_map_id() == first_map
-			and run.run_seed == int(saved.round_seed) and run.stage_key == stage_key
-			and JSON.parse_string(JSON.stringify(flow.save.slot(flow.active_slot))) == JSON.parse_string(JSON.stringify(saved))
-			and int(run.world.player_state.level) == int(saved.character.level),
-			"Continue must replay map 1 with the same seed and boundary character"):
-		return
-	await _shot("maps_replayed")
-	if (await _climb_job_windows(run, 10, 100, "sword", "maps_replay_lv10")).is_empty():
-		return
-	for index in 3:
-		if not _expect(run.world.map_index == index, "unexpected map in replay traversal"):
-			return
-		if not await _warp_map(run):
-			return
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "maps Free Market"):
-		return
-	await _shot("maps_free_market")
-	var boundary := flow.save.slot(flow.active_slot)
-	if not _expect(boundary.phase == "free_market" and int(boundary.rounds_played) == 1,
-			"three map clears must save one round at the Free Market"):
-		return
-	_collect_missing(flow.current)
-	if not _expect(_missing.is_empty() and not _failed, "maps missing assets or failed checks: %s" % _missing):
-		return
-	var report := {"scenario": "maps", "stage": stage_key, "diagnostic": true, "before_replay": before_replay,
-		"replayed_from_map": 0, "replayed_seed": saved.round_seed, "rounds": _rounds,
-		"boundary": boundary, "missing": Array(_missing), "failures": []}
-	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
-	file.store_string(JSON.stringify(report, "\t"))
-	print("flow_driver: maps PASSED ", JSON.stringify(report))
-	get_tree().quit()
 
 
 ## Warps one map with fixed-tick bot inputs, then lets RunScene present its actual clear/fade/arrival.
@@ -354,9 +217,11 @@ func _warp_map(run: RunScene) -> bool:
 	var memo := {}
 	var ticks := 0
 	var boundary_events: Array = []
+	var boss_shot := false
 	# tier C: same 1800 s safety cap / 600-tick yields as the existing diagnostic round warp.
 	while w.time < 1800.0:
-		BotInput.auto_choose(w)
+		if not await _answer_choices(run):
+			return false
 		if w.transfer_pending or w.state in [RunWorld.CLEARED, RunWorld.DEAD]:
 			break
 		if w.time - w.map_entered_at >= float(w.stage.map_seconds):
@@ -364,13 +229,23 @@ func _warp_map(run: RunScene) -> bool:
 			for record: Dictionary in w.bosses.records:
 				var slot := int(record.slot)
 				if int(record.map_index) == index and not bool(record.dead) and slot >= 0 and w.swarm.is_live(slot):
-					w.hit_mob(slot, {"skill": "three_snails", "magic": true, "damage_min": 1e9,
+					w.hit_mob(slot, {"skill": "energy_bolt", "magic": true, "damage_min": 1e9,
 						"damage_max": 1e9, "crit": 0.0, "crit_mult": 1.0}, -1)
 		w.step(RunScene.DT, BotInput.decide(w, memo))
 		# Choice requests were answered by the bot; only the boundary events go to the real presentation.
 		var events := w.drain_events()
 		boundary_events.append_array(events.filter(func(e: Dictionary) -> bool:
 			return String(e.type) in ["map_cleared", "stage_cleared", "player_died"]))
+		if _boss_shots and not boss_shot and events.any(func(e: Dictionary) -> bool: return String(e.type) == "boss_spawned"):
+			# The boss's arrival as the player would see it: present the warped world, replay the arrival events, run in real
+			# time for a moment and shoot (the character is invulnerable, nothing else is driving it).
+			boss_shot = true
+			run._apply_look()
+			run._present(0.0)
+			run.handle_events(events.filter(func(e: Dictionary) -> bool: return String(e.type) in ["boss_warning", "boss_spawned"]))
+			run.set_process(true)
+			await _shot("boss_%d" % (index + 1), 0.8)
+			run.set_process(false)
 		ticks += 1
 		if ticks % 600 == 0:
 			await get_tree().process_frame
@@ -396,182 +271,13 @@ func _warp_map(run: RunScene) -> bool:
 	if index < 2:
 		if not await _until(func() -> bool: return run._transfer_phase == "out", 10.0, "map fade"):
 			return false
-		await _shot("map_%d_fade" % (index + 1), RunScene.MAP_FADE_TIME * 0.5)
+		if not _boss_shots:
+			await _shot("map_%d_fade" % (index + 1), RunScene.MAP_FADE_TIME * 0.5)
 		if not await _until(func() -> bool: return w.map_index == index + 1 and run._transfer_phase == "",
 				10.0, "map arrival"):
 			return false
 		await _shot("map_%d_enter" % (index + 2))
 	return true
-
-func _scenario_rounds() -> void:
-	# tier C: retained training seed 4; #232 stages the tier-1 boundary diagnostically rather than claiming survival.
-	if not args.has("seed"):
-		args["seed"] = "4"
-	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
-		return
-	await _key(KEY_ENTER)
-	if not await _create_character("Spare75"):
-		return
-	await _click(flow.current.get("back_button") as Control)
-	if not await _create_character("Rounds75"):
-		return
-	await _sleep(2.0)
-	await _shot("map_select_tier1")
-	await _start_selected(flow.current)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "tier 1"):
-		return
-	await _shot("tier1_start")
-	# tier C (#232): this is flow evidence; guarantee the Lv10 weapon page and the later hub boundary.
-	(flow.current as RunScene).world.god = true
-	if (await _climb_job_windows(flow.current as RunScene, 10, 100, "sword", "rounds_lv10")).is_empty():
-		return
-	if not await _warp_round():
-		return
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after diagnostic clear"):
-		return
-	var boundary := flow.save.slot(flow.active_slot)
-	if not _expect(boundary.phase == "free_market" and int(boundary.tier) == 1
-			and int(boundary.rounds_played) == 1, "tier-1 clear did not save the next boundary"):
-		return
-	await _sleep(0.5)
-	await _shot("free_market_arrival")
-	# Also check hub Save & quit and disk reload, through the real pause controls.
-	await _key(KEY_ESCAPE)
-	await _shot("free_market_save_quit")
-	await _key(KEY_2)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
-		return
-	_reload_save()
-	# Mouse selects the spare, Right selects the carried character; Start is the shared v83 signboard button.
-	await _click(flow.current.slot_buttons[0])
-	if not _expect(flow.current.selected == 0, "mouse character selection failed"):
-		return
-	await _key(KEY_RIGHT)
-	if not _expect(flow.current.selected == 1, "keyboard character selection failed"):
-		return
-	await _shot("selected_carried_character")
-	await _click(flow.current.select_button)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
-		return
-	var hub := flow.current as FreeMarket
-	var exit_pos := Vector2.ZERO
-	for portal: Dictionary in hub.motion.portals.links:
-		if portal.name == "out00":
-			exit_pos = portal.pos
-	# No teleport or direct scene call: hold arrows from the canonical arrival to the real exit.
-	var t0 := Time.get_ticks_msec()
-	while absf(hub.motion.player.pos.x - exit_pos.x) > 8.0:
-		if Time.get_ticks_msec() - t0 > 30000:
-			_fail("walking to out00 timed out")
-			return
-		_set_key("left", hub.motion.player.pos.x > exit_pos.x)
-		_set_key("right", hub.motion.player.pos.x < exit_pos.x)
-		await get_tree().process_frame
-	_release_all()
-	await _shot("free_market_out00")
-	_collect_missing(hub)
-	await _key(KEY_UP)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "tier-2 map select via out00"):
-		return
-	await _sleep(2.0)
-	if not _expect(flow.current.stages.size() == 1 and flow.current.stages[0].key == "sleepywood",
-			"tier 2 offered a stage outside Dark Cave"):
-		return
-	await _shot("map_select_tier2")
-	await _click(flow.current.back_button)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved map select"):
-		return
-	_reload_save()
-	await _click(flow.current.slot_buttons[1])
-	await _click(flow.current.select_button)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "continued map select"):
-		return
-	await _sleep(2.0)
-	await _start_selected(flow.current)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "tier 2"):
-		return
-	var saved := flow.save.slot(flow.active_slot)
-	var bytes := FileAccess.get_file_as_bytes(shots_dir.path_join("driver_save.json"))
-	await _sleep(1.0)
-	await _shot("dark_cave_start")
-	await _quit_round_ui()
-	if _failed:
-		return
-	if not _expect(FileAccess.get_file_as_bytes(shots_dir.path_join("driver_save.json")) == bytes,
-			"Quit round changed the boundary file"):
-		return
-	_reload_save()
-	await _click(flow.current.slot_buttons[1])
-	await _click(flow.current.select_button)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "continued tier 2"):
-		return
-	var run := flow.current as RunScene
-	# Disk JSON turns numeric fields into floats; compare both snapshots in the same representation.
-	var normalized: Dictionary = JSON.parse_string(JSON.stringify(saved))
-	var resumed: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(flow.active_slot)))
-	if resumed != normalized:
-		print("flow_driver: boundary before ", JSON.stringify(normalized))
-		print("flow_driver: boundary resumed ", JSON.stringify(resumed))
-	print("flow_driver: resumed level %s / saved %s" % [run.world.player_state.level, saved.character.level])
-	if not _expect(run.run_seed == int(saved.round_seed) and run.stage_key == saved.stage,
-			"Continue changed stage or round seed"):
-		return
-	if not _expect(run.world.player_state.level == int(saved.character.level)
-			and resumed == normalized,
-			"Continue changed the boundary character"):
-		return
-	await _shot("dark_cave_replayed")
-	if String(args.get("diagnostic-victory", "0")) == "1":
-		run.world.god = true
-	if not await _warp_round():
-		return
-	if not await _until(func() -> bool: return flow.current_name == "results", 15.0, "run ending"):
-		return
-	await _sleep(1.0)
-	var ending := "victory" if String(args.get("diagnostic-victory", "0")) == "1" else "died"
-	if not _expect(flow.last_summary.ending == ending, "unexpected run ending"):
-		return
-	await _shot("results_" + ending)
-	await _click(flow.current.back_button)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "ended character removed"):
-		return
-	if not _expect(flow.save.slot(1).is_empty(), "ended run still occupies a slot"):
-		return
-	await _click(flow.current.slot_buttons[0])
-	await _click(flow.current.delete_button)
-	await _shot("delete_confirmation")
-	await _key(KEY_ESCAPE)
-	await _sleep(0.3)
-	if not _expect(not flow.save.slot(0).is_empty(), "cancel deleted the spare"):
-		return
-	await _click(flow.current.delete_button)
-	await _sleep(0.3) # Respect the same modal input guard when reopening after Cancel.
-	await _key(KEY_ENTER)
-	if not await _until(func() -> bool: return flow.save.slot(0).is_empty(), 10.0, "confirmed deletion"):
-		return
-	await _sleep(0.5)
-	await _click(flow.current.find_child("RunHistory", true, false) as Control)
-	if not await _until(func() -> bool: return flow.current_name == "history", 10.0, "History entry"):
-		return
-	await _sleep(1.0)
-	await _shot("history_" + ending)
-	var history := flow.save.history
-	if not _expect(history.size() == 2 and history[0].ending == ending
-			and history[0].name == "Rounds75" and int(history[0].rounds_played) == 2
-			and history[1].ending == "deleted" and history[1].name == "Spare75", "history did not archive both runs"):
-		return
-	_collect_missing(flow.current)
-	if not _expect(_missing.is_empty(), "missing assets: %s" % _missing):
-		return
-	if not _expect(not _failed, "rounds contains failed checks"):
-		return
-	var report := {"scenario": "rounds", "diagnostic_victory": ending == "victory", "rounds": _rounds,
-		"replayed_seed": saved.round_seed, "history": history, "missing": Array(_missing), "failures": []}
-	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
-	file.store_string(JSON.stringify(report, "\t"))
-	print("flow_driver: rounds PASSED ", JSON.stringify(report))
-	get_tree().quit()
-
 
 ## Warps actual fixed ticks with the existing bot/choice policy; never fabricates a clear or character.
 ## UI navigation remains injected input. End events still go through RunScene's normal presentation/Flow path.
@@ -581,35 +287,14 @@ func _warp_round() -> bool:
 	var memo := {}
 	var ticks := 0
 	while run.world.time < 1800.0 and run.world.state not in [RunWorld.DEAD, RunWorld.CLEARED]:
-		if run.world.state == RunWorld.CHOOSING_JOB:
-			# Render the real job request and answer both pages with input, even while combat time is warped.
-			run.set_process(true)
-			if not await _until(func() -> bool: return run.window is JobAdvanceWindow,
-					10.0, "warp job window"):
-				return false
-			var pick := BotInput.pick_choice(run.world.pending_jobs, run.world.job_rng, 0, run.world.jobs, "",
-				run.world.held_weapon_family())
-			if (await _choose_job_ui(run, pick.job_id, pick.path,
-					"warp_job_%d" % pick.job_id)).is_empty():
-				return false
-			# Resolve the advancement/level cards through their real windows before resuming the fixed-tick warp.
-			while run.world.state == RunWorld.CHOOSING_UPGRADE:
-				if run.window is LevelUpWindow and (run.window as MapleWindow).is_open():
-					await _key((KEY_1 + _card_index(run, (run.window as LevelUpWindow).cards)) as Key)
-				else:
-					await _sleep(0.1)
-			run.set_process(false)
-		else:
-			while run.world.state == RunWorld.CHOOSING_UPGRADE:
-				run.world.apply_choice(BotInput.pick_card_for(run.world, run.world.pending_cards))
-			var choice_events := run.world.drain_events()
-			# Settlement can clear inside the last answer, without another tick to emit the end event.
-			# Earlier card requests in the batch have already been answered; do not reopen them over CLEAR.
-			if run.world.state in [RunWorld.DEAD, RunWorld.CLEARED]:
-				run.handle_events(choice_events.filter(func(e: Dictionary) -> bool:
-					return String(e.type) in ["player_died", "stage_cleared"]))
-			elif run.world.state == RunWorld.CHOOSING_JOB:
-				run.handle_events(choice_events)
+		while run.world.state == RunWorld.CHOOSING_UPGRADE:
+			run.world.apply_choice(BotInput.pick_card_for(run.world, run.world.pending_cards))
+		var choice_events := run.world.drain_events()
+		# Settlement can clear inside the last answer, without another tick to emit the end event.
+		# Earlier card requests in the batch have already been answered; do not reopen them over CLEAR.
+		if run.world.state in [RunWorld.DEAD, RunWorld.CLEARED]:
+			run.handle_events(choice_events.filter(func(e: Dictionary) -> bool:
+				return String(e.type) in ["player_died", "stage_cleared"]))
 		if run.world.transfer_pending:
 			run.world.advance_map()
 		if run.world.state in [RunWorld.DEAD, RunWorld.CLEARED]:
@@ -618,19 +303,19 @@ func _warp_round() -> bool:
 		if run.world.state != RunWorld.PLAYING:
 			continue
 		if run.world.god and run.world.time >= run.world.duration \
-				and (run.stage_key == "sleepywood" or String(args.get("scenario", "")) in ["rounds", "account", "economy"]):
+				and (run.stage_key == "sleepywood" or String(args.get("scenario", "")) == "account"):
 			# tier C (#232): flow/victory staging, not a naturally won round or a balance candidate.
 			# Use the real damage/death/reward path; never fabricate a summary or bypass pending choices.
 			for record: Dictionary in run.world.bosses.records:
 				var slot := int(record.slot)
 				if not bool(record.dead) and slot >= 0 and run.world.swarm.is_live(slot):
-					run.world.hit_mob(slot, {"skill": "three_snails", "magic": true, "damage_min": 1e9,
+					run.world.hit_mob(slot, {"skill": "energy_bolt", "magic": true, "damage_min": 1e9,
 						"damage_max": 1e9, "crit": 0.0, "crit_mult": 1.0}, -1)
 		run.world.step(RunScene.DT, BotInput.decide(run.world, memo))
 		if run.world.transfer_pending:
 			run.world.advance_map()
 		var events := run.world.drain_events()
-		if run.world.state in [RunWorld.DEAD, RunWorld.CLEARED, RunWorld.CHOOSING_JOB]:
+		if run.world.state in [RunWorld.DEAD, RunWorld.CLEARED]:
 			run.handle_events(events)
 		ticks += 1
 		if ticks % 600 == 0:
@@ -651,13 +336,12 @@ func _warp_round() -> bool:
 	return true
 
 
-func _quit_round_ui() -> void:
+## The hub's Esc menu -> Save & quit (2): back to character select with the slot saved.
+func _save_and_quit_ui() -> void:
 	await _key(KEY_ESCAPE)
 	await _sleep(0.3)
-	await _key(KEY_4)
-	await _shot("quit_round_warning")
-	await _key(KEY_4)
-	await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "Quit round")
+	await _key(KEY_2)
+	await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "Save & quit to character select")
 
 
 func _reload_save() -> void:
@@ -669,159 +353,680 @@ func _expect(ok: bool, message: String) -> bool:
 		_fail(message)
 	return ok
 
-func _scenario_full() -> void:
-	var ts := float(args.get("time-scale", "3"))
-	var stop_at := float(args.get("stop-at", "300"))
+## The F/P slice end to end (spec #282, #294) with injected input for every menu: title -> create an Arch Mage (name, look, Job
+## page) -> Free Market -> map select (only Henesys open: Ellinia locked, its Start refused) -> a diagnostic Henesys round (invulnerable, the
+## bot's fixed-tick warp, diagnostic boss hits after each map timer; the real CLEAR/fade/arrival presentation) whose first
+## level-up, full-slots offer, first Mastery offer and boss bonus draw are answered through the real window with a number key
+## -> results -> Free Market (Ellinia unlocked, loot kept) -> an equipment drop with a high reqLevel worn at Lv1 by a double-click ->
+## Ellinia round (loot on the ground is picked up, then a diagnostic lethal boss hit) -> results -> Free Market (loot and
+## the unlock kept, the item still worn) -> Save & quit -> delete the character -> round history -> the file is reloaded and
+## checked. Shots: redesign_*.png, summary.json (offers, picks, slot counts, history); driver_save.json is the evidence-only
+## save. Uses --seed (default 1) and --job=<id> (default 212, the Arch Mage; 112 is Hero, spec #296 H9: the Job page row of that
+## job is clicked and the checks name its start skills, and its diagnostic fallback item). tier C: automation choices, not survivor
+## tuning or survival evidence.
+func _scenario_redesign() -> void:
+	if not args.has("seed"):
+		args["seed"] = "1"
+	var job := _job_arg()
+	if job < 0:
+		return
+	var data := DataRepo.load_all()
+	var job_name := JobTree.from_data(data.jobs, data.jobs_survivor).name_of(job)
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
 		return
-	await _sleep(9.0)
-	await _shot("title")
+	await _sleep(2.0)
 	await _key(KEY_ENTER)
-	if not await _create_character("Flow69"):
+	# 1. Creation: name -> look -> Job page -> Create.
+	if not await _create_character("Redesign294", job):
 		return
-	await _sleep(3.0)
-	await _shot("map_select")
-	var sel: Node = flow.current
-	await _start_selected(sel)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+	var slot := flow.save.slot(flow.active_slot)
+	var fresh: Dictionary = slot.character
+	if not _expect(String(slot.name) == "Redesign294" and int(fresh.job_id) == job and fresh.cleared_regions == []
+			and int(slot.rounds_played) == 0 and not fresh.has("level") and not fresh.has("skills"),
+			"a new character is a %s with no region cleared and no build" % job_name):
+		return
+	await _shot("redesign_free_market_home")
+	# 2. Map select: only Henesys is open; Ellinia (and every later region) is locked and cannot be started.
+	if not await _open_map_select():
+		return
+	if not _expect(flow.current.unlocked_keys() == ["henesys"], "a new character can start only Henesys: %s"
+			% [flow.current.unlocked_keys()]):
+		return
+	if not await _select_stage("ellinia"):
+		return
+	await _shot("redesign_map_select_ellinia_locked")
+	var locked_card: Dictionary = flow.current.stages[flow.current.selected]
+	if not _expect(bool(locked_card.locked) and (flow.current.start_button as WzButton).disabled,
+			"Ellinia is locked for a character that has cleared nothing"):
+		return
+	await _click(flow.current.start_button)
+	await _sleep(0.5)
+	if not _expect(flow.current_name == "stage_select", "Start on a locked region must not start a round"):
+		return
+	while flow.current.selected > 0:
+		await _key(KEY_UP)
+	# 3. Henesys, diagnostic: Start with the driver's seed, then play the three maps.
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "Henesys round"):
 		return
 	var run := flow.current as RunScene
-	await _sleep(2.0)
-	await _shot("run_start")
-	# A few seconds of plain keyboard play before the steering takes over.
-	await _hold(KEY_RIGHT, 1.2)
-	await _key(KEY_C)
-	await _sleep(0.25)
-	await _shot("run_keyboard_jump")
-	await _hold(KEY_LEFT, 0.8)
-	Engine.time_scale = ts
-	_steer = true
-	var windows := 0
-	var paused_once := false
-	var resumed_once := false
-	var job_seen := false
-	while is_instance_valid(run) and run.world != null and run.world.state != RunWorld.DEAD:
-		await get_tree().process_frame
-		if run.world.time >= stop_at and _steer:
-			_steer = false
-			_release_all()
-			print("flow_driver: hands off the keys at %.0f s (level %d)" % [run.world.time, run.world.player_state.level])
-			await _shot("hands_off")
-		if run.window is LevelUpWindow and (run.window as MapleWindow).is_open():
-			_release_all()
-			windows += 1
-			await _sleep(0.5)
-			if not is_instance_valid(run.window):
-				continue
-			var lw := run.window as LevelUpWindow
-			if windows <= 3 or lw.level % 5 == 0:
-				await _shot("levelup_%d" % lw.level)
-			var pick := _card_index(run, lw.cards)
-			if windows == 1:
-				await _click_at(lw.card_rect(pick).get_center())
-			else:
-				await _key((KEY_1 + pick) as Key)
-			await _sleep(0.3)
-		elif run.window is JobAdvanceWindow and (run.window as MapleWindow).is_open():
-			_release_all()
-			job_seen = true
-			await _sleep(0.6)
-			var pick := BotInput.pick_choice(run.world.pending_jobs, run.world.job_rng, 100, run.world.jobs, "sword",
-				run.world.held_weapon_family())
-			if (await _choose_job_ui(run, pick.job_id, pick.path, "full_job")).is_empty():
-				return
-			await _sleep(0.9)
-			await _shot("job_changed")
-		elif not paused_once and job_seen and run.window == null and run.world.state == RunWorld.PLAYING:
-			paused_once = true
-			_release_all()
-			await _key(KEY_ESCAPE)
-			await _sleep(0.6)
-			await _shot("pause_menu")
-			await _key(KEY_ESCAPE)
-			await _sleep(0.3)
-			resumed_once = not run.paused
-			print("flow_driver: resumed = %s" % resumed_once)
-	_steer = false
-	_release_all()
-	# Capture the tomb before the accelerated end hold can dispose of the round.
-	Engine.time_scale = 1.0
-	print("flow_driver: the character died at %.0f s, level %d" % [run.world.time, run.world.player_state.level])
-	var snapshot := run.perf_summary(run.build_summary())
-	snapshot["flow"] = {"windows": windows, "job_seen": job_seen, "pause_seen": paused_once, "resumed": resumed_once}
-	snapshot["card_tiers_offered"] = run.world.card_tiers_offered.duplicate()
-	snapshot["card_tiers_picked"] = run.world.card_tiers_picked.duplicate()
-	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
-	if file != null:
-		file.store_string(JSON.stringify(snapshot, "\t"))
-		file.close()
-	print("flow_driver: snapshot %s" % JSON.stringify(snapshot))
-	if not job_seen or not run.world.jobs.is_descendant(int(snapshot.job_id), 100) or not paused_once or not resumed_once:
-		_failed = true
-		push_error("flow_driver: full scenario did not complete the Warrior weapon page and pause/resume path")
+	var w := run.world
+	var start_skills := w.jobs.start_skills(job)
+	if not _expect(w.job_id() == job and int(w.player_state.level) == 1
+			and start_skills.size() > 0 and start_skills.size() == Array(start_skills).filter(w.loadout.has).size(),
+			"the round starts at Lv1 with the %s start skills %s" % [job_name, start_skills]):
+		return
+	w.god = true # tier C: invulnerable flow staging, with diagnostic boss hits after each map timer
 	await _sleep(1.0)
-	await _shot("death_tombstone")
-	if not await _until(func() -> bool: return flow.current_name == "results", 30.0, "results"):
+	await _shot("redesign_henesys_start")
+	var mesos_before := int(slot.character.mesos)
+	for index in 3:
+		if not await _warp_map(run):
+			return
+		if index < 2 and not _expect(w.map_index == index + 1, "map %d clear must enter map %d" % [index + 1, index + 2]):
+			return
+	var checks := [
+		_expect(int(_offers.picks) >= 30, "a full Henesys round makes dozens of picks (%d)" % int(_offers.picks)),
+		_expect(w.loadout.slot_count("active") == w.loadout.slot_limit("active"),
+			"all six active slots are filled (%s)" % w.loadout.slot_summary()),
+		_expect(int(_offers.kinds.get("mastery", 0)) > 0, "a Mastery card was offered (kinds %s)" % [_offers.kinds]),
+		_expect(int(_offers.bonus) >= 1, "the boss bonus draw was offered (%d)" % int(_offers.bonus)),
+		_expect(_showcased.has("mastery") and _showcased.has("boss_draw") and _showcased.has("slots_full"),
+			"the real windows showed the full-slots, Mastery and boss-draw offers (%s)" % [_showcased.keys()])]
+	if false in checks:
 		return
-	Engine.time_scale = 1.0
-	await _sleep(3.0)
-	await _shot("results_death")
-	await _click(flow.current.get("back_button") as Control)
-	if not await _create_character("Quit69"):
+	var round_one := run.build_summary()
+	# 4. Clear -> results -> Free Market, Ellinia unlocked, the round's loot kept.
+	if not await _until(func() -> bool: return flow.current_name == "results", 20.0, "results after the clear"):
 		return
 	await _sleep(3.0)
+	await _shot("redesign_results_clear")
+	if not _expect(flow.last_summary.ending == "cleared", "the Henesys round ended cleared"):
+		return
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after the clear"):
+		return
+	await _sleep(1.0)
+	await _shot("redesign_free_market_after_clear")
+	slot = flow.save.slot(flow.active_slot)
+	var kept: Dictionary = slot.character
+	if not _expect(kept.cleared_regions == ["henesys"] and int(slot.rounds_played) == 1 and int(kept.mesos) >= mesos_before
+			and Equipment.held_ids(kept.equipment).size() >= 4, "a clear unlocks Ellinia and keeps the loot"):
+		return
+	# 5. A drop whose reqLevel is far above Lv1 is worn from the Item window by a double-click.
+	var item := await _equip_high_req_item(flow.current as FreeMarket, kept, job)
+	if item.is_empty():
+		return
+	# 6. Ellinia is open now (and only Ellinia): loot on the ground is picked up, then a lethal hit ends the round.
+	if not await _open_map_select():
+		return
+	if not _expect(flow.current.unlocked_keys() == ["henesys", "ellinia"], "the clear unlocked Ellinia and nothing else: %s"
+			% [flow.current.unlocked_keys()]):
+		return
+	if not await _select_stage("ellinia"):
+		return
+	await _shot("redesign_map_select_ellinia_unlocked")
+	if not _expect(not bool(flow.current.stages[flow.current.selected].locked), "Ellinia is startable after the clear"):
+		return
 	await _start_selected(flow.current)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "new character round"):
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "Ellinia round"):
+		return
+	run = flow.current as RunScene
+	w = run.world
+	await _sleep(1.0)
+	await _shot("redesign_ellinia_start")
+	if not _expect(w.equipment.worn.has(String(item.slot)) and int(w.equipment.worn[String(item.slot)].id) == int(item.id)
+			and int(w.player_state.level) == 1, "the Lv1 round wears the high-reqLevel item (reqLevel %d)" % int(item.req_level)):
+		return
+	var mesos_round_start := w.mesos
+	var loot_at := w.player.pos + Vector2(0.0, -30.0)
+	w.god = true # only while the loot is collected: a Lv1 Sleepywood opening can end the round first
+	w.spawn_meso(loot_at, 400)
+	w.spawn_meso(loot_at + Vector2(24.0, 0.0), 75)
+	var t0 := Time.get_ticks_msec()
+	while w.mesos < mesos_round_start + 475:
+		if Time.get_ticks_msec() - t0 > 20000:
+			_fail("the character did not pick up the loot (%d mesos)" % w.mesos)
+			return
+		await get_tree().process_frame
+	await _shot("redesign_ellinia_loot")
+	w.god = false
+	var round_two_mesos := w.mesos
+	# "unrevivable": a ready second-life skill (Resurrection) must not turn this diagnostic hit into a survived one (#375).
+	var lethal := {"boss": true, "source_kind": "attack", "mob": -1, "unrevivable": true}
+	t0 = Time.get_ticks_msec()
+	while w.state != RunWorld.DEAD:
+		w.take_hit(1.0e9, false, "", w.player.pos + Vector2(40.0, 0.0), lethal)
+		run.handle_events(w.drain_events()) # the world only drains its events while stepping: hand over the death
+		if Time.get_ticks_msec() - t0 > 10000:
+			_fail("the diagnostic lethal hit did not kill the character")
+			return
+		await get_tree().process_frame
+	if not await _until(func() -> bool: return flow.current_name == "results", 20.0, "results after the death"):
 		return
 	await _sleep(3.0)
-	var round_seed := (flow.current as RunScene).run_seed
-	await _shot("new_round")
-	await _key(KEY_ESCAPE)
-	await _sleep(0.6)
-	await _key(KEY_4)
-	await _sleep(0.5)
-	await _shot("quit_round_warning")
-	await _key(KEY_4)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "characters after quit"):
+	await _shot("redesign_results_death")
+	if not _expect(flow.last_summary.ending == "died", "the Ellinia round ended in a death"):
+		return
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after the death"):
 		return
 	await _sleep(1.0)
-	await _shot("characters_after_quit")
-	await _click(flow.current.get("select_button") as Control)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "continued round"):
+	await _shot("redesign_free_market_after_death")
+	slot = flow.save.slot(flow.active_slot)
+	var after: Dictionary = slot.character
+	if not _expect(after.cleared_regions == ["henesys"] and int(slot.rounds_played) == 2 and int(after.mesos) >= round_two_mesos
+			and after.equipment.worn.has(String(item.slot)) and int(after.equipment.worn[String(item.slot)].id) == int(item.id),
+			"the death keeps the loot (%d mesos), the cleared Henesys and the worn item" % int(after.mesos)):
 		return
-	if (flow.current as RunScene).run_seed != round_seed:
-		_fail("Continue changed the saved round seed")
+	# 7. Save & quit, delete the character, read the history; the evidence-only save file carries all of it.
+	await _save_and_quit_ui()
+	if _failed:
 		return
-	await _sleep(1.0)
-	await _shot("continued_round")
-	await _key(KEY_ESCAPE)
+	_reload_save()
+	if not _expect(not flow.save.slot(0).is_empty() and flow.save.slot(0).character.cleared_regions == ["henesys"]
+			and flow.save.history.size() == 2, "Save & quit left the character and two history entries on disk"):
+		return
+	await _click(flow.current.slot_buttons[0])
+	await _click(flow.current.delete_button)
+	await _shot("redesign_delete_confirmation")
+	await _sleep(0.3)
+	await _key(KEY_ENTER)
+	if not await _until(func() -> bool: return flow.save.slot(0).is_empty(), 10.0, "confirmed deletion"):
+		return
 	await _sleep(0.5)
-	await _key(KEY_4)
-	await _key(KEY_4)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "characters"):
-		return
 	await _click(flow.current.find_child("RunHistory", true, false) as Control)
+	if not await _until(func() -> bool: return flow.current_name == "history", 10.0, "round history"):
+		return
 	await _sleep(1.0)
-	await _shot("history")
-	await _key(KEY_ESCAPE)
-	await _sleep(0.5)
-	await _key(KEY_ESCAPE)
-	if not await _until(func() -> bool: return flow.current_name == "title", 10.0, "title (back)"):
+	await _shot("redesign_history")
+	_reload_save()
+	var history: Array = flow.save.history
+	if not _expect(history.size() == 3 and history[0].ending == "cleared" and history[1].ending == "died"
+			and history[2].ending == "deleted" and history[0].stage == "henesys" and history[1].stage == "ellinia"
+			and String(history[0].name) == "Redesign294" and int(history[0].job_id) == job,
+			"the history lists the clear, the death and the deletion"):
 		return
-	await _sleep(2.0)
-	await _shot("title_again")
+	var saved := FileAccess.open(shots_dir.path_join("driver_save.json"), FileAccess.READ)
+	if not _expect(saved != null and JSON.parse_string(saved.get_as_text()) is Dictionary, "driver_save.json holds the save"):
+		return
 	_collect_missing(flow.current)
-	snapshot["missing"] = Array(_missing)
-	file = FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
-	if file != null:
-		file.store_string(JSON.stringify(snapshot, "\t"))
-		file.close()
-	if not _expect(_missing.is_empty(), "full scenario missing assets: %s" % _missing):
+	if not _expect(_missing.is_empty() and not _failed, "missing assets or failed checks: %s" % [_missing]):
 		return
-	print("flow_driver: done (%d level-up windows answered, job dialog %s)" % [windows, job_seen])
-	await _key(KEY_ESCAPE)
+	var report := {"scenario": "redesign", "seed": int(args.seed), "job": job, "diagnostic": true, "henesys": round_one,
+		"offers": _offers, "showcased": _showcased, "equipped": item, "mesos_after_death": int(after.mesos),
+		"history": history, "missing": Array(_missing), "failures": []}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	print("flow_driver: redesign PASSED ", JSON.stringify({"picks": _offers.picks, "kinds": _offers.kinds, "bonus": _offers.bonus}))
+	get_tree().quit()
+
+
+## The region progression end to end (spec #447, #455) with injected input: a new character can start only Henesys (a locked Ellinia
+## is refused and Henesys is the selected frontier) -> a diagnostic invulnerable Henesys clear (fixed-tick bot warp, lethal boss
+## hits after each map timer, the real CLEAR/fade/arrival presentation) -> results -> Free Market -> map select (Henesys CLEAR,
+## Ellinia NEW and selected by default, Perion locked) -> Ellinia the same way (Perion unlocked, Kerning still locked) ->
+## Save & quit, character select, Continue (the cleared set read back from the file and shown by map select) -> a Perion round
+## ended by a lethal hit (the set unchanged, the history says died) -> the slot swapped for a HubTestKit all-cleared character
+## (header "Regions cleared N/N", nothing locked, the last region selected). Shots progression_*.png, summary.json. Uses --seed
+## (default 1) and --job=<id> (default 212). tier C: diagnostic flow staging (invulnerable clears, a 1e9 lethal hit), never survival evidence.
+func _scenario_progression() -> void:
+	if not args.has("seed"):
+		args["seed"] = "1"
+	var job := _job_arg()
+	if job < 0:
+		return
+	var order: Array = SceneFlow.progression()
+	if not _expect(order.size() >= 4 and order.slice(0, 3) == ["henesys", "ellinia", "perion"], "the progression starts Henesys, Ellinia, Perion: %s" % [order]):
+		return
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
 	await _sleep(2.0)
-	get_tree().quit(1 if _failed else 0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Progress455", job):
+		return
+	if args.has("through"):
+		await _progression_through(order, job, clampi(int(args.through), 1, order.size()))
+		return
+	var fresh: Dictionary = flow.save.slot(flow.active_slot).character
+	if not _expect(fresh.cleared_regions == [] and not fresh.has("tiers_unlocked"), "a new character has cleared no region"):
+		return
+	# 1. A new character: only Henesys is startable, it is the selected frontier, a locked Start is refused.
+	if not await _open_map_select():
+		return
+	var select: StageSelectScene = flow.current
+	if not _expect(select.unlocked_keys() == ["henesys"] and select.stages.size() == order.size(), "a new character can start only Henesys: %s" % [select.unlocked_keys()]):
+		return
+	if not _expect(_card_states(select) == _states(order, 0, "henesys"), "new character card states: %s" % [_card_states(select)]):
+		return
+	if not _expect(select.stages[select.selected].key == "henesys" and not (select.start_button as WzButton).disabled
+			and select.progress_label.text == "Regions cleared 0/%d" % order.size(), "Henesys is selected and startable, header %s" % select.progress_label.text):
+		return
+	await _shot("progression_01_new_character")
+	if not await _select_stage("ellinia"):
+		return
+	await _shot("progression_02_new_ellinia_locked")
+	if not _expect((select.start_button as WzButton).disabled and bool(select.stages[select.selected].locked), "Ellinia is locked and its Start disabled"):
+		return
+	await _click(select.start_button)
+	await _sleep(0.5)
+	if not _expect(flow.current_name == "stage_select" and flow.save.slot(flow.active_slot).rounds_played == 0, "Start on a locked region does not start a round"):
+		return
+	await _select_stage("henesys")
+	# 2. The first diagnostic clear: Henesys.
+	if not await _clear_selected_region("henesys", "01_henesys"):
+		return
+	var slot := flow.save.slot(flow.active_slot)
+	if not _expect(slot.character.cleared_regions == ["henesys"] and int(slot.rounds_played) == 1, "the Henesys clear is saved: %s" % [slot.character.cleared_regions]):
+		return
+	# 3. Mid-progression: Henesys CLEAR, Ellinia NEW and selected on opening, the rest locked.
+	if not await _open_map_select():
+		return
+	select = flow.current
+	if not _expect(_card_states(select) == _states(order, 1, "ellinia") and select.stages[select.selected].key == "ellinia"
+			and select.unlocked_keys() == ["henesys", "ellinia"] and select.progress_label.text == "Regions cleared 1/%d" % order.size(),
+			"Henesys cleared, Ellinia the selected frontier: %s / %s" % [_card_states(select), select.progress_label.text]):
+		return
+	await _shot("progression_05_after_henesys")
+	# 4. Ellinia: the selection on opening is the frontier, so Start needs no navigation.
+	if not await _clear_selected_region("ellinia", "02_ellinia"):
+		return
+	slot = flow.save.slot(flow.active_slot)
+	if not _expect(slot.character.cleared_regions == ["ellinia", "henesys"] and int(slot.rounds_played) == 2, "the Ellinia clear is saved: %s" % [slot.character.cleared_regions]):
+		return
+	if not await _open_map_select():
+		return
+	select = flow.current
+	if not _expect(_card_states(select) == _states(order, 2, "perion") and select.stages[select.selected].key == "perion"
+			and select.unlocked_keys() == ["henesys", "ellinia", "perion"] and select.progress_label.text == "Regions cleared 2/%d" % order.size(),
+			"Ellinia cleared unlocked Perion and not Kerning: %s" % [_card_states(select)]):
+		return
+	await _shot("progression_08_after_ellinia")
+	await _key(KEY_DOWN)
+	await _shot("progression_09_kerning_locked")
+	if not _expect(String(select.stages[select.selected].key) == "kerning" and bool(select.stages[select.selected].locked), "Kerning stays locked behind Perion"):
+		return
+	await _key(KEY_UP)
+	# 5. Save & quit, character select, Continue: the cleared set survives.
+	await _key(KEY_ESCAPE) # map select -> the character's Free Market
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market from map select"):
+		return
+	await _save_and_quit_ui()
+	if _failed:
+		return
+	_reload_save()
+	if not _expect(flow.save.slot(0).character.cleared_regions == ["ellinia", "henesys"], "Save & quit left the cleared set on disk: %s" % [flow.save.slot(0).character.cleared_regions]):
+		return
+	await _sleep(0.5)
+	await _click(flow.current.slot_buttons[0])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Continue"):
+		return
+	if not await _open_map_select():
+		return
+	select = flow.current
+	if not _expect(_card_states(select) == _states(order, 2, "perion") and select.stages[select.selected].key == "perion",
+			"Continue shows the same progression: %s" % [_card_states(select)]):
+		return
+	await _shot("progression_10_continued")
+	# 6. Perion (selected by default): a lethal hit ends the round and the set does not change.
+	await _start_selected(select)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "Perion round"):
+		return
+	var run := flow.current as RunScene
+	var w := run.world
+	if not _expect(run.stage_key == "perion" and int(w.player_state.level) == 1, "the Perion round starts at Lv1"):
+		return
+	await _sleep(1.0)
+	await _shot("progression_11_perion_start")
+	var lethal := {"boss": true, "source_kind": "attack", "mob": -1, "unrevivable": true}
+	var t0 := Time.get_ticks_msec()
+	while w.state != RunWorld.DEAD:
+		w.take_hit(1.0e9, false, "", w.player.pos + Vector2(40.0, 0.0), lethal)
+		run.handle_events(w.drain_events())
+		if Time.get_ticks_msec() - t0 > 10000:
+			_fail("the diagnostic lethal hit did not kill the character")
+			return
+		await get_tree().process_frame
+	if not await _until(func() -> bool: return flow.current_name == "results", 20.0, "results after the death"):
+		return
+	await _sleep(3.0)
+	await _shot("progression_12_perion_death")
+	if not _expect(flow.last_summary.ending == "died" and flow.last_summary.stage == "perion", "the Perion round ended in a death"):
+		return
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after the death"):
+		return
+	slot = flow.save.slot(flow.active_slot)
+	if not _expect(slot.character.cleared_regions == ["ellinia", "henesys"] and int(slot.rounds_played) == 3,
+			"the death in Perion left the cleared set unchanged: %s" % [slot.character.cleared_regions]):
+		return
+	if not await _open_map_select():
+		return
+	select = flow.current
+	if not _expect(_card_states(select) == _states(order, 2, "perion") and select.progress_label.text == "Regions cleared 2/%d" % order.size(),
+			"map select after the death: %s" % [_card_states(select)]):
+		return
+	await _shot("progression_13_after_perion_death")
+	# 7. All cleared (the HubTestKit character): nothing locked, no frontier, the last region selected.
+	slot = flow.save.slot(flow.active_slot)
+	slot.character = HubTestKit.apply(slot.character, HubTestKit.DEFAULT_MESOS, SceneFlow.equipment_info_loader())
+	if not _expect(flow.save.update_slot(flow.active_slot, slot) == OK, "the all-cleared character was saved"):
+		return
+	await _key(KEY_ESCAPE)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	if not await _reopen_hub():
+		return
+	if not await _open_map_select():
+		return
+	select = flow.current
+	var all_states := _card_states(select)
+	if not _expect(select.unlocked_keys().size() == order.size() and not all_states.values().has("locked") and not all_states.values().has("frontier")
+			and select.progress_label.text == "Regions cleared %d/%d" % [order.size(), order.size()] and select.selected == order.size() - 1,
+			"all-cleared character: %s, header %s, selected %d" % [all_states, select.progress_label.text, select.selected]):
+		return
+	await _shot("progression_14_all_cleared")
+	await _key(KEY_UP)
+	await _shot("progression_15_all_cleared_scrolled")
+	_collect_missing(flow.current)
+	if not _expect(_missing.is_empty() and not _failed, "missing assets or failed checks: %s" % [_missing]):
+		return
+	var report := {"scenario": "progression", "seed": int(args.seed), "job": job, "diagnostic": true, "rounds": _rounds,
+		"history": flow.save.history, "missing": Array(_missing), "failures": []}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	print("flow_driver: progression PASSED")
+	get_tree().quit()
+
+
+## The `--through=<n>` climb of the progression scenario (#476): see the scenario's doc. The caller has created the character and
+## stands in its Free Market.
+func _progression_through(order: Array, job: int, through: int) -> void:
+	var total := order.size()
+	var halfway := maxi(1, through / 2) # Save & quit and Continue after this many clears
+	_boss_shots = true
+	var steps: Array[Dictionary] = []
+	for step in through:
+		var key := String(order[step])
+		if not await _open_map_select():
+			return
+		var select: StageSelectScene = flow.current
+		var want := _states(order, step, key)
+		var header := "Regions cleared %d/%d" % [step, total]
+		if not _expect(_card_states(select) == want and String(select.stages[select.selected].key) == key
+				and select.unlocked_keys() == order.slice(0, step + 1) and select.progress_label.text == header
+				and not (select.start_button as WzButton).disabled,
+				"step %d: %s is the only new region, the frontier and selected, header '%s'; saw %s / %s / selected %s" % [
+				step + 1, key, header, _card_states(select), select.progress_label.text, select.stages[select.selected].key]):
+			return
+		if step in [0, 5, 10, 15]:
+			_shot_prefix = ""
+			await _shot("select_step%02d" % (step + 1))
+		if step == 0:
+			# The next region is refused while locked, then the frontier is selected again.
+			await _key(KEY_DOWN)
+			if not _expect(bool(select.stages[select.selected].locked) and (select.start_button as WzButton).disabled, "step 1: Ellinia is locked and its Start disabled"):
+				return
+			await _key(KEY_UP)
+		_shot_prefix = "%02d_%s_" % [step + 1, key]
+		if not await _clear_selected_region(key, "%02d_%s" % [step + 1, key]):
+			return
+		_shot_prefix = ""
+		var slot := flow.save.slot(flow.active_slot)
+		var cleared: Array = slot.character.cleared_regions.duplicate()
+		cleared.sort()
+		var expected: Array = order.slice(0, step + 1)
+		expected.sort()
+		if not _expect(cleared == expected and int(slot.rounds_played) == step + 1,
+				"step %d: the clear of %s leaves exactly the first %d regions cleared: %s" % [step + 1, key, step + 1, cleared]):
+			return
+		steps.append({"step": step + 1, "key": key, "bosses_killed": flow.last_summary.get("bosses_killed", -1),
+			"level": flow.last_summary.get("level", -1), "time": snappedf(float(flow.last_summary.get("time", 0.0)), 0.1)})
+		if step + 1 == halfway and step + 1 < through:
+			# Save & quit, character select, Continue: the cleared set survives on disk and on map select.
+			await _save_and_quit_ui()
+			if _failed:
+				return
+			_reload_save()
+			var reread: Array = flow.save.slot(0).character.cleared_regions.duplicate()
+			reread.sort()
+			if not _expect(reread == expected, "Save & quit left the cleared set on disk after %d clears: %s" % [step + 1, reread]):
+				return
+			await _sleep(0.5)
+			await _click(flow.current.slot_buttons[0])
+			await _click(flow.current.select_button)
+			if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Continue after %d clears" % (step + 1)):
+				return
+			if not await _open_map_select():
+				return
+			var continued: StageSelectScene = flow.current
+			if not _expect(_card_states(continued) == _states(order, step + 1, String(order[step + 1])) and continued.unlocked_keys() == order.slice(0, step + 2),
+					"Continue shows the same progression after %d clears: %s" % [step + 1, _card_states(continued)]):
+				return
+			_shot_prefix = ""
+			await _shot("continued_after_%02d" % (step + 1))
+			await _key(KEY_ESCAPE) # back to the Free Market; the next turn of the loop reopens map select
+			if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market after Continue"):
+				return
+	# The end: the climb's last map select.
+	if not await _open_map_select():
+		return
+	var last: StageSelectScene = flow.current
+	var final_header := "Regions cleared %d/%d" % [through, total]
+	var final_states := _card_states(last)
+	var all_cleared := through == total
+	if not _expect(last.progress_label.text == final_header and last.unlocked_keys() == order.slice(0, mini(through + 1, total))
+			and (not all_cleared or (not final_states.values().has("locked") and not final_states.values().has("frontier")))
+			and (all_cleared or final_states == _states(order, through, String(order[through]))),
+			"after %d clears: header '%s', states %s" % [through, last.progress_label.text, final_states]):
+		return
+	await _shot("select_final_%d_of_%d" % [through, total])
+	_collect_missing(flow.current)
+	if not _expect(_missing.is_empty() and not _failed, "missing assets or failed checks: %s" % [_missing]):
+		return
+	var report := {"scenario": "progression", "through": through, "seed": int(args.seed), "job": job, "diagnostic": true,
+		"steps": steps, "history": flow.save.history, "missing": Array(_missing), "failures": []}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	print("flow_driver: progression through %d PASSED" % through)
+	get_tree().quit()
+
+
+## Map select's cards as {key: "cleared"|"frontier"|"locked"|"open"} (an unlocked region that is neither cleared nor the frontier).
+func _card_states(select: StageSelectScene) -> Dictionary:
+	var out := {}
+	for card: Dictionary in select.stages:
+		out[String(card.key)] = "cleared" if bool(card.cleared) else ("frontier" if bool(card.frontier) else ("locked" if bool(card.locked) else "open"))
+	return out
+
+
+## The states of `order` when its first `cleared` regions are cleared and `frontier` is the next one; the rest are locked.
+func _states(order: Array, cleared: int, frontier: String) -> Dictionary:
+	var out := {}
+	for i in order.size():
+		out[String(order[i])] = "cleared" if i < cleared else ("frontier" if String(order[i]) == frontier else "locked")
+	return out
+
+
+## Starts the map-select selection (which must be `key`), plays the three maps with the diagnostic fixed-tick warp and goes back to
+## the Free Market through the results screen. `prefix` names the shots.
+func _clear_selected_region(key: String, prefix: String) -> bool:
+	var select: StageSelectScene = flow.current
+	if not _expect(String(select.stages[select.selected].key) == key, "%s is the selected region" % key):
+		return false
+	await _start_selected(select)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, key + " round"):
+		return false
+	var run := flow.current as RunScene
+	var w := run.world
+	if not _expect(run.stage_key == key and int(w.player_state.level) == 1, "the %s round starts at Lv1" % key):
+		return false
+	w.god = true # tier C: invulnerable flow staging, with diagnostic boss hits after each map timer
+	await _sleep(1.0)
+	await _shot("progression_%s_start" % prefix)
+	for index in 3:
+		if not await _warp_map(run):
+			return false
+		if index < 2 and not _expect(w.map_index == index + 1, "map %d clear must enter map %d" % [index + 1, index + 2]):
+			return false
+	if not await _until(func() -> bool: return flow.current_name == "results", 20.0, "results after the %s clear" % key):
+		return false
+	await _sleep(3.0)
+	await _shot("progression_%s_results" % prefix)
+	if not _expect(flow.last_summary.ending == "cleared" and flow.last_summary.stage == key, "the %s round ended cleared" % key):
+		return false
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after the %s clear" % key):
+		return false
+	await _sleep(1.0)
+	return true
+
+
+## Wears, with a double-click in the Item window's Equip tab, the carried item with the highest reqLevel this job can wear
+## (the round's own drop). When the round dropped none, the job's hub_kit fallback_item (a Lv40-45 weapon) is added to the Equip tab
+## (diagnostic) and the report says so. Returns {id, slot, req_level, source}, empty after a failure.
+func _equip_high_req_item(hub: FreeMarket, character: Dictionary, job: int = 212) -> Dictionary:
+	var lib := AssetLibrary.get_default()
+	var best := {}
+	for held: Dictionary in character.equipment.inventory:
+		var id := int(held.id)
+		var img := lib.img(AvatarRenderer.part_img_path(id))
+		var info: Dictionary = img.root.get("info", {}) if img != null else {}
+		if Equipment.requirement_error(info, {"job_id": job}) == "" and int(info.get("reqLevel", 0)) > int(best.get("req_level", 1)) \
+				and Equipment.slot_of(id) != "":
+			best = {"id": id, "slot": Equipment.slot_of(id), "req_level": int(info.get("reqLevel", 0)), "source": "round drop"}
+	if best.is_empty():
+		var weapon: int = HubTestKit.fallback_item(job)
+		if not _expect(weapon != 0, "the scenario has no diagnostic fallback item for job %d" % job):
+			return {}
+		var img := lib.img(AvatarRenderer.part_img_path(weapon))
+		var info: Dictionary = img.root.get("info", {}) if img != null else {}
+		hub.inventory.equipment.inventory.append(Equipment.create(weapon, info))
+		best = {"id": weapon, "slot": "weapon", "req_level": int(info.get("reqLevel", 0)), "source": "diagnostic grant"}
+	if not _expect(int(best.req_level) > 1, "an item with a reqLevel above Lv1 is available"):
+		return {}
+	await _key(KEY_E)
+	await _key(KEY_I)
+	await _sleep(0.6)
+	var iw := hub.ui_windows.find_window("item") as ItemWindow
+	var ew := hub.ui_windows.find_window("equip") as EquipWindow
+	if not _expect(iw != null and ew != null, "E and I open the Equip and Item windows in the Free Market"):
+		return {}
+	var cell := -1
+	for i in iw.cells().size():
+		if int(iw.cells()[i].id) == int(best.id):
+			cell = i
+	if not _expect(cell >= 0, "the Item window's Equip tab lists the item"):
+		return {}
+	_hover(iw.get_global_rect().position + iw.slot_rect(cell).get_center())
+	await _sleep(0.5)
+	await _shot("redesign_item_tooltip_no_requirements")
+	await _double_click_at(iw.get_global_rect().position + iw.slot_rect(cell).get_center())
+	await _sleep(0.6)
+	if not _expect(ew.worn_id(String(best.slot)) == int(best.id), "the double-click wore the reqLevel-%d item at Lv1" % int(best.req_level)):
+		return {}
+	await _shot("redesign_item_worn")
+	await _key(KEY_ESCAPE)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.4)
+	return best
+
+
+## Answers the pending card choices of `run`'s world like BotInput.auto_choose, recording every offer in `_offers`. The first
+## full-slots offer, Mastery offer and boss bonus draw (and the very first level-up) go through the real LevelUpWindow, answered
+## by an injected number key; the rest are applied directly (a fixed-tick warp). False after a failure.
+func _answer_choices(run: RunScene) -> bool:
+	var w := run.world
+	var guard := 0
+	while w.state == RunWorld.CHOOSING_UPGRADE and guard < 64:
+		guard += 1
+		var cards: Array = w.pending_cards.duplicate(true)
+		var bonus := w.choice_bonus
+		var pick := _scenario_pick(w, cards)
+		var show := _showcase_of(w, cards, bonus)
+		_note_offer(cards, bonus, pick)
+		if show == "":
+			w.apply_choice(pick)
+			continue
+		_showcased[show] = {"level": int(w.player_state.level), "time": snappedf(w.time, 0.1)}
+		var index := 0
+		for i in cards.size():
+			var wanted := String(cards[i].card_kind) == "mastery" if show == "mastery" else String(cards[i].id) == pick
+			if wanted:
+				index = i
+				break
+		# Direct warp picks can queue further choice_pending events. They describe older offers by the
+		# time we showcase this one; do not let RunScene._process reopen one over the live cards.
+		run.handle_events(w.drain_events().filter(func(e: Dictionary) -> bool:
+			return String(e.type) != "choice_pending"))
+		run._pending_window = {}
+		if run.window != null:
+			run._close_window()
+		run.handle_events([{"type": "choice_pending", "cards": cards, "bonus": bonus}])
+		run.set_process(true)
+		if not await _until(func() -> bool: return run.window is LevelUpWindow and (run.window as MapleWindow).is_open() \
+				and run.window._since_open >= run.window.input_delay,
+				10.0, "the %s window" % show):
+			return false
+		await _shot("redesign_offer_" + show, 0.9)
+		var first_window := run.window
+		await _key((KEY_1 + index) as Key)
+		if not await _until(func() -> bool: return w.state != RunWorld.CHOOSING_UPGRADE or run.window != first_window,
+				10.0, "the card picked with a number key"):
+			return false
+		run.set_process(false)
+		# Anything queued behind this pick is answered by the next loop turn, not by a second window.
+		run._pending_window = {}
+		if run.window != null and run.window != first_window:
+			run._close_window()
+	return true
+
+
+## The scenario's card policy (tier C, automation): the bot's pick, except that once every active slot is filled the rank (or
+## Mastery) card of the highest-ranked owned active is taken, so a Mastery card can appear within one round. The bot itself
+## ranks passives first and rarely reaches rank 8 (GAME_DESIGN 4.2, #294), so this is flow evidence, not a play-style claim.
+func _scenario_pick(w: RunWorld, cards: Array) -> String:
+	var best := BotInput.pick_card_for(w, cards)
+	if w.loadout.slot_count("active") < w.loadout.slot_limit("active"):
+		return best
+	var best_rank := -1
+	for card: Dictionary in cards:
+		if String(card.card_kind) == "mastery":
+			return String(card.id)
+		if String(card.card_kind) == "owned_active" and int(card.skill_rank_before) > best_rank:
+			best_rank = int(card.skill_rank_before)
+			best = String(card.id)
+	return best
+
+
+## The showcase an offer earns (once each): the first level-up, the first offer with every active slot filled, the first Mastery
+## offer and the first boss bonus draw; "" for every other offer.
+func _showcase_of(w: RunWorld, cards: Array, bonus: bool) -> String:
+	if bonus and not _showcased.has("boss_draw"):
+		return "boss_draw"
+	for card: Dictionary in cards:
+		if String(card.card_kind) == "mastery" and not _showcased.has("mastery"):
+			return "mastery"
+	if w.loadout.slot_count("active") >= w.loadout.slot_limit("active") and not _showcased.has("slots_full"):
+		return "slots_full"
+	if not _showcased.has("first_levelup"):
+		return "first_levelup"
+	return ""
+
+
+## Counts one offer: picks, boss bonus draws, the kinds and rarities of the cards on it, and the kind of the card taken.
+func _note_offer(cards: Array, bonus: bool, pick: String) -> void:
+	_offers.picks = int(_offers.picks) + 1
+	if bonus:
+		_offers.bonus = int(_offers.bonus) + 1
+	for card: Dictionary in cards:
+		var kind := String(card.card_kind)
+		_offers.kinds[kind] = int(_offers.kinds.get(kind, 0)) + 1
+		var tier := String(card.tier)
+		_offers.tiers[tier] = int(_offers.tiers.get(tier, 0)) + 1
+		if String(card.id) == pick:
+			_offers.taken[kind] = int(_offers.taken.get(kind, 0)) + 1
 
 
 func _scenario_clear() -> void:
@@ -874,32 +1079,99 @@ func _start_selected(screen: Node) -> void:
 	await _click(button)
 
 
-func _create_character(character_name: String) -> bool:
+## The scenario's `--job=<id>` (default 212): the id, or -1 after a failure when it is malformed.
+func _job_arg() -> int:
+	var text := String(args.get("job", "212"))
+	var job := JobTree.parse_job(text)
+	if job < 0:
+		_fail("--job=%s is not a job id" % text)
+	return job
+
+
+## Character select -> name -> look -> Job page (the `job` row clicked) -> Create: ends in the new character's Free Market.
+func _create_character(character_name: String, job: int = 212, shot_prefix := "") -> bool:
+	var prefix := shot_prefix + "_" if shot_prefix != "" else ""
 	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
 		return false
 	await _sleep(0.5)
-	await _shot("character_select")
+	await _shot(prefix + "character_select")
 	await _click(flow.current.get("create_button") as Control)
 	await _sleep(0.5)
 	var creation: Control = flow.current.get("creation")
-	await _shot("creation_name")
+	await _shot(prefix + "creation_name")
 	await _click(creation.get("name_edit") as Control)
 	await _type(character_name)
 	await _click(creation.get("create_button") as Control)
-	await _shot("creation_look")
+	await _shot(prefix + "creation_look")
 	await _click(creation.get("create_button") as Control)
-	return await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "map select")
+	var job_row := creation.find_child("Job_%d" % job, true, false) as Control
+	if not _expect(job_row != null, "the Job page lists no row for job %d (listed %s)" % [job, creation.get("job_ids")]):
+		return false
+	await _click(job_row)
+	await _shot(prefix + "creation_job")
+	await _click(creation.get("create_button") as Control)
+	return await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market (home)")
 
 
-## Title (Enter) -> a new character -> map select -> Start: the way into a round for the in-run window scenarios.
-func _enter_round(character_name: String) -> bool:
+## Walks the Free Market character to the scripted out00 portal with the arrow keys and presses Up: map select.
+func _open_map_select() -> bool:
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return false
+	await _sleep(1.0)
+	var hub := flow.current as FreeMarket
+	var exit_pos := Vector2.ZERO
+	for portal: Dictionary in hub.motion.portals.links:
+		if portal.name == "out00":
+			exit_pos = portal.pos
+	var t0 := Time.get_ticks_msec()
+	while absf(hub.motion.player.pos.x - exit_pos.x) > 8.0:
+		if Time.get_ticks_msec() - t0 > 30000: # tier C: automation guard, never survivor tuning
+			_fail("walking to out00 timed out")
+			return false
+		_set_key("left", hub.motion.player.pos.x > exit_pos.x)
+		_set_key("right", hub.motion.player.pos.x < exit_pos.x)
+		await get_tree().process_frame
+	_release_all()
+	await _shot("free_market_out00")
+	_collect_missing(hub)
+	await _key(KEY_UP)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "map select via out00"):
+		return false
+	await _sleep(2.0)
+	return true
+
+
+## Continues the active character (the hub is rebuilt from the saved slot) and waits for the NEW Free Market scene.
+func _reopen_hub() -> bool:
+	var old_id := flow.current.get_instance_id()
+	flow.continue_character(flow.active_slot)
+	return await _until(func() -> bool: return is_instance_valid(flow.current) and flow.current.get_instance_id() != old_id \
+			and flow.current_name == "free_market", 10.0, "Free Market (continued)")
+
+
+## Presses Down or Up on the open map select until the card of stage `key` is selected (map select opens on the frontier, #451).
+func _select_stage(key: String) -> bool:
+	var select: StageSelectScene = flow.current
+	var card := maps_stage_card({"stage": key}, select.stages)
+	if not _expect(card >= 0, "map select offers no %s card" % key):
+		return false
+	while select.selected < card:
+		await _key(KEY_DOWN)
+	while select.selected > card:
+		await _key(KEY_UP)
+	return _expect(select.selected == card, "Down/Up did not select the %s card" % key)
+
+
+## Title (Enter) -> a new character -> Free Market -> map select -> Start: the way into a round for the in-run scenarios.
+func _enter_round(character_name: String, job: int = 212) -> bool:
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
 		return false
 	await _sleep(2.0)
 	await _key(KEY_ENTER)
-	if not await _create_character(character_name):
+	if not await _create_character(character_name, job):
 		return false
-	await _sleep(1.5)
+	if not await _open_map_select():
+		return false
 	await _start_selected(flow.current)
 	return await _until(func() -> bool: return flow.current_name == "run", 10.0, "run")
 
@@ -997,7 +1269,8 @@ func _scenario_cash_shop() -> void:
 	await _key(KEY_ENTER)
 	if not await _create_character("Shop118"):
 		return
-	await _sleep(1.5)
+	if not await _open_map_select():
+		return
 	await _shot("shop_00_map_select_button")
 	await _click(flow.current.get("shop_button") as Control)
 	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
@@ -1046,12 +1319,11 @@ func _scenario_cash_shop() -> void:
 	await _click(shop.exit_button)
 	if not await _until(func() -> bool: return flow.current_name == "stage_select", 5.0, "EXIT back to map select"):
 		return
-	var boundary := flow.save.slot(flow.active_slot)
-	boundary.phase = "free_market"
-	boundary.tier = 1
-	flow.save.update_slot(flow.active_slot, boundary)
 	await _click(flow.current.back_button)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	await _save_and_quit_ui()
+	if _failed:
 		return
 	_reload_save()
 	await _click(flow.current.slot_buttons[0])
@@ -1079,7 +1351,7 @@ func _scenario_cash_shop() -> void:
 ## character -> map select SHOP -> buy the first hat (Equip tab) and the first pet (Pet tab) through the confirm dialog ->
 ## EXIT -> the saved boundary is turned into a Free Market one, Save & quit, Continue -> E, the Cash tab, a double-click
 ## wears the hat (saved at once) -> the PET EQUIP. button, a double-click on the owned pet brings it out -> Esc, walk to
-## out00, Up -> tier-2 map select -> Start: the round's character wears the hat and has the pet out.
+## out00, Up -> map select -> Start: the round's character wears the hat and has the pet out.
 func _scenario_cash_equip() -> void:
 	flow.save.set_account({"nx": 12000, "owned": []})
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
@@ -1088,7 +1360,8 @@ func _scenario_cash_equip() -> void:
 	await _key(KEY_ENTER)
 	if not await _create_character("Dress122"):
 		return
-	await _sleep(1.5)
+	if not await _open_map_select():
+		return
 	await _click(flow.current.get("shop_button") as Control)
 	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
 		return
@@ -1107,12 +1380,11 @@ func _scenario_cash_equip() -> void:
 	await _click(shop.exit_button)
 	if not await _until(func() -> bool: return flow.current_name == "stage_select", 5.0, "EXIT back to map select"):
 		return
-	var boundary := flow.save.slot(flow.active_slot)
-	boundary.phase = "free_market"
-	boundary.tier = 1
-	flow.save.update_slot(flow.active_slot, boundary)
 	await _click(flow.current.back_button)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	await _save_and_quit_ui()
+	if _failed:
 		return
 	_reload_save()
 	await _click(flow.current.slot_buttons[0])
@@ -1157,24 +1429,8 @@ func _scenario_cash_equip() -> void:
 	await _sleep(0.3)
 	_check(not hub.windows_open(), "Esc closed the window")
 	_collect_missing(hub)
-	var exit_pos := Vector2.ZERO
-	for portal: Dictionary in hub.motion.portals.links:
-		if portal.name == "out00":
-			exit_pos = portal.pos
-	var t0 := Time.get_ticks_msec()
-	while absf(hub.motion.player.pos.x - exit_pos.x) > 8.0:
-		if Time.get_ticks_msec() - t0 > 30000:
-			_fail("walking to out00 timed out")
-			return
-		_set_key("left", hub.motion.player.pos.x > exit_pos.x)
-		_set_key("right", hub.motion.player.pos.x < exit_pos.x)
-		await get_tree().process_frame
-	_release_all()
-	await _shot("equip_06_dressed_at_out00")
-	await _key(KEY_UP)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "tier-2 map select via out00"):
+	if not await _open_map_select():
 		return
-	await _sleep(2.0)
 	await _start_selected(flow.current)
 	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "the next round"):
 		return
@@ -1193,9 +1449,9 @@ func _scenario_cash_equip() -> void:
 
 
 ## The whole NX and Cash Shop loop (spec #34, #126) with injected input only: a prepared save (11,000 NX) -> new character ->
-## tier-1 map select SHOP: buy a hat and a pet -> round 1: E, Cash tab (wear the hat), Pet page (bring the pet out) -> a
+## map select SHOP: buy a hat and a pet -> round 1: E, Cash tab (wear the hat), Pet page (bring the pet out) -> a
 ## fixed-tick warp clears it -> Free Market: the "+N NX" notice and the saved balance, SHOP: buy Auto HP Potion Pouch ->
-## Save & quit, Continue -> out00 -> tier-2 map select (balance shown) -> round -> a warp dies -> results (NX earned),
+## Save & quit, Continue -> out00 -> map select (balance shown) -> round -> a warp dies -> results (NX earned),
 ## the slot is freed, the account keeps NX and every item -> a NEW character: the shop lists everything as owned, the
 ## round's Equip window offers the hat and the pet with its upgrade, and wears/brings them out.
 ## Shots: acct_*.png; acct_*_zoom.png are 3x crops around the character and its pet. Uses --seed (default 4, a Henesys
@@ -1211,10 +1467,12 @@ func _scenario_account() -> void:
 	await _key(KEY_ENTER)
 	if not await _create_character("Acct126"):
 		return
-	await _sleep(1.5)
+	if not await _open_map_select():
+		return
 	await _shot("acct_00_map_select_balance")
+	_check(flow.current.unlocked_keys() == ["henesys"], "a new character can start only Henesys: %s" % [flow.current.unlocked_keys()])
 	_check(flow.current.character_label.text.contains("11,000 NX"), "map select shows the NX balance: %s" % flow.current.character_label.text)
-	# 1. Cash Shop from tier-1 map select: buy the first hat and the first pet.
+	# 1. Cash Shop from map select: buy the first hat and the first pet.
 	await _click(flow.current.get("shop_button") as Control)
 	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
 		return
@@ -1263,16 +1521,19 @@ func _scenario_account() -> void:
 	await _shot_zoom("acct_03_round1_dressed_zoom", run.avatar, run.pet_renderer)
 	var gap := (run.world.pet_state().pos as Vector2).distance_to(run.world.player.pos)
 	_check(gap < 250.0, "the pet stays beside the character (%.0f px)" % gap)
-	# 3. Weapon-page probe, then diagnostic clear: Free Market arrival shows "+N NX" and the balance is saved.
+	# 3. Diagnostic clear: Free Market arrival shows "+N NX" and the balance is saved.
 	# tier C: the bot with a hat and a pet no longer clears Henesys on the training seeds (it has 0/3 clears anyway), so
 	# round 1 is invulnerable, with diagnostic boss hits after its timer (round 2 exercises the real death path).
-	# --natural-clear=1 keeps the EXP-drop page probe but disables invulnerability and diagnostic boss hits.
+	# --natural-clear=1 disables invulnerability and diagnostic boss hits.
 	run.world.god = String(args.get("natural-clear", "0")) != "1"
-	if (await _climb_job_windows(run, 10, 100, "sword", "account_lv10")).is_empty():
-		return
 	if not await _warp_round():
 		return
 	var nx_awarded := int(_rounds.back().get("nx_awarded", 0))
+	if not await _until(func() -> bool: return flow.current_name == "results", 15.0, "results after the clear"):
+		return
+	await _sleep(1.0)
+	await _shot("acct_03b_results_clear")
+	await _click(flow.current.back_button)
 	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after the clear"):
 		return
 	var hub := flow.current as FreeMarket
@@ -1321,27 +1582,14 @@ func _scenario_account() -> void:
 	_check(hub.pet_renderer != null and hub.avatar.look.get("cash", {}).size() == 1, "Continue: the hat is worn and the pet is out")
 	await _shot("acct_07_continued_free_market")
 	await _shot_zoom("acct_07_continued_zoom", hub.avatar, hub.pet_renderer)
-	# 6. out00 -> tier-2 map select (balance) -> round 2 -> death.
-	var exit_pos := Vector2.ZERO
-	for portal: Dictionary in hub.motion.portals.links:
-		if portal.name == "out00":
-			exit_pos = portal.pos
-	var t0 := Time.get_ticks_msec()
-	while absf(hub.motion.player.pos.x - exit_pos.x) > 8.0:
-		if Time.get_ticks_msec() - t0 > 30000:
-			_fail("walking to out00 timed out")
-			return
-		_set_key("left", hub.motion.player.pos.x > exit_pos.x)
-		_set_key("right", hub.motion.player.pos.x < exit_pos.x)
-		await get_tree().process_frame
-	_release_all()
-	_collect_missing(hub)
-	await _key(KEY_UP)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "tier-2 map select"):
+	# 6. out00 -> map select (balance; the Henesys clear unlocked Ellinia and nothing else) -> round 2 -> death.
+	if not await _open_map_select():
 		return
-	await _sleep(2.0)
-	_check(flow.current.character_label.text.contains(SaveData._group(balance) + " NX"), "tier-2 map select shows %d NX: %s" % [balance, flow.current.character_label.text])
-	await _shot("acct_08_tier2_map_select")
+	_check(flow.current.unlocked_keys() == ["henesys", "ellinia"], "the clear unlocked Ellinia only: %s" % [flow.current.unlocked_keys()])
+	if not await _select_stage("ellinia"):
+		return
+	_check(flow.current.character_label.text.contains(SaveData._group(balance) + " NX"), "map select shows %d NX: %s" % [balance, flow.current.character_label.text])
+	await _shot("acct_08_ellinia_map_select")
 	await _start_selected(flow.current)
 	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "round 2"):
 		return
@@ -1360,17 +1608,21 @@ func _scenario_account() -> void:
 	_check(flow.last_summary.ending == "died" and death_nx >= 0, "round 2 ended in death (+%d NX)" % death_nx)
 	await _shot("acct_10_results_nx")
 	await _click(flow.current.back_button)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select after the death"):
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market after the death"):
+		return
+	await _save_and_quit_ui()
+	if _failed:
 		return
 	_reload_save()
-	_check(flow.save.slot(0).is_empty(), "the dead character freed its slot")
+	_check(not flow.save.slot(0).is_empty(), "the character survived its death (no permadeath)")
 	_check(flow.save.account.owned == [hat, pet, upgrade] and int(flow.save.account.nx) == balance + death_nx,
 		"the account kept every item and %d NX after the death (%d)" % [balance + death_nx, int(flow.save.account.nx)])
 	balance += death_nx
 	# 7. A NEW character uses the account's items.
 	if not await _create_character("Heir126"):
 		return
-	await _sleep(1.5)
+	if not await _open_map_select():
+		return
 	await _click(flow.current.get("shop_button") as Control)
 	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop for the new character"):
 		return
@@ -1436,22 +1688,20 @@ func _shot_zoom(step: String, around: Node2D, also: Node2D = null) -> void:
 
 
 func _scenario_skill() -> void:
-	if not await _enter_round("Skill86"):
+	var job := _job_arg() # `--job=<id>` (default 212; 222 is the I/L Arch Mage, #330)
+	if job < 0:
+		return
+	if not await _enter_round("Skill86", job):
 		return
 	var run := flow.current as RunScene
 	await _sleep(3.0)
-	# A build to show (debug setup, like the windows scenario's EXP drop): Magician, then Wizard (Ice, Lightning), with
-	# behaviour cards on Magic Claw and Thunder Bolt.
+	# A build to show (debug setup, like the windows scenario's EXP drop): three more pool actives with ranks, and two
+	# common passives (cards applied directly; the Teleport key skill and the starting Energy Bolt are already known).
 	var w := run.world
-	w.change_job(200)
-	for id: String in ["energy_bolt_new", "magic_claw_new", "magic_claw_targets", "magic_claw_targets",
-			"magic_claw_cooldown"]:
-		w.upgrades.apply(id, w)
-	w.change_job(220)
-	for id: String in ["thunder_bolt_new", "thunder_bolt_targets"]:
+	for id: String in skill_build(w):
 		w.upgrades.apply(id, w)
 	await _sleep(0.5)
-	# K opens the Skill window on the current job's tab and holds the sim.
+	# K opens the Skill window on the job's tab (the last) and holds the sim.
 	await _key(KEY_K)
 	if not await _until(func() -> bool: return run.ui_windows.find_window("skill") != null, 3.0, "Skill window (K)"):
 		return
@@ -1459,51 +1709,53 @@ func _scenario_skill() -> void:
 	var t0 := run.world.time
 	await _sleep(0.8)
 	_check(run.world.time == t0, "the sim holds while Skill is open")
-	_check(sw.tab == 2 and sw.model.tabs.size() == 3, "opened on the 2nd-job tab of Beginner / I / II (no star tab)")
+	var last_tab: int = sw.model.tabs.size() - 1
+	_check(sw.model.tabs[0].name == "Common" and last_tab >= 1 and sw.tab == last_tab,
+		"opened on the job's own tab, the last, after the Common tab (no Beginner or star tab; %d tabs)" % sw.model.tabs.size())
+	_check(sw.model.loadout.slot_summary().begins_with("Active 4/6"), "four active skills held (%s)" % sw.model.loadout.slot_summary())
 	await _shot("skill_window")
-	# Keyboard: Down moves the selection to Thunder Bolt (the last Ice & Lightning skill) with its tooltip; Left
-	# switches to the Magician tab.
+	# Keyboard: Down moves the selection to the last row with its tooltip; Left switches to the Common tab.
 	for i in sw.rows().size():
 		await _key(KEY_DOWN)
 	await _sleep(0.3)
-	var tb := sw.tooltip()
-	_check(String(tb.get("key", "")) == "thunder_bolt" and not (tb.get("upgrades", []) as Array).is_empty(),
-		"Down selected Thunder Bolt with its Upgrades (%s)" % [tb.get("key", "")])
-	await _shot("skill_keyboard_tooltip")
+	if not sw.rows().is_empty(): # a sparse synthetic book may have no rows
+		var last := sw.tooltip()
+		_check(String(last.get("key", "")) == String(sw.rows()[sw.rows().size() - 1].key), "Down selected the last row (%s)" % [last.get("key", "")])
+		await _shot("skill_keyboard_tooltip")
 	await _key(KEY_LEFT)
 	await _sleep(0.3)
-	_check(sw.tab == 1, "Left switched to the Magician tab")
-	# Mouse: the wheel scrolls Magic Claw into view; hovering it shows the tooltip with its Upgrades.
+	_check(sw.tab == last_tab - 1, "Left switched to the previous job tab")
 	var origin := sw.get_global_rect().position
-	var claw := -1
-	for i in sw.rows().size():
-		if String(sw.rows()[i].get("key", "")) == "magic_claw":
-			claw = i
-	for i in maxi(0, claw - SkillWindow.VISIBLE_ROWS + 1):
-		await _wheel(origin + sw.row_rect(1).get_center(), true)
-	_hover(origin + sw.row_rect(claw - sw.scroll).get_center())
-	await _sleep(0.4)
-	var tip := sw.tooltip()
-	_check(String(tip.get("key", "")) == "magic_claw" and (tip.get("upgrades", []) as Array).size() == 2,
-		"hovering Magic Claw shows Twin Claw and Quick Claw (%s)" % [tip.get("upgrades", [])])
-	await _shot("skill_tooltip_upgrades")
-	# Spec #225: no star tab. The mouse picks the Beginner tab, and the strip ends after the 2nd-job tab.
 	await _click_at(origin + sw.tab_rect(0).get_center())
 	await _sleep(0.3)
-	_check(sw.tab == 0, "clicked the Beginner tab")
-	await _shot("skill_beginner_tab")
-	await _click_at(origin + sw.tab_rect(3).get_center())
+	_check(sw.tab == 0, "a click picked the Common tab")
+	var common_keys: Array = sw.rows().map(func(row: Dictionary) -> String: return String(row.key))
+	_check(common_keys.size() == 9 and "passive_might" in common_keys and "passive_crit" in common_keys,
+		"the Common tab lists the nine common passives (%s)" % [common_keys])
+	await _shot("skill_common_tab")
+	# Mouse: hovering a learned common passive shows its tooltip.
+	var might := common_keys.find("passive_might")
+	_hover(origin + sw.row_rect(might - sw.scroll).get_center())
+	await _sleep(0.4)
+	var tip := sw.tooltip()
+	_check(String(tip.get("key", "")) == "passive_might" and int(tip.get("level", 0)) == 1,
+		"hovering Maple Warrior shows rank 1 (%s)" % [tip.get("key", "")])
+	await _shot("skill_tooltip_passive")
+	# The mouse picks the job's tab; the strip ends after the last job tab.
+	await _click_at(origin + sw.tab_rect(last_tab).get_center())
 	await _sleep(0.3)
-	_check(sw.tab == 0, "no fourth tab to click")
-	# The other job tabs (#219: the tab shapes).
-	for t in [0, 1]:
-		await _click_at(origin + sw.tab_rect(t).get_center())
+	_check(sw.tab == last_tab, "clicked the job's tab")
+	await _click_at(origin + sw.tab_rect(last_tab + 1).get_center())
+	await _sleep(0.3)
+	_check(sw.tab == last_tab, "no tab past the job's own to click")
+	for tab_index in range(last_tab + 1): # every tab: Common, then each book of the lineage (220 holds Teleport for the I/L)
+		await _click_at(origin + sw.tab_rect(tab_index).get_center())
 		await _sleep(0.2)
-		_check(sw.tab == t, "skill tab %d shown" % t)
-		await _shot("skill_tab_%d" % t)
-	await _key(KEY_1)
+		_check(sw.tab == tab_index, "skill tab %d shown" % tab_index)
+		await _shot("skill_tab_%d" % tab_index)
+	await _key(KEY_2)
 	await _sleep(0.2)
-	_check(sw.tab == 0, "1 switched to the Beginner tab")
+	_check(sw.tab == 1, "2 switched to the second tab (the Magician)")
 	await _key(KEY_ESCAPE)
 	await _sleep(0.4)
 	_check(not run.ui_windows.has_windows() and not run.paused, "Esc closed Skill without pausing")
@@ -1520,7 +1772,7 @@ func _scenario_skill() -> void:
 	_check(run.ui_windows.top() is SkillWindow and lw.input_blocked, "Skill opened over the level-up choice")
 	await _key(KEY_1)
 	await _sleep(0.2)
-	_check(run.world.state == RunWorld.CHOOSING_UPGRADE, "1 picked nothing under the Skill window")
+	_check(run.world.state == RunWorld.CHOOSING_UPGRADE, "1 picked nothing under the Skill window (it switches tabs)")
 	await _key(KEY_DOWN)
 	await _sleep(0.3)
 	await _shot("skill_over_levelup")
@@ -1531,1033 +1783,6 @@ func _scenario_skill() -> void:
 	if not await _until(func() -> bool: return run.world.state == RunWorld.PLAYING, 5.0, "card picked with 1"):
 		return
 	print("flow_driver: skill scenario %s" % ("FAILED" if _failed else "passed"))
-	await _sleep(0.5)
-	get_tree().quit(1 if _failed else 0)
-
-
-func _scenario_skill_warrior() -> void:
-	if not await _enter_round("SkillWarrior"):
-		return
-	var run := flow.current as RunScene
-	await _sleep(3.0)
-	var w := run.world
-	w.change_job(100)
-	for id: String in ["power_strike_new", "slash_blast_new", "iron_body_new", "improved_hp_recovery_new",
-			"improved_max_hp_new", "power_strike_targets"]:
-		w.upgrades.apply(id, w)
-	await _sleep(0.5)
-	await _key(KEY_K)
-	if not await _until(func() -> bool: return run.ui_windows.find_window("skill") != null, 3.0, "Skill window (K)"):
-		return
-	var sw := run.ui_windows.find_window("skill") as SkillWindow
-	await _sleep(0.5)
-	var rows := sw.rows()
-	var blast := -1
-	for i in rows.size():
-		if String(rows[i].get("key", "")) == "slash_blast":
-			blast = i
-	_check(blast >= 0, "Slash Blast is listed on the Warrior tab")
-	await _shot("skill_warrior_window")
-	var origin := sw.get_global_rect().position
-	for i in maxi(0, blast - SkillWindow.VISIBLE_ROWS + 1):
-		await _wheel(origin + sw.row_rect(1).get_center(), true)
-	_hover(origin + sw.row_rect(blast - sw.scroll).get_center())
-	await _sleep(0.4)
-	var tip := sw.tooltip()
-	_check(String(tip.get("key", "")) == "slash_blast" and int(tip.get("hp_cost", 0)) == 8 and bool(tip.get("usable", false)),
-		"the tooltip shows Slash Blast's HP cost and says the sword can use it")
-	await _shot("skill_warrior_tooltip")
-	# Debug setup: enough MP for Iron Body, which auto-casts as soon as Esc lets the sim run again.
-	w._base_mp = 100.0
-	w.refresh_player_stats()
-	w.heal_fraction("mp", 1.0)
-	await _key(KEY_ESCAPE)
-	await _sleep(0.5)
-	_check(w.buffs.has("iron_body"), "Iron Body was cast once the window closed")
-	await _shot("skill_warrior_iron_body")
-	print("flow_driver: skill_warrior scenario %s" % ("FAILED" if _failed else "passed"))
-	await _sleep(0.5)
-	get_tree().quit(1 if _failed else 0)
-
-
-## The Warrior end to end (spec #151 QA #164): Lv10 through the real job window, play, wear a shield, Save & quit and
-## Continue. The only debug setup is the spare shield in the slot and the hub boundary (no multi-minute warp).
-func _scenario_warrior() -> void:
-	const SHIELD := 1092003 # Character.wz Shield, reqJob 0, Lv 5: wearable by a Lv10 Warrior with no STR need
-	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
-		return
-	await _sleep(2.0)
-	await _key(KEY_ENTER)
-	if not await _create_character("Warrior164"):
-		return
-	var slot := flow.save.slot(flow.active_slot)
-	var character: Dictionary = slot.character
-	var info: Dictionary = AssetLibrary.get_default().img(AvatarRenderer.part_img_path(SHIELD)).root.get("info", {})
-	character.equipment.inventory.append(Equipment.create(SHIELD, info))
-	slot.character = character
-	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the spare shield was put in the new character's slot")
-	await _sleep(1.0)
-	await _start_selected(flow.current)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
-		return
-	var run := flow.current as RunScene
-	await _sleep(2.0)
-	var w := run.world
-	var weapon0 := w.weapon_id()
-	_check(weapon0 != 0 and w.progression.job_id == 0, "a Beginner holding weapon %d" % weapon0)
-	# Lv10: EXP drops, the real level-up cards, then the real job window.
-	var spawned_level := 0
-	var spawned_at := -100.0
-	var job_window_seen := false
-	var advanced_shot := false
-	for guard in 600:
-		if w.state == RunWorld.DEAD:
-			_fail("the character died on the way to Lv10")
-			return
-		if run.window is JobAdvanceWindow and (run.window as MapleWindow).is_open():
-			await _sleep(0.6)
-			job_window_seen = true
-			if (await _choose_job_ui(run, 100, "sword", "warrior")).is_empty():
-				return
-			await _sleep(0.9)
-		elif run.window is LevelUpWindow and (run.window as MapleWindow).is_open():
-			await _sleep(0.5)
-			if is_instance_valid(run.window) and run.window is LevelUpWindow:
-				var lw := run.window as LevelUpWindow
-				var pick := _card_index(run, lw.cards)
-				if job_window_seen and not advanced_shot:
-					advanced_shot = true
-					await _shot("warrior_advanced")
-				await _key((KEY_1 + pick) as Key)
-				await _sleep(0.4)
-		elif job_window_seen and run.window == null and w.state == RunWorld.PLAYING:
-			break
-		elif w.state == RunWorld.PLAYING and run.window == null and w.progression.level < 10 \
-				and (w.progression.level != spawned_level or w.time - spawned_at > 3.0):
-			spawned_level = w.progression.level
-			spawned_at = w.time
-			w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
-		await _sleep(0.3)
-	_check(job_window_seen and w.progression.job_id == 100, "the real job window made the character a Warrior (job %d)" % w.progression.job_id)
-	_check(w.progression.level == 10, "at Lv 10 (%d)" % w.progression.level)
-	var inventory_ids: Array = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
-	_check(w.weapon_id() == 1302077, "the Beginner Warrior's sword is worn (%d)" % w.weapon_id())
-	_check(weapon0 in inventory_ids and 1432000 not in inventory_ids and 1322006 not in inventory_ids,
-		"the displaced creation weapon is kept; no Spear or Steel Pipe was granted (%s)" % [inventory_ids])
-	weapon0 = w.weapon_id()
-	_check(w.loadout.rank("power_strike") + w.loadout.rank("slash_blast") > 0, "the advancement draw gave a Warrior attack")
-	# A few seconds of real play with the bot's steering.
-	var kills0 := w.kills
-	_steer = true
-	await _until(func() -> bool: return w.kills > kills0, 25.0, "the Warrior kills something")
-	await _sleep(2.0)
-	_steer = false
-	_release_all()
-	await _shot("warrior_playing")
-	var kills := w.kills - kills0
-	_check(kills > 0, "the Warrior killed %d in this stretch" % kills)
-	# Wear the shield: E and I, a double-click in the Item window's Equip tab.
-	await _key(KEY_E)
-	await _key(KEY_I)
-	if not await _until(func() -> bool: return run.ui_windows.find_window("item") != null \
-			and run.ui_windows.find_window("equip") != null, 3.0, "Equip and Item windows"):
-		return
-	var ew := run.ui_windows.find_window("equip") as EquipWindow
-	var iw := run.ui_windows.find_window("item") as ItemWindow
-	await _sleep(0.5)
-	var cell := -1
-	for i in iw.cells().size():
-		if int(iw.cells()[i].id) == SHIELD:
-			cell = i
-	_check(cell >= 0 and ew.worn_id("shield") == 0, "the spare shield waits in the Equip tab (cell %d)" % cell)
-	if cell < 0:
-		return
-	await _double_click_at(iw.get_global_rect().position + iw.slot_rect(cell).get_center())
-	await _sleep(0.4)
-	_check(ew.worn_id("shield") == SHIELD, "the shield is worn by double-click (%d)" % ew.worn_id("shield"))
-	_check(ew.worn_id("weapon") == weapon0, "beside the sword")
-	_hover(ew.get_global_rect().position + ew.slot_rect("shield").get_center())
-	await _sleep(0.4)
-	await _shot("warrior_shield_worn")
-	await _key(KEY_ESCAPE)
-	await _key(KEY_ESCAPE)
-	await _sleep(0.6)
-	_check(not run.ui_windows.has_windows() and not run.paused, "Esc closed both windows")
-	_collect_missing(run)
-	# The round boundary (debug shortcut for the warp-clear): the carried snapshot is saved at the Free Market.
-	var carried := run.world.character_snapshot()
-	slot = flow.save.slot(flow.active_slot)
-	slot.character = carried
-	slot.phase = "free_market"
-	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the Warrior was saved at the Free Market boundary")
-	var active := flow.active_slot
-	flow.continue_character(active)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
-		return
-	var hub := flow.current as FreeMarket
-	await _sleep(1.5)
-	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
-	_check(int(expected.job_id) == 100 and int(expected.equipment.worn.shield.id) == SHIELD \
-		and int(expected.equipment.worn.weapon.id) == weapon0, "the hub holds the Warrior, shield and weapon")
-	await _shot("warrior_hub")
-	_collect_missing(hub)
-	# Save & quit from the hub's pause menu, then Continue.
-	await _key(KEY_ESCAPE)
-	await _sleep(0.6)
-	await _shot("warrior_save_and_quit")
-	await _key(KEY_2)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
-		return
-	_reload_save()
-	await _sleep(1.0)
-	await _shot("warrior_character_select")
-	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
-	for key: String in ["job_id", "level", "equipment", "skills", "mesos"]:
-		_check(saved.get(key) == expected.get(key), "the saved %s equal the hub's (%s)" % [key, str(saved.get(key)).left(60)])
-	await _click(flow.current.slot_buttons[active])
-	await _click(flow.current.select_button)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
-		return
-	var again := flow.current as FreeMarket
-	await _sleep(1.5)
-	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
-	for key: String in ["job_id", "level", "equipment", "skills", "mesos"]:
-		_check(restored.get(key) == expected.get(key), "Continue restored the %s" % key)
-	_check(again.inventory.held_weapon_family() == WeaponInfo.family(weapon0), "and the held weapon family")
-	await _key(KEY_E)
-	await _sleep(0.5)
-	var aew := again.ui_windows.find_window("equip") as EquipWindow
-	_check(aew != null and aew.worn_id("shield") == SHIELD and aew.worn_id("weapon") == weapon0,
-		"the Equip window shows the restored shield and weapon")
-	await _shot("warrior_continue_restored")
-	_collect_missing(again)
-	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
-	var report := {"scenario": "warrior", "job_id": int(restored.job_id), "level": int(restored.level), "weapon": weapon0,
-		"shield": SHIELD, "kills": kills, "missing": Array(_missing), "failed": _failed}
-	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
-	file.store_string(JSON.stringify(report, "\t"))
-	file.close()
-	print("flow_driver: warrior scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
-	await _sleep(0.5)
-	get_tree().quit(1 if _failed else 0)
-
-
-## First-job Thief tracer (#207): both real advancement entries and gifts, then an attack frame on either path.
-## Thief QA through injected input, with diagnostic invulnerability/EXP drops and an explicit Free Market boundary.
-func _scenario_thief() -> void:
-	var path_id := String(args.get("path", "claw"))
-	var branch := int(args.get("branch", 410 if path_id == "claw" else 420))
-	if path_id not in ["claw", "dagger"] or branch not in [410, 420]:
-		_fail("--path must be claw or dagger; --branch must be 410 or 420")
-		return
-	_backup_settings()
-	var settings := get_node_or_null("/root/Settings") as GameSettings
-	if settings == null:
-		_fail("no Settings autoload")
-		return
-	var scratch := "user://flow_driver_thief_settings.cfg"
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch))
-	settings.reload_from(scratch)
-	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
-		return
-	await _sleep(2.0)
-	await _key(KEY_ENTER)
-	if not await _create_character("Thief215"):
-		return
-	await _sleep(1.0)
-	await _start_selected(flow.current)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
-		return
-	var run := flow.current as RunScene
-	await _sleep(2.0)
-	var w := run.world
-	var sword := w.weapon_id()
-	w.god = true # tier C: evidence-only invulnerability while the EXP drops open the real job window.
-	var first := await _climb_job_windows(run, 10, 400, path_id, "thief_lv10")
-	if first.is_empty():
-		return
-	_check(first.entries.count("Thief") == 1, "one Thief job on page 1")
-	var weapon := 1472061 if path_id == "claw" else 1332063
-	var other := 1332063 if path_id == "claw" else 1472061
-	_check(w.weapon_id() == weapon and w.weapon_path == path_id, "chosen weapon and path")
-	_check(not w.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == other), "unchosen gift is absent")
-	_check(w.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == sword), "creation weapon in Equip")
-	await _key(KEY_E)
-	await _key(KEY_I)
-	if not await _until(func() -> bool: return run.ui_windows.find_window("item") != null \
-		and run.ui_windows.find_window("equip") != null, 3.0, "Thief Equip and Item windows"):
-		return
-	var ew := run.ui_windows.find_window("equip") as EquipWindow
-	var iw := run.ui_windows.find_window("item") as ItemWindow
-	var cell_ids: Array = iw.cells().map(func(c: Dictionary) -> int: return int(c.id))
-	_check(ew.worn_id("weapon") == weapon and other not in cell_ids and sword in cell_ids, "only chosen gift visible in equipment UI")
-	await _shot("thief_equip_chosen_weapon")
-	await _key(KEY_ESCAPE)
-	await _key(KEY_ESCAPE)
-	_check(not run.ui_windows.has_windows() and not run.paused, "equipment windows closed")
-	if String(args.get("disorder", "0")) == "1":
-		await _thief_disorder(run)
-		return
-	var key := "lucky_seven" if path_id == "claw" else "double_stab"
-	w.upgrades.apply(key + "_new", w) # evidence: ensure this attack is available regardless of the random draw.
-	w.upgrades.apply("nimble_body_new", w)
-	w.heal_fraction("mp", 1.0)
-	run.handle_events(w.drain_events())
-	var kills0 := w.kills
-	_steer = true
-	if not await _until(func() -> bool: return w.kills > kills0, 30.0, "Thief combat kill"):
-		return
-	_steer = false
-	_release_all()
-	# Evidence-only durable target, so the captured frame shows an attack instead of the gap after a kill.
-	var mob_kind := 0
-	var dx := 120.0 if path_id == "claw" else 45.0
-	w.spawn_mob(mob_kind, w.player.pos + Vector2(dx, 0), w.player.fh, 1000.0, false)
-	w.basic.cooldown = 60.0
-	w.runner.cooldowns[key] = 0.0
-	w.heal_fraction("mp", 1.0)
-	run.handle_events(w.drain_events())
-	if not await _until(func() -> bool: return String(w.player_state.action) == String(w.book.def(key).action) \
-		and float(w.player_state.action_t) < 0.1, 15.0, "Thief attack action"):
-		return
-	await _shot("thief_" + path_id + "_fighting", 0.05)
-	# Resolve the real Lv30 job and card windows, retaining the recorded first-job weapon path.
-	var second := await _climb_job_windows(run, 30, branch, "", "thief_lv30")
-	if second.is_empty():
-		return
-	var lv30_weapon := 1472008 if branch == 410 else 1332012
-	_check(second.entries.any(func(t: String) -> bool: return t.begins_with("Assassin")) \
-		and second.entries.any(func(t: String) -> bool: return t.begins_with("Bandit")), "both second jobs shown")
-	_check(w.progression.level == 30 and w.progression.job_id == branch, "chosen second job at Lv30")
-	_check(w.weapon_id() == lv30_weapon and w.weapon_path == path_id, "advancement weapon worn; original path retained")
-	_check(w.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == weapon), "chosen first-job gift retained")
-	_check(not w.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == other), "unchosen first-job gift remains absent")
-	var branch_attack := "drain" if branch == 410 else "savage_blow"
-	if w.loadout.rank(branch_attack) == 0:
-		w.upgrades.apply(branch_attack + "_new", w) # diagnostic: persistence checks include an actual branch skill.
-	run.handle_events(w.drain_events())
-	_check(w.warnings.is_empty(), "no world warnings")
-	_collect_missing(run)
-	var persisted := await _save_quit_continue(run, "thief")
-	if persisted.is_empty():
-		return
-	var again: FreeMarket = persisted.hub
-	var restored: Dictionary = persisted.character
-	_check(int(restored.skills.get(branch_attack, {}).get("rank", 0)) > 0, "branch attack restored")
-	await _key(KEY_E)
-	await _sleep(0.5)
-	var restored_equip := again.ui_windows.find_window("equip") as EquipWindow
-	_check(restored_equip != null and restored_equip.worn_id("weapon") == lv30_weapon, "restored advancement weapon shown")
-	await _shot("thief_continue_restored")
-	_collect_missing(again)
-	_check(_missing.is_empty(), "no missing assets: %s" % [_missing])
-	var report := {"scenario": "thief", "path": path_id, "branch": branch, "job_id": restored.job_id,
-		"level": restored.level, "equipment": restored.equipment, "skills": restored.skills,
-		"lv10_entries": first.entries, "lv30_entries": second.entries,
-		"warnings": Array(w.warnings), "missing": Array(_missing), "failed": _failed}
-	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
-	file.store_string(JSON.stringify(report, "\t"))
-	file.close()
-	print("flow_driver: thief scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
-	_quit()
-
-
-## Diagnostic crowd for Disorder: real cache, card and cast path, with durable stationary ordinary mobs for evidence.
-func _thief_disorder(run: RunScene) -> void:
-	var w := run.world
-	Engine.time_scale = 1.0
-	_steer = false
-	_release_all()
-	for slot in w.swarm.capacity():
-		if w.swarm.is_live(slot):
-			w.swarm.despawn(slot)
-	for key: String in w.loadout.order:
-		w.runner.cooldowns[key] = 10000.0
-	w.basic.cooldown = 10000.0
-	w.upgrades.apply("disorder_new", w)
-	w.heal_fraction("mp", 1.0)
-	var mobs := []
-	# tier C: evidence-only placement/durability; no survivor balance values are changed.
-	w.mob_kinds[0].move_speed = 0.0
-	for dx in [-100.0, -55.0, 50.0, 95.0, 140.0]:
-		mobs.append(w.spawn_mob(0, w.player.pos + Vector2(dx, 0), w.player.fh, 1000.0, false))
-	run.handle_events(w.drain_events())
-	if not await _until(func() -> bool: return mobs.all(func(slot: int) -> bool:
-		return w.swarm.status_time(slot, MobSwarm.THREATENED) > 0.0), 10.0, "Disorder crowd cast"):
-		return
-	await _shot("disorder_crowd", 0.15)
-	_check(w.warnings.is_empty(), "no world warnings")
-	_collect_missing(run)
-	_check(_missing.is_empty(), "no missing assets: %s" % [_missing])
-	_quit()
-
-
-## The Pirate line end to end (spec #168 QA #195): Lv10 through the real job window with both weapon paths (`--path=knuckle|gun`,
-## default knuckle), only the chosen gift checked through Equip/Item, EXP drops (a debug warp, invulnerable meanwhile) to Lv30
-## through the real level-up cards and the real Lv 30 window (`--branch=510|520`, default the path's own), the Lv 30 weapon
-## worn, Dash on its real skill key (X; its card is applied as debug setup, not drawn), then the Free Market boundary, Save &
-## quit and Continue keeping job, path, weapons and skills.
-func _scenario_pirate() -> void:
-	var path_id := String(args.get("path", "knuckle"))
-	var other_path := "gun" if path_id == "knuckle" else "knuckle"
-	var first_weapon := {"knuckle": 1482000, "gun": 1492000}
-	var branch := int(args.get("branch", 510 if path_id == "knuckle" else 520))
-	var lv30_weapon := 1482004 if branch == 510 else 1492004 # Prime Hands / Cold Mind (jobs.json paths item_id)
-	# The scenario presses the default keys (E, I, X): start from a throwaway settings file, not the developer's bindings.
-	_backup_settings()
-	var settings := get_node_or_null("/root/Settings") as GameSettings
-	if settings == null:
-		_fail("no Settings autoload")
-		return
-	var scratch := "user://flow_driver_pirate_settings.cfg"
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch))
-	settings.reload_from(scratch)
-	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
-		return
-	await _sleep(2.0)
-	await _key(KEY_ENTER)
-	if not await _create_character("Pirate195"):
-		return
-	await _sleep(1.0)
-	await _start_selected(flow.current)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
-		return
-	var run := flow.current as RunScene
-	await _sleep(2.0)
-	var w := run.world
-	var sword := w.weapon_id()
-	_check(sword != 0 and w.progression.job_id == 0, "a Beginner holding weapon %d" % sword)
-	# Lv10: one Pirate entry, followed by its Knuckle/Gun weapon page.
-	w.god = true # debug: the idle character must not be killed while EXP drops carry it up
-	var first := await _climb_job_windows(run, 10, 500, path_id, "pirate_lv10")
-	if first.is_empty():
-		return
-	var labels: Array = first.entries
-	_check(labels.count("Pirate") == 1, "one Pirate job on page 1 (%s)" % [labels])
-	_check(w.progression.job_id == 500 and w.progression.level == 10 and w.weapon_path == path_id,
-		"a Lv10 %s Pirate (job %d, path %s)" % [path_id, w.progression.job_id, w.weapon_path])
-	_check(w.weapon_id() == first_weapon[path_id], "the %s path's weapon is worn (%d)" % [path_id, w.weapon_id()])
-	var inventory_ids: Array = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
-	_check(first_weapon[other_path] not in inventory_ids and sword in inventory_ids,
-		"only the creation weapon waits in the Equip tab (%s)" % [inventory_ids])
-	await _key(KEY_E)
-	await _key(KEY_I)
-	if not await _until(func() -> bool: return run.ui_windows.find_window("item") != null \
-			and run.ui_windows.find_window("equip") != null, 3.0, "Equip and Item windows"):
-		return
-	await _sleep(0.5)
-	var ew := run.ui_windows.find_window("equip") as EquipWindow
-	var iw := run.ui_windows.find_window("item") as ItemWindow
-	var cell_ids: Array = iw.cells().map(func(c: Dictionary) -> int: return int(c.id))
-	_check(ew.worn_id("weapon") == first_weapon[path_id] and first_weapon[other_path] not in cell_ids and sword in cell_ids,
-		"the Equip window wears %s; Item holds the sword and no %s gift (%s)" % [path_id, other_path, cell_ids])
-	await _shot("pirate_equip_chosen_weapon")
-	await _key(KEY_ESCAPE)
-	await _key(KEY_ESCAPE)
-	await _sleep(0.6)
-	_check(not run.ui_windows.has_windows() and not run.paused, "Esc closed both windows (paused %s)" % run.paused)
-	if run.paused or run.ui_windows.has_windows():
-		return
-	# Dash (#188): its card is applied as debug setup; the skill is then cast on its own key.
-	w.upgrades.apply("dash_new", w)
-	w.heal_fraction("mp", 1.0)
-	run.handle_events(w.drain_events())
-	_check(w.loadout.rank("dash") == 1, "Dash is learned (rank %d)" % w.loadout.rank("dash"))
-	# Lv30 by a debug warp (EXP drops, invulnerable), then the real Lv 30 window.
-	var second := await _climb_job_windows(run, 30, branch, "", "pirate_lv30")
-	if second.is_empty():
-		return
-	_check(w.progression.job_id == branch and w.progression.level == 30, "a Lv30 job %d (level %d)" % [w.progression.job_id, w.progression.level])
-	_check(second.entries.size() >= 2, "the Lv30 window offers the Brawler and the Gunslinger (%s)" % [second.entries])
-	_check(w.weapon_id() == lv30_weapon, "the Lv30 weapon %d is worn (%d)" % [lv30_weapon, w.weapon_id()])
-	_check(w.weapon_path == path_id, "the recorded weapon path is still %s" % w.weapon_path)
-	_check(w.loadout.rank("dash") == 1, "Dash survived the second advancement")
-	w.god = false
-	w.heal_fraction("mp", 1.0)
-	w.heal_fraction("hp", 1.0)
-	# A few seconds of real play with the bot's steering, then Dash on its real key.
-	var kills0 := w.kills
-	_steer = true
-	await _until(func() -> bool: return w.kills > kills0, 25.0, "the second-job Pirate kills something")
-	await _sleep(2.0)
-	_steer = false
-	_release_all()
-	await _shot("pirate_playing")
-	w.heal_fraction("mp", 1.0)
-	var speed0 := w.player.speed_stat
-	var mp0 := int(w.player_state.mp)
-	await _key(KEY_X)
-	await _sleep(0.4)
-	_check(w.buffs.active.has("dash") and w.player.speed_stat > speed0 and int(w.player_state.mp) < mp0,
-		"Dash on X: buff active, speed %s -> %s, MP %d -> %d" % [speed0, w.player.speed_stat, mp0, int(w.player_state.mp)])
-	await _hold(KEY_RIGHT, 0.5)
-	await _shot("pirate_dash")
-	_collect_missing(run)
-	var persisted := await _save_quit_continue(run, "pirate")
-	if persisted.is_empty():
-		return
-	var again: FreeMarket = persisted.hub
-	var restored: Dictionary = persisted.character
-	_check(int(restored.job_id) == branch and String(restored.get("weapon_path", "")) == path_id \
-		and int(restored.equipment.worn.weapon.id) == lv30_weapon, "the hub holds the job %d %s Pirate with its Lv30 weapon" % [branch, path_id])
-	_check(int(restored.skills.get("dash", {}).get("rank", 0)) == 1, "and Dash (%s)" % [restored.skills.get("dash")])
-	await _key(KEY_E)
-	await _sleep(0.5)
-	var aew := again.ui_windows.find_window("equip") as EquipWindow
-	_check(aew != null and aew.worn_id("weapon") == lv30_weapon, "the Equip window shows the restored Lv30 weapon")
-	await _shot("pirate_continue_restored")
-	_collect_missing(again)
-	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
-	var report := {"scenario": "pirate", "path": path_id, "branch": branch, "job_id": int(restored.job_id),
-		"level": int(restored.level), "weapons": [first_weapon[path_id], lv30_weapon], "skills": restored.skills,
-		"lv10_entries": first.entries, "lv30_entries": second.entries, "missing": Array(_missing), "failed": _failed}
-	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
-	file.store_string(JSON.stringify(report, "\t"))
-	file.close()
-	print("flow_driver: pirate scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
-	await _sleep(0.5)
-	_quit()
-
-
-## Saves a diagnostic round boundary, then checks Save & quit, reload and Continue through injected input.
-## Returns the continued hub and character, or {} after a failed transition.
-func _save_quit_continue(run: RunScene, shot_prefix: String) -> Dictionary:
-	var slot := flow.save.slot(flow.active_slot)
-	slot.character = run.world.character_snapshot()
-	slot.phase = "free_market"
-	_check(flow.save.update_slot(flow.active_slot, slot) == OK, shot_prefix + " saved at diagnostic Free Market boundary")
-	var active := flow.active_slot
-	flow.continue_character(active)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, shot_prefix + " hub"):
-		return {}
-	var hub := flow.current as FreeMarket
-	await _sleep(1.5)
-	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
-	await _shot(shot_prefix + "_hub")
-	_collect_missing(hub)
-	await _key(KEY_ESCAPE)
-	await _sleep(0.6)
-	await _shot(shot_prefix + "_save_and_quit")
-	await _key(KEY_2)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, shot_prefix + " saved hub"):
-		return {}
-	_reload_save()
-	await _sleep(1.0)
-	await _shot(shot_prefix + "_character_select")
-	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
-	_check_carried_fields(saved, expected, "saved " + shot_prefix)
-	await _click(flow.current.slot_buttons[active])
-	await _click(flow.current.select_button)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, shot_prefix + " continued hub"):
-		return {}
-	var again := flow.current as FreeMarket
-	await _sleep(1.5)
-	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
-	_check_carried_fields(restored, expected, "Continue restored " + shot_prefix)
-	return {"hub": again, "character": restored}
-
-
-func _check_carried_fields(actual: Dictionary, expected: Dictionary, label: String) -> void:
-	for field: String in ["job_id", "level", "weapon_path", "equipment", "skills", "mesos"]:
-		_check(actual.get(field) == expected.get(field), label + " " + field)
-
-
-## Bowman QA (#204): real advancement input, diagnostic EXP-drop warp and boundary shortcut, like the Pirate scenario.
-func _scenario_bowman() -> void:
-	var branch := int(args.get("branch", "310"))
-	if branch not in [310, 320]:
-		_fail("bowman requires --branch=310|320")
-		return
-	var weapon := 1452005 if branch == 310 else 1462000
-	var bronze := 2060001 if branch == 310 else 2061001
-	_backup_settings()
-	var settings := get_node("/root/Settings") as GameSettings
-	var scratch := "user://flow_driver_bowman_settings.cfg"
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch))
-	settings.reload_from(scratch)
-	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
-		return
-	await _sleep(2.0)
-	await _key(KEY_ENTER)
-	if not await _create_character("Bowman204"):
-		return
-	await _sleep(1.0)
-	await _start_selected(flow.current)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
-		return
-	var run := flow.current as RunScene
-	await _sleep(2.0)
-	var w := run.world
-	w.god = true # tier C: diagnostic EXP-drop climb, never a natural survival claim.
-	var first_path := "bow" if branch == 310 else "crossbow"
-	var first_weapon := 1452051 if branch == 310 else 1462001
-	var unchosen := 1462001 if branch == 310 else 1452051
-	var first := await _climb_job_windows(run, 10, 300, first_path, "bowman_lv10")
-	if first.is_empty():
-		return
-	_check(w.progression.job_id == 300 and w.weapon_path == first_path and w.weapon_id() == first_weapon,
-		"Lv10 Bowman wears only the chosen " + first_path)
-	await _key(KEY_E)
-	await _key(KEY_I)
-	await _sleep(0.5)
-	var ew := run.ui_windows.find_window("equip") as EquipWindow
-	var iw := run.ui_windows.find_window("item") as ItemWindow
-	if ew == null or iw == null:
-		_fail("Bowman Equip and Item windows did not open")
-		return
-	var ids := iw.cells().map(func(c: Dictionary) -> int: return int(c.id))
-	_check(ew.worn_id("weapon") == first_weapon and unchosen not in ids, "chosen weapon worn; no other-family gift in Equip")
-	await _shot("bowman_equip_chosen_weapon")
-	await _key(KEY_ESCAPE)
-	await _key(KEY_ESCAPE)
-	# Advancement gifts ignore requirements; Crossbow can therefore be chosen at Lv10 despite its ordinary Lv12 requirement.
-	await _shot("bowman_first_job_" + first_path)
-	var second := await _climb_job_windows(run, 30, branch, "", "bowman_lv30")
-	if second.is_empty():
-		return
-	_check(second.entries.size() >= 2 and w.progression.job_id == branch and w.progression.level == 30,
-		"Lv30 window offers both Bowman branches and advances to %d" % branch)
-	_check(w.weapon_id() == weapon, "the branch's advancement weapon is worn")
-	_check(w.ammo_id() == bronze, "Bronze arrows selected after advancement")
-	var messages: Array = second.messages
-	_check(messages.any(func(t: String) -> bool: return t.contains("Your arrows are now") and t.contains("Bronze")),
-		"the Bronze arrow upgrade notice is shown (%s)" % [messages])
-	var attack := "arrow_bomb" if branch == 310 else "iron_arrow"
-	_check(w.loadout.rank(attack) > 0 or w.loadout.rank("power_knockback_bow" if branch == 310 else "power_knockback_crossbow") > 0,
-		"the real advancement draw teaches a branch attack")
-	_collect_missing(run)
-	var carried := w.character_snapshot()
-	var slot := flow.save.slot(flow.active_slot)
-	slot.character = carried
-	slot.phase = "free_market" # tier C: diagnostic boundary shortcut, matching Warrior/Pirate QA.
-	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "saved Bowman boundary")
-	var active := flow.active_slot
-	flow.continue_character(active)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
-		return
-	var hub := flow.current as FreeMarket
-	await _sleep(1.5)
-	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
-	_check(hub.inventory.ammo_id() == bronze, "hub derives Bronze arrows")
-	_collect_missing(hub)
-	await _shot("bowman_hub")
-	await _key(KEY_ESCAPE)
-	await _sleep(0.6)
-	await _shot("bowman_save_and_quit")
-	await _key(KEY_2)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
-		return
-	_reload_save()
-	await _sleep(1.0)
-	await _shot("bowman_character_select")
-	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
-	for key: String in ["job_id", "level", "weapon_path", "equipment", "skills", "cards"]:
-		_check(saved.get(key) == expected.get(key), "Save & quit kept %s" % key)
-	await _click(flow.current.slot_buttons[active])
-	await _click(flow.current.select_button)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
-		return
-	var again := flow.current as FreeMarket
-	await _sleep(1.5)
-	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
-	for key: String in ["job_id", "level", "weapon_path", "equipment", "skills", "cards"]:
-		_check(restored.get(key) == expected.get(key), "Continue restored %s" % key)
-	_check(again.inventory.ammo_id() == bronze, "Continue restored the derived arrow tier")
-	await _key(KEY_E)
-	await _sleep(0.5)
-	ew = again.ui_windows.find_window("equip") as EquipWindow
-	_check(ew != null and ew.worn_id("weapon") == weapon, "restored advancement weapon visible in Equip")
-	await _shot("bowman_continue_restored")
-	_collect_missing(again)
-	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
-	var report := {"scenario": "bowman", "branch": branch, "job_id": int(restored.job_id),
-		"level": int(restored.level), "weapon": weapon, "ammo": again.inventory.ammo_id(), "skills": restored.skills,
-		"lv10_entries": first.entries, "lv30_entries": second.entries, "missing": Array(_missing), "failed": _failed}
-	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
-	file.store_string(JSON.stringify(report, "\t"))
-	file.close()
-	print("flow_driver: bowman scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
-	_quit()
-
-
-## Takes the run to `target` level with EXP drops through the real level-up cards, answering the job window with the entry for
-## `want_job` (and `want_path` when given; negative job only climbs). Returns entries and advancement-time HUD
-## messages once the window was answered and play resumed, or {} after a failed check.
-func _climb_job_windows(run: RunScene, target: int, want_job: int, want_path: String, shot_prefix: String) -> Dictionary:
-	var w := run.world
-	var spawned_level := 0
-	var spawned_at := -100.0
-	var seen := false
-	var advanced_shot := false
-	var texts: Array = []
-	var messages: Array = []
-	for guard in 1500:
-		if guard % 50 == 0:
-			print("flow_driver: climbing to Lv%d: level %d, state %d, window %s, paused %s" % [
-				target, w.progression.level, w.state, run.window, run.paused])
-		if w.state == RunWorld.DEAD:
-			_fail("the character died on the way to Lv%d" % target)
-			return {}
-		if run.window is JobAdvanceWindow and (run.window as MapleWindow).is_open():
-			await _sleep(0.6)
-			var picked := await _choose_job_ui(run, want_job, want_path, shot_prefix)
-			if picked.is_empty():
-				return {}
-			texts = picked.entries
-			seen = true
-			messages = run.hud.messages().map(func(m: Dictionary) -> String: return String(m.text))
-			if want_job in [310, 320]:
-				await _shot(shot_prefix + "_bronze_arrow_notice")
-			await _sleep(0.9)
-		elif run.window is LevelUpWindow and (run.window as MapleWindow).is_open():
-			await _sleep(0.5)
-			if is_instance_valid(run.window) and run.window is LevelUpWindow:
-				var lw := run.window as LevelUpWindow
-				var pick := _card_index(run, lw.cards)
-				if seen and not advanced_shot:
-					advanced_shot = true
-					await _shot(shot_prefix + "_advanced")
-				await _key((KEY_1 + pick) as Key)
-				await _sleep(0.4)
-		elif seen and run.window == null and w.state == RunWorld.PLAYING:
-			return {"entries": texts, "messages": messages}
-		elif want_job < 0 and w.progression.level >= target and run.window == null and w.state == RunWorld.PLAYING:
-			return {"entries": texts}
-		elif w.state == RunWorld.PLAYING and run.window == null and w.progression.level < target \
-				and (w.progression.level != spawned_level or w.time - spawned_at > 3.0):
-			spawned_level = w.progression.level
-			spawned_at = w.time
-			w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
-		await _sleep(0.3)
-	_fail("the job window for job %d never opened (level %d)" % [want_job, w.progression.level])
-	return {}
-
-
-## Selects the job/family or declines through injected input, then verifies grants or the unavailable notice.
-func _choose_job_ui(run: RunScene, want_job: int, want_path: String, shot_prefix: String) -> Dictionary:
-	var jw := run.window as JobAdvanceWindow
-	if jw == null or jw.state != "choose":
-		_fail("expected the job list for " + shot_prefix)
-		return {}
-	var texts := jw.entries.map(func(e: Dictionary) -> String: return String(e.text))
-	var job_ids := jw.entries.filter(func(e: Dictionary) -> bool: return e.kind == "job").map(
-		func(e: Dictionary) -> int: return int(e.job_id))
-	var unique := {}
-	for id: int in job_ids:
-		unique[id] = true
-	_check(unique.size() == job_ids.size(), "page 1 lists each job once")
-	if want_job < 0:
-		var job_before := run.world.progression.job_id
-		var equipment_before := run.world.equipment.duplicate(true)
-		if not jw.any_available():
-			_check(not jw.entries.is_empty() and jw.entries.all(func(e: Dictionary) -> bool:
-				return (e.kind == "job" and not e.available and not String(e.reason).is_empty()
-					and e.reason == run.world.jobs.job(int(e.job_id)).reason)),
-				"unavailable jobs show their configured reason")
-			_check(jw._bt_ok.is_visible_in_tree() and not jw.body.is_empty(), "the unavailable notice shows OK")
-			await _shot(shot_prefix + "_unavailable")
-			await _click(jw._bt_ok)
-		else:
-			var decline := -1
-			for i in jw.entries.size():
-				if jw.entries[i].kind == "decline" and jw.entries[i].available:
-					decline = i
-			if not _expect(decline >= 0, "the job window offers Not now."):
-				return {}
-			await _shot(shot_prefix + "_not_now")
-			await _key((KEY_1 + decline) as Key)
-		if not await _until(func() -> bool: return run.world.state != RunWorld.CHOOSING_JOB,
-				3.0, "job declined through the window"):
-			return {}
-		_check(run.world.progression.job_id == job_before and run.world.equipment == equipment_before,
-			"declining keeps the job and equipment")
-		return {"entries": texts, "declined": true}
-	var idx := -1
-	for i in jw.entries.size():
-		if jw.entries[i].kind == "job" and int(jw.entries[i].job_id) == want_job and jw.entries[i].available:
-			idx = i
-	if idx < 0:
-		_fail("job %d is missing from %s" % [want_job, texts])
-		return {}
-	var paths: Array = jw.entries[idx].paths.duplicate(true)
-	var equipment_before := run.world.equipment.duplicate(true)
-	await _shot(shot_prefix + "_job_window")
-	await _key((KEY_1 + idx) as Key)
-	var families: Array = []
-	var chosen := ""
-	if paths.size() >= 2:
-		_check(jw.state == "weapon", "a multi-family job opens the weapon page")
-		families = jw.entries.filter(func(e: Dictionary) -> bool: return e.kind == "path").map(
-			func(e: Dictionary) -> String: return String(e.path))
-		_check(families == paths.map(func(p: Dictionary) -> String: return String(p.id)), "weapon page preserves offered order")
-		chosen = String(paths[0].id) if want_path == "" else want_path
-		var path_idx := families.find(chosen)
-		if path_idx < 0:
-			_fail("weapon page does not offer " + chosen)
-			return {}
-		await _shot(shot_prefix + "_weapon_page")
-		await _click_at(jw.get_global_rect().position + jw.entry_rect(path_idx).get_center())
-	else:
-		_check(jw.state == "confirm", "a zero/one-family job skips the weapon page")
-	_check(jw.state == "confirm" and jw.picked_path == chosen, "confirmation records the chosen family")
-	_check(jw.npc_id == JobAdvanceWindow.INSTRUCTORS[JobAdvanceWindow.branch_of(want_job)], "chosen instructor confirms")
-	await _shot(shot_prefix + "_job_confirm", 0.1)
-	await _key(KEY_ENTER)
-	_check(run.world.progression.job_id == want_job, "job confirmed by injected input")
-	if not paths.is_empty():
-		var grant: Dictionary = paths[0]
-		for path: Dictionary in paths:
-			if String(path.id) == chosen:
-				grant = path
-		var before_ids: Array = []
-		for item: Dictionary in equipment_before.worn.values() + equipment_before.inventory:
-			before_ids.append(int(item.id))
-		before_ids.append(int(grant.item_id))
-		var after_ids: Array = []
-		for item: Dictionary in run.world.equipment.worn.values() + run.world.equipment.inventory:
-			after_ids.append(int(item.id))
-		before_ids.sort()
-		after_ids.sort()
-		_check(after_ids == before_ids, "only the chosen weapon was added; displaced equipment retained")
-		_check(run.world.weapon_id() == int(grant.item_id), "chosen weapon is worn")
-		if paths.size() >= 2:
-			_check(run.world.weapon_path == chosen, "chosen family is recorded on the character")
-	return {"entries": texts, "paths": families, "path": chosen}
-
-
-## The Warrior second job end to end (spec #165 QA #185): Lv10 and then Lv30 through the real job windows, the branch
-## (`--job=110|120|130`, default 120) and one chosen advancement weapon, a real Final Attack / Booster / Mastery card
-## from the advancement draw, the Skill window (the unheld family greyed), Save & quit and Continue. Debug setup: the
-## character is invulnerable (RunWorld.god, the climb takes minutes of EXP drops), every branch skill is learned through
-## its card after the draw (for the Skill window shots), and the round boundary is saved by hand (no multi-minute warp).
-func _scenario_warrior2() -> void:
-	var branch := int(args.get("job", "120"))
-	var key_lists := {
-		110: ["sword_mastery_fighter", "axe_mastery", "final_attack_sword_fighter", "final_attack_axe",
-			"sword_booster_fighter", "axe_booster", "rage", "power_guard_fighter"],
-		120: ["sword_mastery_page", "bw_mastery", "final_attack_sword_page", "final_attack_bw",
-			"sword_booster_page", "bw_booster", "threaten", "power_guard_page"],
-		130: ["spear_mastery", "polearm_mastery", "final_attack_spear", "final_attack_polearm",
-			"spear_booster", "polearm_booster", "iron_will", "hyper_body"],
-	}
-	if not key_lists.has(branch):
-		_fail("--job must be 110, 120 or 130")
-		return
-	var branch_keys: Array = key_lists[branch]
-	var tag := "warrior2_%d" % branch
-	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
-		return
-	await _sleep(2.0)
-	await _key(KEY_ENTER)
-	if not await _create_character("Warrior185"):
-		return
-	await _sleep(1.0)
-	await _start_selected(flow.current)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
-		return
-	var run := flow.current as RunScene
-	await _sleep(2.0)
-	var w := run.world
-	w.god = true
-	var spawned_level := 0
-	var spawned_at := -100.0
-	var seen := {100: false, branch: false}
-	var drawn_shot := false
-	var learned_at_draw: Array = []
-	for guard in 4000:
-		if run.window is JobAdvanceWindow and (run.window as MapleWindow).is_open():
-			await _sleep(0.6)
-			var want := 100 if w.progression.job_id == 0 else branch
-			seen[want] = true
-			var family := "sword" if want == 100 else "axe" if branch == 110 else "blunt" if branch == 120 else "polearm"
-			if (await _choose_job_ui(run, want, family, "%s_lv%d" % [tag, w.progression.level])).is_empty():
-				return
-			await _sleep(0.9)
-		elif run.window is LevelUpWindow and (run.window as MapleWindow).is_open():
-			await _sleep(0.5)
-			if is_instance_valid(run.window) and run.window is LevelUpWindow:
-				var lw := run.window as LevelUpWindow
-				var pick := _card_index(run, lw.cards)
-				if seen[branch] and not drawn_shot:
-					drawn_shot = true
-					learned_at_draw = lw.cards.map(func(c: Dictionary) -> String: return String(c.get("id", "")))
-					await _shot("%s_advancement_draw" % tag)
-				await _key((KEY_1 + pick) as Key)
-				await _sleep(0.4)
-		elif seen[branch] and run.window == null and w.state == RunWorld.PLAYING:
-			break
-		elif w.state == RunWorld.PLAYING and run.window == null and w.progression.level < 30 \
-				and (w.progression.level != spawned_level or w.time - spawned_at > 3.0):
-			spawned_level = w.progression.level
-			spawned_at = w.time
-			w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
-		await _sleep(0.25)
-	_check(seen[100] and seen[branch] and w.progression.job_id == branch,
-		"the real job windows made the character job %d (is %d)" % [branch, w.progression.job_id])
-	_check(w.progression.level >= 30, "at Lv 30 or more (%d)" % w.progression.level)
-	_check(not learned_at_draw.is_empty() and learned_at_draw.any(func(id: String) -> bool:
-		return branch_keys.any(func(k: String) -> bool: return id.begins_with(k))),
-		"the advancement draw offered a %d skill (%s)" % [branch, learned_at_draw])
-	var learned_real: Array = branch_keys.filter(func(k: String) -> bool: return w.loadout.has(k))
-	_check(not learned_real.is_empty(), "the draw taught a branch skill (%s)" % [learned_real])
-	# Only the chosen Lv30 family is granted; the Lv10 sword is displaced into Equip.
-	var paths := w.jobs.paths_of(branch)
-	var chosen_path := "axe" if branch == 110 else "blunt" if branch == 120 else "polearm"
-	var grant_ids: Array = paths.map(func(p: Dictionary) -> int: return int(p.item_id))
-	var inventory_ids: Array = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
-	var unchosen: Array = grant_ids.filter(func(id: int) -> bool: return id != w.weapon_id())
-	_check(w.weapon_path == chosen_path and w.weapon_id() in grant_ids, "chosen Lv30 family and weapon")
-	_check(unchosen.size() == 1 and unchosen[0] not in inventory_ids, "unchosen Lv30 weapon was not granted")
-	_check(1302077 in inventory_ids, "the first-job sword the grant displaced is in the Equip tab")
-	_check(w.player_state.max_hp > 0 and w.state == RunWorld.PLAYING, "playing as a Lv%d" % w.progression.level)
-	var worn0 := w.weapon_id()
-	# A few seconds of real play with the bot's steering.
-	var kills0 := w.kills
-	_steer = true
-	await _until(func() -> bool: return w.kills > kills0 + 3, 40.0, "the second-job Warrior kills something")
-	await _sleep(1.0)
-	_steer = false
-	_release_all()
-	await _shot("%s_playing" % tag)
-	_check(w.kills > kills0, "killed %d in this stretch" % (w.kills - kills0))
-	# Debug setup: learn the whole branch book, then show the Skill window (the other family's skills are greyed).
-	for k: String in branch_keys:
-		if not w.loadout.has(k):
-			w.upgrades.apply("%s_new" % k, w)
-	await _sleep(0.3)
-	await _key(KEY_K)
-	if not await _until(func() -> bool: return run.ui_windows.find_window("skill") != null, 3.0, "Skill window (K)"):
-		return
-	var sw := run.ui_windows.find_window("skill") as SkillWindow
-	await _sleep(0.6)
-	var held_family := w.held_weapon_family()
-	var shown: Array = sw.rows().map(func(r: Dictionary) -> String: return String(r.get("key", "")))
-	_check(shown.size() >= 8, "the job's tab lists its skills (%s)" % [shown])
-	var grey_key := ""
-	for k: String in branch_keys.slice(0, 6):
-		if not w.book.usable_with(k, held_family):
-			grey_key = k
-	_check(grey_key != "", "a skill of the unheld family is not usable with the held %s (%s)" % [held_family, grey_key])
-	await _shot("%s_skill_window_top" % tag)
-	var origin := sw.get_global_rect().position
-	for i in maxi(0, shown.size() - SkillWindow.VISIBLE_ROWS):
-		await _wheel(origin + sw.row_rect(1).get_center(), true)
-	await _sleep(0.4)
-	await _shot("%s_skill_window_bottom" % tag)
-	var grey_row := shown.find(grey_key)
-	if grey_row >= 0:
-		if grey_row < sw.scroll:
-			sw.scroll = grey_row
-		elif grey_row >= sw.scroll + SkillWindow.VISIBLE_ROWS:
-			sw.scroll = grey_row - SkillWindow.VISIBLE_ROWS + 1
-		await _sleep(0.2)
-		_hover(origin + sw.row_rect(grey_row - sw.scroll).get_center())
-		await _sleep(0.4)
-		var tip := sw.tooltip()
-		_check(String(tip.get("key", "")) == grey_key and not bool(tip.get("usable", true)),
-			"the tooltip says %s is not usable with the held weapon (%s)" % [grey_key, tip.get("needs", "")])
-		await _shot("%s_skill_greyed_tooltip" % tag)
-	await _key(KEY_ESCAPE)
-	await _sleep(0.6)
-	_collect_missing(run)
-	# The round boundary (debug shortcut for the warp-clear): the carried snapshot is saved at the Free Market.
-	var carried := run.world.character_snapshot()
-	var slot := flow.save.slot(flow.active_slot)
-	slot.character = carried
-	slot.phase = "free_market"
-	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the second-job Warrior was saved at the Free Market boundary")
-	var active := flow.active_slot
-	flow.continue_character(active)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
-		return
-	var hub := flow.current as FreeMarket
-	await _sleep(1.5)
-	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
-	_check(int(expected.job_id) == branch and int(expected.equipment.worn.weapon.id) == worn0,
-		"the hub holds the job %d Warrior with weapon %d" % [branch, worn0])
-	for k: String in branch_keys:
-		_check(expected.skills.has(k), "the hub's character knows %s" % k)
-	await _shot("%s_hub" % tag)
-	_collect_missing(hub)
-	await _key(KEY_ESCAPE)
-	await _sleep(0.6)
-	await _key(KEY_2)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
-		return
-	_reload_save()
-	await _sleep(1.0)
-	await _shot("%s_character_select" % tag)
-	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
-	for key: String in ["job_id", "level", "weapon_path", "equipment", "skills", "skill_order", "card_ranks", "mesos"]:
-		_check(saved.get(key) == expected.get(key), "the saved %s equal the hub's (%s)" % [key, str(saved.get(key)).left(60)])
-	await _click(flow.current.slot_buttons[active])
-	await _click(flow.current.select_button)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
-		return
-	var again := flow.current as FreeMarket
-	await _sleep(1.5)
-	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
-	for key: String in ["job_id", "level", "weapon_path", "equipment", "skills", "skill_order", "card_ranks", "mesos"]:
-		_check(restored.get(key) == expected.get(key), "Continue restored the %s" % key)
-	for k: String in learned_real:
-		_check(restored.skills.has(k), "Continue kept the learned %s" % k)
-	var spare_after: Array = restored.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
-	_check(unchosen[0] not in spare_after and int(restored.equipment.worn.weapon.id) == worn0,
-		"Continue kept only the chosen advancement weapon %d" % worn0)
-	_check(again.inventory.held_weapon_family() == WeaponInfo.family(worn0), "and the held weapon family")
-	await _key(KEY_E)
-	await _sleep(0.5)
-	var aew := again.ui_windows.find_window("equip") as EquipWindow
-	_check(aew != null and aew.worn_id("weapon") == worn0, "the Equip window shows the restored weapon")
-	await _shot("%s_continue_restored" % tag)
-	_collect_missing(again)
-	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
-	var report := {"scenario": "warrior2", "branch": branch, "job_id": int(restored.job_id), "level": int(restored.level),
-		"weapon": worn0, "weapon_path": restored.weapon_path, "unchosen_weapon": unchosen[0], "learned_by_draw": learned_real, "kills": w.kills - kills0,
-		"missing": Array(_missing), "failed": _failed}
-	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
-	file.store_string(JSON.stringify(report, "\t"))
-	file.close()
-	print("flow_driver: warrior2 scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
-	await _sleep(0.5)
-	get_tree().quit(1 if _failed else 0)
-
-
-func _scenario_skill_weapon() -> void:
-	if not await _enter_round("SkillGate"):
-		return
-	var run := flow.current as RunScene
-	await _sleep(3.0)
-	var w := run.world
-	w.change_job(200)
-	for id: String in ["energy_bolt_new", "magic_claw_new"]:
-		w.upgrades.apply(id, w)
-	w.book.defs.magic_claw["weapon_families"] = ["claw"]
-	await _sleep(0.5)
-	_check(not w.book.usable_with("magic_claw", w.held_weapon_family()),
-		"the held '%s' cannot use the claw-only Magic Claw" % [w.held_weapon_family()])
-	await _key(KEY_K)
-	if not await _until(func() -> bool: return run.ui_windows.find_window("skill") != null, 3.0, "Skill window (K)"):
-		return
-	var sw := run.ui_windows.find_window("skill") as SkillWindow
-	await _sleep(0.5)
-	await _shot("skill_weapon_greyed")
-	var origin := sw.get_global_rect().position
-	var claw := -1
-	for i in sw.rows().size():
-		if String(sw.rows()[i].get("key", "")) == "magic_claw":
-			claw = i
-	_check(claw >= 0, "Magic Claw is listed")
-	for i in maxi(0, claw - SkillWindow.VISIBLE_ROWS + 1):
-		await _wheel(origin + sw.row_rect(1).get_center(), true)
-	_hover(origin + sw.row_rect(claw - sw.scroll).get_center())
-	await _sleep(0.4)
-	var tip := sw.tooltip()
-	_check(String(tip.get("key", "")) == "magic_claw" and String(tip.get("needs", "")) == "Claw" \
-		and not bool(tip.get("usable", true)), "the tooltip names the Claw and says it is not usable (%s)" % [tip.get("needs", "")])
-	await _shot("skill_weapon_tooltip")
-	await _key(KEY_ESCAPE)
-	print("flow_driver: skill_weapon scenario %s" % ("FAILED" if _failed else "passed"))
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
 
@@ -2669,7 +1894,7 @@ func _scenario_inventory() -> void:
 	if not await _create_character("Inv108"):
 		return
 	# The slot's character becomes the Lv38 F/P fixture carrying the evidence items (tests grant equipment directly).
-	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
 		_fail("the Lv38 F/P fixture did not load")
 		return
@@ -2677,14 +1902,17 @@ func _scenario_inventory() -> void:
 	var slot := flow.save.slot(flow.active_slot)
 	var character: Dictionary = fixture
 	character.erase("_doc")
-	for id: int in [1002001, 1050018, 1082002, 1050049]:
+	for id: int in [1002001, 1050018, 1082002, 1092000]:
 		var img := lib.img(AvatarRenderer.part_img_path(id))
 		character.equipment.inventory.append(Equipment.create(id, img.root.get("info", {}) if img != null else {}))
 	character.mesos = 123456
 	character.scrolls = {"2040000": 2, "2043700": 1}
 	slot.character = character
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the fixture character was saved into the slot")
-	await _sleep(1.0)
+	if not await _reopen_hub():
+		return
+	if not await _open_map_select():
+		return
 	await _start_selected(flow.current)
 	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
 		return
@@ -2718,7 +1946,7 @@ func _scenario_inventory() -> void:
 	await _shot("item_windows")
 	var io := iw.get_global_rect().position
 	var eo := ew.get_global_rect().position
-	# Tooltips: the robe (wearable) and the Dark Calas (level, INT and LUK unmet, in red).
+	# Tooltips: the robe (wearable) and a Warrior shield (the job row only; no level or stat rows, ADR 0006).
 	_hover(io + iw.slot_rect(1).get_center())
 	await _sleep(0.4)
 	_check(String(iw.tooltip().get("name", "")) == "Blue Sauna Robe" and bool(iw.tooltip().get("can_equip", false)),
@@ -2726,12 +1954,12 @@ func _scenario_inventory() -> void:
 	await _shot("item_tooltip")
 	_hover(io + iw.slot_rect(3).get_center())
 	await _sleep(0.4)
-	_check(String(iw.tooltip().get("name", "")) == "Dark Calas" and not bool(iw.tooltip().get("can_equip", true)),
-		"the Calas's tooltip marks its unmet requirements")
+	_check(not bool(iw.tooltip().get("can_equip", true)) and not iw.tooltip().has("reqs"),
+		"the Warrior shield's tooltip marks the job it cannot be worn by, with no level or stat rows")
 	await _shot("item_tooltip_unmet")
 	await _double_click_at(io + iw.slot_rect(3).get_center())
 	await _sleep(0.3)
-	_check(iw.cells().size() == 4 and not run.world.equipment.worn.has("overall"), "the refused Calas stays put")
+	_check(iw.cells().size() == 4 and not run.world.equipment.worn.has("overall"), "the refused Warrior shield stays put")
 	await _shot("equip_refused")
 	# Wear the hat (double-click), the robe (drag onto the Equip window) and the gloves (double-click). The robe
 	# displaces the top (into its slot) and the bottom (appended): [top, gloves, calas, bottom].
@@ -2744,7 +1972,7 @@ func _scenario_inventory() -> void:
 	await _double_click_at(io + iw.slot_rect(1).get_center())
 	await _sleep(0.3)
 	_check(ew.worn_id("gloves") == 1082002, "Work Gloves worn by double-click")
-	_check(iw.cells().size() == 3, "the top and bottom took the worn items' places, the Calas stays (%d)"
+	_check(iw.cells().size() == 3, "the top and bottom took the worn items' places, the shield stays (%d)"
 		% iw.cells().size())
 	_hover(eo + ew.slot_rect("top").get_center())
 	await _sleep(0.4)
@@ -2752,7 +1980,7 @@ func _scenario_inventory() -> void:
 	# Drag the Calas out: the YesNo box; No keeps it.
 	var calas := -1
 	for i in iw.cells().size():
-		if int(iw.cells()[i].id) == 1050049:
+		if int(iw.cells()[i].id) == 1092000:
 			calas = i
 	await _drag(io + iw.slot_rect(calas).get_center(), Vector2(get_viewport().get_visible_rect().size.x - 60.0, 120.0))
 	await _sleep(0.4)
@@ -2762,7 +1990,7 @@ func _scenario_inventory() -> void:
 	if confirm != null:
 		await _click(confirm._bt_no)
 		await _sleep(0.3)
-	_check(iw.cells().size() == 3, "No kept the Calas")
+	_check(iw.cells().size() == 3, "No kept the shield")
 	await _click_at(io + iw.tab_rect(1).get_center())
 	await _sleep(0.3)
 	_check(iw.tab == 1 and iw.cells() == [{"kind": "scroll", "id": 2040000, "count": 2},
@@ -2787,10 +2015,8 @@ func _scenario_inventory() -> void:
 	var carried := run.world.character_snapshot()
 	slot = flow.save.slot(flow.active_slot)
 	slot.character = carried
-	slot.phase = "free_market"
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the dressed character was saved at the hub")
-	flow.continue_character(flow.active_slot)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+	if not await _reopen_hub():
 		return
 	var hub := flow.current as FreeMarket
 	await _sleep(1.5)
@@ -2840,7 +2066,7 @@ func _scenario_scrolls() -> void:
 	await _key(KEY_ENTER)
 	if not await _create_character("Scroll110"):
 		return
-	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
 		_fail("the Lv38 F/P fixture did not load")
 		return
@@ -2853,7 +2079,10 @@ func _scenario_scrolls() -> void:
 	character.scrolls = {"2043700": 3, "2043702": 6, "2043705": 30, "2040000": 2}
 	slot.character = character
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the fixture character was saved into the slot")
-	await _sleep(1.0)
+	if not await _reopen_hub():
+		return
+	if not await _open_map_select():
+		return
 	await _start_selected(flow.current)
 	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
 		return
@@ -2938,10 +2167,8 @@ func _scenario_scrolls() -> void:
 	var carried := world.character_snapshot()
 	slot = flow.save.slot(flow.active_slot)
 	slot.character = carried
-	slot.phase = "free_market"
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the character was saved at the hub")
-	flow.continue_character(flow.active_slot)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+	if not await _reopen_hub():
 		return
 	var hub := flow.current as FreeMarket
 	await _sleep(1.5)
@@ -2979,7 +2206,7 @@ func _scenario_shops() -> void:
 	await _key(KEY_ENTER)
 	if not await _create_character("Shop111"):
 		return
-	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
 		_fail("the Lv38 F/P fixture did not load")
 		return
@@ -2993,10 +2220,8 @@ func _scenario_shops() -> void:
 		var img := lib.img(AvatarRenderer.part_img_path(id))
 		character.equipment.inventory.append(Equipment.create(id, img.root.get("info", {}) if img != null else {}))
 	slot.character = character
-	slot.phase = "free_market"
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the character was saved at the hub")
-	flow.continue_character(flow.active_slot)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+	if not await _reopen_hub():
 		return
 	var hub := flow.current as FreeMarket
 	await _sleep(1.5)
@@ -3140,7 +2365,7 @@ func _scenario_botshop() -> void:
 	await _key(KEY_ENTER)
 	if not await _create_character("Bot112"):
 		return
-	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
 		_fail("the Lv38 F/P fixture did not load")
 		return
@@ -3153,10 +2378,8 @@ func _scenario_botshop() -> void:
 		var img := lib.img(AvatarRenderer.part_img_path(id))
 		character.equipment.inventory.append(Equipment.create(id, img.root.get("info", {}) if img != null else {}))
 	slot.character = character
-	slot.phase = "free_market"
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the character was saved at the hub")
-	flow.continue_character(flow.active_slot)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+	if not await _reopen_hub():
 		return
 	var hub := flow.current as FreeMarket
 	await _sleep(1.5)
@@ -3182,303 +2405,6 @@ func _scenario_botshop() -> void:
 	_collect_missing(hub)
 	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
 	print("flow_driver: botshop scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
-	await _sleep(0.5)
-	get_tree().quit(1 if _failed else 0)
-
-
-## The whole mesos / equipment / scrolls / shops loop of spec #33 (#113) with injected input. tier C: the drops the
-## character picks up are placed by the driver (a real kill drop is random), the round to the Free Market is the bot's
-## fixed-tick warp (`_warp_round`), and the hub is topped up to 150,000 mesos if the round earned less (printed).
-func _scenario_economy() -> void:
-	# tier C: training seed 1 (the fixture is a seed-1 Henesys clear); --seed overrides it.
-	if not args.has("seed"):
-		args["seed"] = "1"
-	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
-		return
-	await _sleep(2.0)
-	await _key(KEY_ENTER)
-	if not await _create_character("Loop113"):
-		return
-	# tier C (#232): first verify the actual job/weapon pages, then restore the historical economy fixture.
-	await _sleep(1.0)
-	await _start_selected(flow.current)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "economy weapon-page probe"):
-		return
-	(flow.current as RunScene).world.god = true
-	if (await _climb_job_windows(flow.current as RunScene, 10, 100, "sword", "economy_lv10")).is_empty():
-		return
-	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
-	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
-		_fail("the Lv38 F/P fixture did not load")
-		return
-	var lib := AssetLibrary.get_default()
-	var slot := flow.save.slot(flow.active_slot)
-	var character: Dictionary = fixture
-	character.erase("_doc")
-	slot.character = character
-	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the Lv38 F/P fixture was saved into the slot")
-	await _sleep(1.0)
-	flow.continue_character(flow.active_slot)
-	if not await _until(func() -> bool: return flow.current_name == "run" and (flow.current as RunScene).world != null \
-			and (flow.current as RunScene).world.progression.job_id == 210, 10.0, "economy fixture round"):
-		return
-	var run := flow.current as RunScene
-	var w := run.world
-	await _sleep(2.0)
-	# 1. Drops on the ground, then picked up by walking: four meso sprites and two items.
-	var mesos0 := w.mesos
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 113
-	var origin := w.player.pos
-	var ground_x := origin.x - 430.0 # open ground left of the hut below the spawn platform (as the drop driver)
-	var ground_y := w.fhm.y_at(w.fhm.find_below(ground_x, origin.y), ground_x)
-	w.player.place(Vector2(ground_x, ground_y), w.fhm)
-	w.update_view()
-	var meso_total := 0
-	for i in 4:
-		var amount: int = [30, 75, 400, 2500][i] # bronze, gold, bundle, bag
-		meso_total += amount
-		w.spawn_meso(Vector2(ground_x + 130.0 + 32.0 * i, ground_y - 30.0), amount)
-	var drop_ids := [1002001, 1050049] # Metal Gear (wearable) and a Dark Calas (not: kept to be sold)
-	for i in drop_ids.size():
-		var id: int = drop_ids[i]
-		var img := lib.img(AvatarRenderer.part_img_path(id))
-		w.spawn_equipment(Vector2(ground_x + 260.0 + 36.0 * i, ground_y - 30.0),
-			Equipment.create_drop(id, img.root.get("info", {}) if img != null else {}, rng))
-	await _sleep(1.2)
-	await _shot("economy_drops_on_the_ground")
-	var inventory0: int = w.equipment.inventory.size()
-	var t0 := Time.get_ticks_msec()
-	while w.equips_collected < 2 or w.mesos < mesos0 + meso_total:
-		if Time.get_ticks_msec() - t0 > 40000:
-			_release_all()
-			_fail("the character did not pick up the drops (equips %d, mesos %d / %d)" % [w.equips_collected, w.mesos,
-				mesos0 + meso_total])
-			return
-		_set_key("right", true)
-		if w.equips_collected >= 1 and not _memo.has("notice_shot"):
-			_memo["notice_shot"] = true
-			await _shot("economy_pickup_notices")
-		await get_tree().process_frame
-	_release_all()
-	_check(w.equipment.worn.has("hat") and int(w.equipment.worn.hat.id) == 1002001,
-		"Metal Gear auto-equipped on pickup")
-	_check(w.equipment.inventory.size() == inventory0 + 1, "only the unwearable drop went into the Equip tab")
-	await _sleep(0.6)
-	await _shot("economy_picked_up")
-	# 2. The worn drop's Equip tooltip and the unwearable Calas's Item tooltip (red requirements).
-	await _key(KEY_E)
-	await _key(KEY_I)
-	if not await _until(func() -> bool: return run.ui_windows.find_window("item") != null, 3.0, "Item window (I)"):
-		return
-	var ew := run.ui_windows.find_window("equip") as EquipWindow
-	var iw := run.ui_windows.find_window("item") as ItemWindow
-	var io := iw.get_global_rect().position
-	var eo := ew.get_global_rect().position
-	_check(iw.meso_text() == InventoryModel.meso_text(w.mesos), "the Item window shows the carried mesos (%s)" % iw.meso_text())
-	var hat := -1
-	var calas := -1
-	for i in iw.cells().size():
-		match int(iw.cells()[i].id):
-			1002001:
-				hat = i
-			1050049:
-				calas = i
-	_check(hat < 0 and calas >= 0 and ew.worn_id("hat") == 1002001,
-		"the hat is worn and only the Calas waits in the Item window's Equip tab")
-	# Bring Equip forward so Item cannot cover the worn item's tooltip.
-	await _click_at(eo + ew.slot_rect("hat").get_center())
-	await _sleep(0.4)
-	var hat_tip := ew.tooltip()
-	_check(String(hat_tip.get("name", "")) == "Metal Gear" and bool(hat_tip.get("can_equip", false)),
-		"the worn hat's tooltip is Metal Gear and wearable")
-	await _shot("economy_worn_hat_tooltip")
-	await _click_at(io + iw.slot_rect(calas).get_center())
-	await _sleep(0.4)
-	_check(not bool(iw.tooltip().get("can_equip", true)), "the Calas's tooltip shows unmet requirements")
-	await _shot("economy_tooltip_unmet")
-	_check(ew.worn_id("hat") == 1002001, "the picked-up Metal Gear stays worn for scrolling")
-	_hover(eo + ew.slot_rect("hat").get_center())
-	await _sleep(0.4)
-	await _shot("economy_equip_window_hat_worn")
-	await _key(KEY_ESCAPE)
-	await _key(KEY_ESCAPE)
-	await _sleep(0.5)
-	_check(not run.ui_windows.has_windows(), "Esc closed both windows")
-	var mesos_round := w.mesos
-	# 3. Stage the shop boundary; the old fixture no longer survives this warp. Not survival evidence.
-	w.god = true # tier C (#232): diagnostic boundary staging, with boss hits after the stage timer.
-	if not await _warp_round():
-		return
-	if not _expect(w.state == RunWorld.CLEARED, "the round was not cleared (%s)" % w.state_name()):
-		return
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after the clear"):
-		return
-	var boundary: Dictionary = flow.save.slot(flow.active_slot).character
-	_check(boundary.equipment.worn.has("hat") and int(boundary.equipment.worn.hat.id) == 1002001, "the hat is worn at the boundary")
-	_check(boundary.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == 1050049),
-		"the Calas is in the boundary inventory")
-	_check(int(boundary.mesos) >= mesos_round, "mesos carried to the hub (%d, was %d at the pickups)" % [int(boundary.mesos), mesos_round])
-	var hub := flow.current as FreeMarket
-	await _sleep(1.5)
-	# The player's own settings.cfg may have given Space to another action: put NPC Chat on its project default in
-	# the InputMap only, so the evidence run does not depend on the developer's keys.
-	InputMap.action_erase_events("npc_chat")
-	for code in GameSettings.default_keys("npc_chat"):
-		var ev := InputEventKey.new()
-		ev.physical_keycode = code as Key
-		InputMap.action_add_event("npc_chat", ev)
-	if hub.inventory.mesos < 150000:
-		print("flow_driver: the round earned %d mesos; the hub is topped up to 150,000 for the shopping" % hub.inventory.mesos)
-		hub.inventory.mesos = 150000
-	# 4. Walk to the NPCs (the four are shown on the way), Space opens El Moth's shop.
-	if not await _walk_hub_to(hub, -100.0):
-		return
-	await _sleep(0.6)
-	_check(hub.shop_npcs.map(func(n: Dictionary) -> int: return int(n.id)) == [1032103, 2022002, 1052104, 2041016],
-		"the four scroll NPCs stand in the Free Market")
-	await _shot("economy_scroll_npcs")
-	if not await _walk_hub_to(hub, -350.0):
-		return
-	await _key(KEY_SPACE)
-	await _sleep(0.6)
-	var shop := hub.ui_windows.find_window("shop") as ShopWindow
-	if shop == null or shop.npc_id != 1032103:
-		_fail("Space next to El Moth did not open his shop")
-		return
-	await _shot("economy_shop_open")
-	# 5. Buy a 100% hat INT scroll, sell the spare Calas.
-	var mesos_hub := hub.inventory.mesos
-	if not await _buy_at_shop(hub, shop, 2040024, 1, "economy_shop_buying"):
-		return
-	_check(int(hub.inventory.scrolls.get("2040024", 0)) == 1 and hub.inventory.mesos == mesos_hub - 35000,
-		"one 100%% hat scroll bought for 35,000 (mesos %d)" % hub.inventory.mesos)
-	_check(int(flow.save.slot(flow.active_slot).character.mesos) == hub.inventory.mesos, "the purchase was saved at once")
-	var origin_shop := shop.get_global_rect().position
-	await _click_at(origin_shop + shop.tab_rect(0).get_center())
-	await _sleep(0.3)
-	var sell_index := -1
-	for i in shop.sell_cells().size():
-		if int(shop.sell_cells()[i].id) == 1050049:
-			sell_index = i
-	_check(sell_index >= 0, "the Calas is listed in the shop's sell panel")
-	shop.scroll_panel(1, -999)
-	shop.scroll_panel(1, maxi(0, sell_index - ShopWindow.ROWS + 1))
-	await _click_at(origin_shop + shop.row_rect(1, sell_index - shop.sell_offset).get_center())
-	await _sleep(0.3)
-	var price := shop.row_price(shop.selected_sale())
-	var before_sale := hub.inventory.mesos
-	await _shot("economy_shop_sell_selected")
-	await _click(shop._bt_sell)
-	await _sleep(0.4)
-	_check(hub.ui_windows.find_window("drop_confirm") != null, "selling equipment asks first")
-	await _shot("economy_shop_selling")
-	await _key(KEY_ENTER)
-	await _sleep(0.5)
-	_check(price > 0 and hub.inventory.mesos == before_sale + price, "the Calas sold for %d" % price)
-	_check(not hub.inventory.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == 1050049), "and left the inventory")
-	await _shot("economy_shop_sold")
-	await _key(KEY_ESCAPE)
-	await _sleep(0.4)
-	# Tulcus: three 10% hat INT scrolls (a failure is the point of those).
-	if not await _walk_hub_to(hub, -165.0):
-		return
-	await _key(KEY_SPACE)
-	await _sleep(0.6)
-	var tulcus := hub.ui_windows.find_window("shop") as ShopWindow
-	if tulcus == null or tulcus.npc_id != 1052104:
-		_fail("Space next to Tulcus did not open his shop")
-		return
-	if not await _buy_at_shop(hub, tulcus, 2040026, 3, "economy_shop_tulcus"):
-		return
-	_check(int(hub.inventory.scrolls.get("2040026", 0)) == 3, "three 10% hat scrolls bought")
-	await _key(KEY_ESCAPE)
-	await _sleep(0.4)
-	# 6. Read them on the worn hat from the Equip window: a success (100%), then 10% scrolls until one fails.
-	await _key(KEY_E)
-	await _key(KEY_I)
-	await _sleep(0.4)
-	var hew := hub.ui_windows.find_window("equip") as EquipWindow
-	var hiw := hub.ui_windows.find_window("item") as ItemWindow
-	if hew == null or hiw == null:
-		_fail("the hub's Equip and Item windows did not open")
-		return
-	var hio := hiw.get_global_rect().position
-	var heo := hew.get_global_rect().position
-	await _click_at(hio + hiw.tab_rect(1).get_center())
-	await _sleep(0.3)
-	var worn_hat: Dictionary = hub.inventory.equipment.worn.hat
-	var slots0 := int(worn_hat.slots)
-	var use_ids := hiw.cells().map(func(c: Dictionary) -> int: return int(c.id))
-	_check(2040024 in use_ids and 2040026 in use_ids, "the Use tab holds the two new scroll stacks (%s)" % [use_ids])
-	await _drag(hio + hiw.slot_rect(use_ids.find(2040024)).get_center(), heo + hew.slot_rect("hat").get_center())
-	worn_hat = hub.inventory.equipment.worn.hat
-	_check(int(worn_hat.scrolls) == 1 and int(worn_hat.slots) == slots0 - 1, "the 100% scroll succeeded: +1, one slot spent")
-	_check(hub.enchant.renderer.active_count() == 1, "the Enchant effect plays over the character")
-	await _shot("economy_scroll_success")
-	_hover(heo + hew.slot_rect("hat").get_center())
-	await _sleep(0.5)
-	await _shot("economy_scrolled_tooltip")
-	var failed := false
-	for attempt in 3:
-		var before_count := int(hub.inventory.equipment.worn.hat.scrolls)
-		var cells := hiw.cells().map(func(c: Dictionary) -> int: return int(c.id))
-		await _drag(hio + hiw.slot_rect(cells.find(2040026)).get_center(), heo + hew.slot_rect("hat").get_center())
-		var plain_failed: bool = int(hub.inventory.equipment.worn.hat.scrolls) == before_count
-		print("flow_driver: 10%% hat scroll %d: %s" % [attempt + 1, "failure" if plain_failed else "success"])
-		if plain_failed:
-			failed = true
-			await _shot("economy_scroll_failure")
-			break
-		await _sleep(1.2)
-	_check(failed, "a 10 percent scroll failed within three tries")
-	await _sleep(1.5)
-	await _key(KEY_ESCAPE)
-	await _key(KEY_ESCAPE)
-	await _sleep(0.5)
-	await _shot("economy_character_scrolled")
-	# 7. Save & quit, then Continue: mesos, worn equipment, inventory and scrolls come back from the saved snapshot.
-	var active := flow.active_slot
-	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
-	_collect_missing(hub)
-	await _key(KEY_ESCAPE)
-	await _sleep(0.6) # the pause menu ignores input while it opens
-	await _shot("economy_save_and_quit")
-	await _key(KEY_2)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
-		return
-	_reload_save()
-	await _sleep(1.0)
-	await _shot("economy_character_select")
-	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
-	for key: String in ["mesos", "equipment", "scrolls"]:
-		_check(saved.get(key) == expected.get(key), "the saved %s equal the hub's (%s)" % [key, str(saved.get(key)).left(80)])
-	await _click(flow.current.slot_buttons[active])
-	await _click(flow.current.select_button)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
-		return
-	var again := flow.current as FreeMarket
-	await _sleep(1.5)
-	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
-	for key: String in ["mesos", "equipment", "scrolls"]:
-		_check(restored.get(key) == expected.get(key), "Continue restored the %s" % key)
-	await _key(KEY_E)
-	await _key(KEY_I)
-	await _sleep(0.5)
-	var aew := again.ui_windows.find_window("equip") as EquipWindow
-	var aiw := again.ui_windows.find_window("item") as ItemWindow
-	_check(aew != null and aew.worn_id("hat") == 1002001, "the Equip window shows the restored hat")
-	_check(aiw != null and aiw.meso_text() == InventoryModel.meso_text(int(expected.mesos)),
-		"the Item window shows the restored mesos (%s)" % [aiw.meso_text() if aiw != null else ""])
-	await _shot("economy_continue_restored")
-	_collect_missing(again)
-	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
-	var report := {"scenario": "economy", "mesos_picked_up": meso_total, "mesos_at_clear": int(boundary.mesos),
-		"hat_scrolls": int(expected.equipment.worn.hat.scrolls), "mesos_final": int(expected.mesos),
-		"missing": Array(_missing), "failed": _failed}
-	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
-	file.store_string(JSON.stringify(report, "\t"))
-	print("flow_driver: economy scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
 
@@ -3587,6 +2513,48 @@ func _check(ok: bool, what: String) -> void:
 		push_error("flow_driver: " + what)
 
 
+## Creates one character per job (`--jobs=<id,id>`, at most the three save slots; default every playable job, which fails when more than three ship) through the real creation screens, looking at the
+## Job page each time, then checks each slot holds its job with its creation weapon and nothing cleared.
+func _scenario_creation() -> void:
+	var data := DataRepo.load_all()
+	var tree := JobTree.from_data(data.jobs, data.jobs_survivor)
+	var jobs: Array[int] = []
+	if args.has("jobs"):
+		for part: String in String(args.jobs).split(","):
+			jobs.append(JobTree.parse_job(part))
+	else:
+		jobs = tree.playable_jobs()
+	if not _expect(not jobs.is_empty() and not (-1 in jobs), "--jobs=%s names no job" % String(args.get("jobs", ""))):
+		return
+	if not _expect(jobs.size() <= SaveData.SLOT_COUNT, "creation makes one character per job in its own slot: %d jobs do not fit %d slots; pass --jobs=<id,id> with at most %d" \
+			% [jobs.size(), SaveData.SLOT_COUNT, SaveData.SLOT_COUNT]):
+		return
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	for i in jobs.size():
+		var job: int = jobs[i]
+		if not await _create_character("Create%d" % (3050 + job), job, "job_%d" % job):
+			return
+		var character: Dictionary = flow.save.slot(i).character
+		if not _expect(int(character.job_id) == job and character.cleared_regions == []
+				and int(character.equipment.worn.weapon.id) == tree.creation_weapon(job),
+				"slot %d holds a %s with its creation weapon %d" % [i, tree.name_of(job), tree.creation_weapon(job)]):
+			return
+		await _sleep(1.0)
+		await _shot("job_%d_free_market" % job)
+		await _save_and_quit_ui()
+		if _failed:
+			return
+	await _shot("creation_character_select")
+	_collect_missing(flow.current)
+	if not _expect(_missing.is_empty(), "missing assets: %s" % [_missing]):
+		return
+	print("flow_driver: creation PASSED ", jobs)
+	get_tree().quit()
+
+
 func _scenario_title() -> void:
 	if not await _until(func() -> bool: return flow.current_name == "title", 30.0, "title"):
 		return
@@ -3647,7 +2615,6 @@ func _steer_run() -> void:
 	_set_key("down", mi.down)
 	_set_key("jump", mi.jump_pressed)
 	_set_key("drink_hp", mi.drink_hp)
-	_set_key("drink_mp", mi.drink_mp)
 
 
 func _set_key(action: String, down: bool) -> void:
@@ -3827,7 +2794,7 @@ func _shot(step: String, settle_seconds := 0.35) -> void:
 	RenderingServer.force_draw()
 	_collect_missing(flow.current)
 	_n += 1
-	var path := shots_dir.path_join("%02d_%s.png" % [_n, step])
+	var path := shots_dir.path_join("%02d_%s%s.png" % [_n, _shot_prefix, step])
 	var img := get_viewport().get_texture().get_image()
 	var err := img.save_png(path) if img != null else ERR_CANT_CREATE
 	print("flow_driver: shot %s %s err=%d" % [path.get_file(), img.get_size() if img != null else Vector2i.ZERO, err])

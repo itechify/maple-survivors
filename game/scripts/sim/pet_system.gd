@@ -12,7 +12,8 @@ extends RefCounted
 ##
 ## Abilities (`abilities`, from the account's owned pet upgrades; the base pet always collects every drop kind in
 ## `pickup_radius` of itself, as Item Pouch and Meso Magnet do):
-##   auto_hp / auto_mp (1812002/1812003)  drink the character's potion below the ALERT level, when its shared cooldown is ready
+##   auto_hp (1812002)     drink the character's HP potion below the HP ALERT level, when its shared cooldown is ready
+##                         (there is no MP and no Auto MP Potion Pouch, ADR 0006)
 ##   wing_boots (1812004)  run to the nearest resting drop within `leash` px of the player, then come back
 ##   binocular (1812005)   `pickup_radius` x `binocular_mult`
 ##   vac (9990000, survivor-only)  every drop on the map flies to the pet (PickupSystem does the flying)
@@ -20,18 +21,17 @@ extends RefCounted
 ## `tuning`, there are no defaults here), listed in docs/GAME_DESIGN.md.
 
 const UPGRADE_AUTO_HP := 1812002  # tier A: v83 Auto HP Potion Pouch item id
-const UPGRADE_AUTO_MP := 1812003  # tier A: v83 Auto MP Potion Pouch item id
 const UPGRADE_WING_BOOTS := 1812004  # tier A: v83 Wing Boots item id
 const UPGRADE_BINOCULAR := 1812005  # tier A: v83 Binocular item id
 const UPGRADE_VAC := 9990000  # tier C: survivor-only item, id reserved by spec #34 (not a v83 item)
 ## Ability name -> the owned pet upgrade that grants it.
-const ABILITY_ITEMS := {"auto_hp": UPGRADE_AUTO_HP, "auto_mp": UPGRADE_AUTO_MP, "wing_boots": UPGRADE_WING_BOOTS,
+const ABILITY_ITEMS := {"auto_hp": UPGRADE_AUTO_HP, "wing_boots": UPGRADE_WING_BOOTS,
 	"binocular": UPGRADE_BINOCULAR, "vac": UPGRADE_VAC}
 
 ## Pet species item id (5000000...).
 var species := 0
-## {auto_hp, auto_mp, wing_boots, binocular, vac}: bool.
-var abilities := {"auto_hp": false, "auto_mp": false, "wing_boots": false, "binocular": false, "vac": false}
+## {auto_hp, wing_boots, binocular, vac}: bool.
+var abilities := {"auto_hp": false, "wing_boots": false, "binocular": false, "vac": false}
 ## The survivor "pet" block of cash_items.json, as floats.
 var tuning: Dictionary
 ## The pet's body, a PlayerMotion on the round's footholds (read pos, facing, vel; never written by outsiders).
@@ -41,7 +41,7 @@ var action := "stand"
 ## True while the pet is running to a drop (Wing Boots).
 var fetching := false
 ## Drinks so far, by kind; counted apart from the player's.
-var drinks := {"hp": 0, "mp": 0}
+var drinks := {"hp": 0}
 ## Drops it picked up so far (by the pet, incl. VAC).
 var pickups := 0
 
@@ -147,11 +147,11 @@ func step(dt: float, player: PlayerMotion, fhm: FootholdMap, bounds: Rect2, drop
 	action = _action_name()
 
 
-## Whether the pet should drink `kind` ("hp" / "mp") now, given the character's current and maximum value of it and the
+## Whether the pet should drink `kind` ("hp") now, given the character's current and maximum value of it and the
 ## ALERT level (fraction of max, 0 = off): it has the pouch, there is a maximum, the value is below the level and the
 ## shared cooldown is ready (tier C: spec #237).
 func should_drink(kind: String, current: float, maximum: int, alert_level: float, ready: bool) -> bool:
-	return bool(abilities["auto_" + kind]) and alert_level > 0.0 and maximum > 0 \
+	return bool(abilities.get("auto_" + kind, false)) and alert_level > 0.0 and maximum > 0 \
 		and current / float(maximum) < alert_level and ready
 
 
