@@ -173,6 +173,17 @@ func test_the_fixture_gear_is_wearable_by_a_shadower_at_the_tier_one_levels() ->
 				assert_eq(int(img.root.info.reqLevel), levels[id], "%d keeps the tier-1 reqLevel" % id)
 
 
+## SH14 #439: a tool round with `--job=422` and no `--character` wears the creation Razor, which no other starter list holds (it is not a
+## MakeCharInfo option or a drop), so the setup must load its canonical info or Double Stab has no reach and the round kills nothing.
+func test_the_setup_loads_the_creation_razor_of_every_playable_job() -> void:
+	var data := DataRepo.load_all()
+	var ids := DataRepo.starter_equipment_ids(data)
+	var jobs := DataRepo.jobs(data)
+	for job: int in jobs.playable_jobs():
+		assert_true(jobs.creation_weapon(job) in ids, "the creation weapon of %d is loaded" % job)
+	assert_true(1332005 in ids, "the Razor")
+
+
 func test_a_dagger_gives_no_ammo_so_the_fixture_round_needs_no_projectile_sprite() -> void:
 	var data := DataRepo.load_all()
 	assert_eq(Ammo.item_for(data.ammo, "dagger", 422, 1), 0, "a dagger throws nothing")
@@ -206,6 +217,11 @@ func test_a_shadower_record_carries_the_measurement_block_and_other_jobs_do_not(
 		for key: String in ["charge_mean", "charge_peak", "dark_sight_windows", "casts", "hits", "assassinate_crits", "zones", "negated_hits"]:
 			assert_true(block.has(key), "the block has %s: %s" % [key, block])
 		assert_true(float(block.charge_mean) >= 0.0 and int(block.charge_peak) <= 10)
+	var bare := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--seed=1", "--cap=60", "--job=422"]))
+	assert_eq(bare.status, 0, bare.text)
+	var bare_record := _record(bare.text)
+	if bare_record.has("shadower"):
+		assert_true(int(bare_record.shadower.casts.get("double_stab", 0)) > 0, "a bare Shadower (the Razor) casts Double Stab: %s" % bare_record.shadower)
 	var fp := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--seed=1", "--cap=5",
 		"--character=" + ProjectSettings.globalize_path(FP_FIXTURE)]))
 	assert_eq(fp.status, 0, fp.text)
