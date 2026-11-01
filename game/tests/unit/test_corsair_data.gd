@@ -61,7 +61,8 @@ func test_corsair_line_is_registered_after_the_shipped_classes() -> void:
 	var lines := Array(DataRepo.lines())
 	assert_true("corsair" in lines, "loaded from its files")
 	# Ruling D15: a shipped class line is appended to CLASS_LINES in redesign-merge order, so a later line never moves it.
-	assert_eq(Array(DataRepo.CLASS_LINES).back(), "corsair")
+	var registered := Array(DataRepo.CLASS_LINES)
+	assert_eq(registered.find("corsair"), registered.find("buccaneer") + 1, "corsair follows buccaneer in CLASS_LINES")
 	assert_eq(lines.find("corsair"), lines.find("buccaneer") + 1, "pinned right after the last earlier registration")
 	assert_true(lines.find("corsair") > lines.find("hero"), "a class line follows the Adventurer lines and hero")
 	assert_true(lines.find("corsair") > lines.find("pirate"))

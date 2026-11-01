@@ -68,7 +68,14 @@ var level := PackedInt32Array()
 var meter_receipts: Array[Dictionary] = []
 ## Whole damage per second of the burn a hit of this shot applies (0: none), snapshotted at launch from the cast (B5).
 var burn_pulse := PackedInt32Array()
+## Optional cast-time grant snapshots by projectile slot (slot -> Array of resolved StatusBonus grants); absent slots allocate
+## nothing. The list is the cast snapshot's own and is never written after the cast, so every shot of a cast shares it.
+var status_grants: Dictionary = {}
+## 1 for a shot an echo clone threw (EchoCast): its hits carry `echo` so they heal and earn nothing.
+var echo := PackedByteArray()
 const NO_RECEIPT := {}
+## The grant list of a shot without status grants (shared, never written).
+const NO_GRANTS: Array = []
 
 ## RunWorld.visual_paths (shared).
 var paths: Array = []
@@ -148,6 +155,10 @@ func spawn(spec: Dictionary) -> int:
 	hit_count[i] = 0
 	meter_receipts[i] = spec.get("meter_receipt", NO_RECEIPT)
 	burn_pulse[i] = int(spec.get("burn_pulse", 0))
+	status_grants.erase(i)
+	if not spec.get("status_grants", []).is_empty():
+		status_grants[i] = spec.status_grants
+	echo[i] = 1 if bool(spec.get("echo", false)) else 0
 	pierce_falloff[i] = maxf(0.0, float(spec.get("pierce_falloff", 0.0)))
 	blast_count[i] = 0
 	blast_visual[i] = ""
@@ -174,6 +185,7 @@ func spawn(spec: Dictionary) -> int:
 
 ## Removes shot i.
 func despawn(i: int) -> void:
+	status_grants.erase(i)
 	if i < 0 or i >= capacity() or active[i] == 0:
 		return
 	active[i] = 0
@@ -395,6 +407,10 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 			hit["meter_receipt"] = meter_receipts[i]
 		if burn_pulse[i] > 0:
 			hit["burn_pulse"] = burn_pulse[i]
+		if status_grants.has(i):
+			hit["status_grants"] = status_grants[i]
+		if echo[i] != 0:
+			hit["echo"] = true
 		on_hit.call(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
@@ -423,7 +439,7 @@ func _grow(n: int) -> void:
 	var old := capacity()
 	if n <= old:
 		return
-	for arr: Variant in [active, rotate, damage_kind]:
+	for arr: Variant in [active, rotate, damage_kind, echo]:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff]:
 		arr.resize(n)

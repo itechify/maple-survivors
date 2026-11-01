@@ -600,7 +600,7 @@ static func setup(stage := "henesys", p_seed := 12345, data: Dictionary = {}) ->
 ## The ammo items of survivor/ammo.json as setup.ammo_info carries them ({id: {incPAD}}): the v83 Item.wz values, written
 ## out so tests do not need the asset cache.
 static func ammo_info() -> Dictionary:
-	var pads := {2070015: 15, 2070001: 17, 2070002: 19, 2070003: 21, 2070004: 23, 2070005: 25,
+	var pads := {2070015: 15, 2070001: 17, 2070002: 19, 2070003: 21, 2070004: 23, 2070005: 25, 2070006: 27,
 		2060000: 0, 2060001: 1, 2060002: 2, 2060003: 4, 2061000: 0, 2061001: 1, 2061002: 2, 2061003: 4,
 		2330000: 10, 2330001: 12, 2330002: 14}
 	var out := {}

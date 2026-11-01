@@ -13,8 +13,8 @@ const BANDS := [
 	[70, 80], [80, 90], [90, 100], [100, 110], [108, 120],
 ]
 ## Job classes (one representative job id each) and the weapon families they list. The playable jobs' lists are checked
-## against jobs/*.json below; Marksman (322), the Thief line (412) and Corsair (522) are planned classes whose families
-## the line files already carry (spec #384 and later).
+## against jobs/*.json below; Marksman (322) is a planned class whose families the line files already carry. Night Lord (412) drops claws only
+## (daggers belong to Shadower, `jobs/night_lord.json` `_weapon_families`).
 const CLASSES := {
 	"Hero": {"job": 112, "families": ["sword", "axe"], "shield": true},
 	"Paladin": {"job": 122, "families": ["sword", "blunt"], "shield": true},
@@ -22,7 +22,7 @@ const CLASSES := {
 	"Arch Mage": {"job": 212, "families": ["wand", "staff"], "shield": false},
 	"Bowmaster": {"job": 312, "families": ["bow"], "shield": false},
 	"Marksman": {"job": 322, "families": ["crossbow"], "shield": false},
-	"Night Lord": {"job": 412, "families": ["claw", "dagger"], "shield": false},
+	"Night Lord": {"job": 412, "families": ["claw"], "shield": false},
 	"Buccaneer": {"job": 512, "families": ["knuckle"], "shield": false},
 	"Corsair": {"job": 522, "families": ["gun"], "shield": false},
 }

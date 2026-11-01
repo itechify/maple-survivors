@@ -743,6 +743,13 @@ func test_meter_catalog_schema() -> void:
 		assert_true(float(meter.max) > 0 and float(meter.max) == floorf(float(meter.max)))
 		assert_true(String(meter.gain.event) in ["cast_landed", "hit_taken", "meso_picked"])
 		assert_true(float(meter.gain.amount) > 0 and float(meter.gain.amount) == floorf(float(meter.gain.amount)))
+		# M23 (#403): per_mesos only on a mesos-driven rule; a decay names a positive interval and a whole amount.
+		if meter.gain.has("per_mesos"):
+			assert_eq(String(meter.gain.event), "meso_picked")
+			assert_true(float(meter.gain.per_mesos) > 0 and float(meter.gain.per_mesos) == floorf(float(meter.gain.per_mesos)))
+		if meter.has("decay"):
+			assert_true(float(meter.decay.interval) > 0.0)
+			assert_true(float(meter.decay.amount) > 0 and float(meter.decay.amount) == floorf(float(meter.decay.amount)))
 		assert_true(String(meter.gain.get("exclude", "")) in ["", "finisher"])
 		assert_eq(String(meter.per_unit.stat), "damage")
 		assert_true(float(meter.per_unit.value) >= 0.0)
@@ -755,6 +762,11 @@ func test_meter_catalog_schema() -> void:
 		if not skill.has("meter"):
 			continue
 		var meter: Dictionary = skill.meter
+		if meter.has("read_per_unit") and not meter.has("role"):
+			# M23 (#403): a read-only block multiplies damage by the held units and carries nothing else.
+			assert_true(float(meter.read_per_unit) > 0.0)
+			assert_false(meter.has("min") or meter.has("spend"))
+			continue
 		assert_eq(String(meter.role), "finisher")
 		assert_true(float(meter.min) > 0 and float(meter.min) == floorf(float(meter.min)))
 		assert_eq(String(meter.spend), "all")

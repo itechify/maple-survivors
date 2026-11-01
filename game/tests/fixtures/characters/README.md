@@ -76,6 +76,15 @@ without one the weapon reach and `weapon_reach` skills have nothing to read.**
 
 Buccaneer review cleanup (#412): the diagnostic four-regions-cleared fixture excludes the default sword 1302000 and displaced default outfit 1072001/1060002/1040002; its worn knuckle kit and round loot are unchanged.
 
+`night_lord_t2.json` is the Night Lord (412) fixture (spec #383, NL11 #410): a format-3 Night Lord at the start of a round with four regions
+cleared and the first-four-regions claw kit worn: a Meba (1472007, reqLevel 25, PAD 16), a Thief-bit reqLevel-30 hat (1002171), reqLevel-20 shoes
+(1072022), reqLevel-15 gloves (1082029) and the starter top and bottom, unscrolled. It is kit mode like `bowmaster_t2.json`, so its `_doc`
+records the kit ids, label and revision, no seed or policy. Reproduce with `tools/character_fixture.gd --job=412
+--kit=1472007,1002171,1072022,1082029,1040002,1060002 --cleared=4 --label=spec383/ticket-410 --revision=<SHA> --out=<absolute path>`
+(no playable patch is needed since NL12 #411 flipped `playable`; it was regenerated without one, so the `_doc` has no `patch`). **The claw matters**: a
+Night Lord with no claw in hand has no throwing stars (`ammo.json` starts every claw on the Beginner Thief's stars), so the stars'
+sprites and the 250 px basic-attack reach are missing; use this file for `--job=412 --character=<absolute path>` runs, `--stage=sleepywood`
+checks and `--hub --job=412`. A `--character` of this file runs as a Night Lord without a `--job` flag; `--job=212` with it is an error.
 
 The committed `*_t2.json` files and `fp_arch_mage.json` still carry `tiers_unlocked: 2` (ADR 0007, #450): every loader migrates it to
 `cleared_regions` (the first four progression regions: Henesys, Ellinia, Perion, Kerning City), so Sleepywood is unlocked. New

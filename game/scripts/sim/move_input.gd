@@ -40,7 +40,7 @@ func duplicate_input() -> MoveInput:
 	return m
 
 
-## Marks the skill key `id` ("teleport", "dash", "rush") as pressed on this tick.
+## Marks the skill key `id` ("teleport", "dash", "rush", "flash_jump") as pressed on this tick.
 func press_skill(id: String) -> void:
 	skills_pressed[id] = true
 

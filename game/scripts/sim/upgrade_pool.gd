@@ -335,6 +335,17 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 	var labels: Array[String] = []
 	for effect: Dictionary in bonus.effects:
 		var op := String(effect.get("op", "add"))
+		if op == "grant":
+			effect["scale"] = scale
+			var preview := state.loadout.clone()
+			preview.add_status_grant(skill, String(effect.status), scale)
+			var r := state.loadout.rank(skill)
+			if category != MASTERY:
+				r += 1
+			for grant: Dictionary in preview.stats(skill, maxi(1, r)).get("status_grants", []):
+				if String(grant.id) == String(effect.status):
+					labels.append(StatusBonus.line(grant, state.loadout.status_bonuses))
+			continue
 		var value := float(effect.value)
 		effect.value = 1.0 + (value - 1.0) * scale if op == "mul" else value * scale
 		if String(effect.stat) == "meter_keep":
@@ -392,6 +403,9 @@ static func _bonus_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictio
 	for e: Dictionary in c.get("effects", []):
 		var stat := String(e.get("stat", ""))
 		var op := String(e.get("op", "add"))
+		if op == "grant":
+			preview.add_status_grant(skill, String(e.status), float(e.get("scale", 1.0)))
+			continue
 		if not stat in MOD_PREVIEW and not stat in MODIFIER_PREVIEW:
 			continue
 		var value := float(e.get("value", 0.0))
@@ -508,11 +522,16 @@ func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 		elif kind in [SKILL_NEW, SKILL_RANK] and skill != "":
 			if stat == "rank" and kind != SKILL_RANK:
 				lo.set_rank(skill, lo.rank(skill) + int(value))
+			elif op == "grant":
+				lo.add_status_grant(skill, String(e.status))
 			elif stat != "rank":
 				lo.add_skill_mod(skill, stat, op, value)
 	if not bonus.is_empty():
 		for effect: Dictionary in bonus.effects:
-			lo.add_skill_mod(skill, String(effect.stat), String(effect.op), float(effect.value))
+			if String(effect.op) == "grant":
+				lo.add_status_grant(skill, String(effect.status), float(effect.get("scale", 1.0)))
+			else:
+				lo.add_skill_mod(skill, String(effect.stat), String(effect.op), float(effect.value))
 		lo.card_ranks[String(bonus.counter)] = int(lo.card_ranks.get(String(bonus.counter), 0)) + 1
 	state.refresh_player_stats()
 	state.emit("upgrade_applied", {"id": id, "rank": r, "tier": tier, "magnitude": magnitude})
