@@ -458,6 +458,35 @@ func test_a_shadower_without_steal_gains_pips_from_ordinary_pickups() -> void:
 	assert_eq(w.meter.carry, 100)
 
 
+func test_a_steal_bundle_collected_from_the_floor_feeds_the_charge() -> void:
+	# Spec SH-10 (review #425 S11): Steal's extra loot (a meso bundle when no equipment is admitted) is an ordinary meso pickup,
+	# so collecting it fills the charge by the bundle's mesos at 600 a pip, and Steal itself spends nothing.
+	var w := _world()
+	assert_true(w.learn_skill("steal"), "a Shadower learns Steal")
+	w.data.equipment_drops.items = [1372005] # a wand no dagger job admits: Steal's extra loot falls back to mesos
+	var m := _mob(w, 40)
+	w.drain_events()
+	var st := w.runner.stats_of(w, "steal")
+	for attempt in 200:
+		w.hit_mob(m, st, -1)
+		if w.swarm.stolen[m] != 0:
+			break
+	assert_eq(w.swarm.stolen[m], 1, "the steal succeeded")
+	var drops := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned" and e.kind == "meso")
+	assert_eq(drops.size(), 1, "one meso bundle")
+	assert_eq(w.meter.value + w.meter.carry, 0, "stealing itself charges nothing")
+	var bundle := int(drops[0].count)
+	var slot := int(drops[0].pickup)
+	w.pickups.state[slot] = PickupSystem.REST
+	w.pickups.x[slot] = w.player.pos.x # at the character's feet
+	w.pickups.y[slot] = w.player.pos.y
+	w.step(DT, MoveInput.new())
+	var events := w.drain_events()
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "meso_picked").size(), 1)
+	assert_eq(w.meter.value * 600 + w.meter.carry, mini(bundle, 6000), "the bundle's mesos filled the charge at 600 a pip")
+	assert_false(_meter_events(events).is_empty() and bundle >= 600, "a changed pip count is announced")
+
+
 func test_the_charge_never_decays() -> void:
 	var w := _world()
 	w.meter.gain_amount("meso_picked", 3000, w.events)
