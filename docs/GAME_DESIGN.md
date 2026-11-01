@@ -9888,6 +9888,23 @@ counter, Mastery repeats x0.8, and the eight WZ levels of each skill against the
 bosses, relocation) stay in `test_bandit_attacks` unchanged; `test_thief` and `test_thief_parity` lost only what asserted the old rank
 lists and cards.
 
+#### 7.135 (SH9 #434): Ninja Ambush
+
+Constants: "Shadower SH9 constants (#434)". `ninja_ambush_shadower` (4221004, book 422, job 422) is a data copy of Night Lord's
+`ninja_ambush` (7.94.8) on the merged `ground.strike` zone: Skill.wz 4221004 equals 4121004 in every field of all 30 levels, and its
+`Use` sound is a UOL into 4121004 (exported as `Sound.wz/Skill.img/4221004/Use`). Only the owner data changed (`skill_id`, `book`,
+`job`, the icon, `hit`, `effect` and sound paths into `Skill.wz/422.img` and `Sound.wz/Skill.img/4221004`); the key is its own
+because a skill key is unique across files (SH-16). The cast is a `box` cast with `min_targets` 1 and a 14 s cooldown; the zone
+strikes the `mobCount` (6) nearest monsters in the box (+-120 / +-150 / +-200 by (-130, 70)) once at 0.3 s and then every 1.0 s for
+`time` = 4 / 8 / 12 s at ranks 1 / 4 / 8, each strike one ordinary hit at 68 / 85 / 100% (anchored where the caster stood; a second
+cast makes a second zone). Nothing in `GroundStrike` or `SkillRunner` changed.
+- **Rarity bonuses** (tier C): Shadow Shifter (the lineage passive) damage x1.2, Wide Ambush `area` x1.2, Ambush Squad `count` +2
+  (two more monsters per strike); Legendary is Ambush Squad under the same id (one repeat counter) plus damage x1.2.
+Tests: `test_shadower_ninja_ambush` (the Night Lord set re-run on `ninja_ambush_shadower`: first strike 0.3 s then every second for
+4 / 8 / 12 s, six monsters and one ordinary hit each, `area` widens, `count` adds monsters, a second cast makes a second zone, every
+rarity bonus changing the resolved cast, one rank plus the bonus, Legendary's shared counter; and, with the cache, the two definitions
+resolving equal numbers at all eight ranks against 4121004 and the Use sound resolving through the UOL).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -12421,3 +12438,12 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Band of Thieves `action` | `weapon` (the held dagger's first stance; the WZ node has none) | tier C: spec #425, asset notes (#426) |
 | Band of Thieves art | `effect` on the caster, `hit_lines` = `hit/1..5` by line, `hit/0` the fallback; `hitAfter` not modelled (all lines on the cast tick) | tier C: ours (SH8) |
 | Rarity bonuses (both) | damage x1.2, cooldown x0.88 / `area` x1.2, `count` / `attack_count` +1, Legendary = Unique + damage x1.2 | tier C: spec #425 |
+
+### Shadower SH9 constants (#434)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Ninja Ambush numbers (damage 68 / 85 / 100%, `mobCount` 6, `time` 4 / 8 / 12 s, box +-120 / +-150 / +-200 by (-130, 70)) | read from Skill.wz 4221004 | tier A: equal to 4121004 at all 30 levels (SH1 scan, `test_shadower_ninja_ambush`) |
+| `ground.strike` `{interval 1.0, first_delay 0.3}`, anchored at the cast | the zone copy of Night Lord's | tier C: spec #425 / NL8 (#407) |
+| Cooldown / action hold / admission | 14.0 s (the 12 s zone never overlaps itself) / 0.6 s / `min_targets` 1 | tier C: spec #425 |
+| Rarity bonuses | Shadow Shifter damage x1.2, Wide Ambush `area` x1.2, Ambush Squad `count` +2, Legendary = Ambush Squad + damage x1.2 | tier C: spec #425 |
