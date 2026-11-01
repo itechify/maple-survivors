@@ -170,7 +170,8 @@ func test_the_safe_zone_skill_is_a_target_only_with_a_pack_near() -> void:
 	assert_true(w.runner.has_target(w, "smokescreen", st, w.player.pos), "three monsters within the admission radius")
 
 
-func test_dark_sight_is_a_target_with_a_monster_within_150_px_only() -> void:
+func test_dark_sight_is_a_target_only_with_a_monster_in_assassinates_box() -> void:
+	# D17: within 150 px is not enough; the box (10 to 100 px in front, either side after the turn) must hold the monster.
 	var w := _world()
 	_only(w, ["dark_sight"])
 	var st: Dictionary = w.runner.stats_of(w, "dark_sight")
@@ -178,7 +179,13 @@ func test_dark_sight_is_a_target_with_a_monster_within_150_px_only() -> void:
 	assert_false(w.runner.has_target(w, "dark_sight", st, w.player.pos), "300 px away")
 	w.swarm.x[slot] = 520.0
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active, w.swarm.capacity())
-	assert_true(w.runner.has_target(w, "dark_sight", st, w.player.pos), "120 px away")
+	assert_false(w.runner.has_target(w, "dark_sight", st, w.player.pos), "120 px away: in sight, out of the box")
+	w.swarm.x[slot] = 460.0
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active, w.swarm.capacity())
+	assert_true(w.runner.has_target(w, "dark_sight", st, w.player.pos), "60 px away, in the box")
+	w.swarm.x[slot] = 340.0
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active, w.swarm.capacity())
+	assert_true(w.runner.has_target(w, "dark_sight", st, w.player.pos), "60 px behind: the caster turns to it")
 
 
 # --- presses: only Assaulter --------------------------------------------------------------------------------------------

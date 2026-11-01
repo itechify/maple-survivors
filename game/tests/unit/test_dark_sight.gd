@@ -239,7 +239,7 @@ func test_the_skill_text_names_the_window_and_the_sub() -> void:
 	assert_true(top.contains("Speed 0"), top)
 	assert_true(top.contains("(Lv30)"), "rank 8 names the sub at WZ level 30: " + top)
 	assert_true(text.level_line(SUB, 30, w.loadout.sub_stats(SUB, w.loadout.stats(KEY, 8), 8)).contains(
-		"The last strike has a 90% chance of +250% critical damage"))
+		"The last strike has a 90% chance of +250% on top of a critical hit"))
 
 
 # --- Assassinate ------------------------------------------------------------------------------------------------------
@@ -355,6 +355,21 @@ func test_the_last_line_is_the_finisher_over_many_casts() -> void:
 		assert_near(float(last_crits) / casts, expected, 0.09, "rank %d: last-line crit rate near %.2f" % [rank, expected])
 		assert_near(float(early_crits) / (2.0 * casts), base, 0.07, "rank %d: lines 1 and 2 crit on the base chance (%.2f)" % [rank, base])
 		assert_true(float(last_crits) / casts > float(early_crits) / (2.0 * casts), "the last line crits more often than a plain one")
+
+
+func test_the_lethal_crit_is_the_ordinary_crit_plus_the_bonus_at_every_rank() -> void:
+	# D19: a finishing crit multiplies damage by (pct x crit_mult + criticalDamage / 100), never less than an ordinary line crit.
+	for rank in range(1, 9):
+		var w := _world(100.0, rank)
+		var st := w.loadout.sub_stats(SUB, w.loadout.stats(KEY, rank), rank)
+		var pct := float(st.get("damage_pct", 1.0))
+		var last := FinishingStrike.line_stats(st, 2, 3)
+		var finisher := pct + float(last.crit_damage_bonus) / 100.0
+		assert_near(finisher, pct * float(st.crit_mult) + float(BOOK.A_CRIT[rank - 1]) / 100.0, 1e-6, "rank %d: x(pct x crit + bonus/100)" % rank)
+		assert_true(finisher > pct * float(st.crit_mult), "rank %d: stronger than an ordinary crit line" % rank)
+	var rank_eight := _world(100.0, 8)
+	var top := rank_eight.loadout.sub_stats(SUB, rank_eight.loadout.stats(KEY, 8), 8)
+	assert_near(float(top.damage_pct) * 1.5 + 2.5, 11.5, 1e-6, "rank 8: 6.0 x 1.5 + 2.5")
 
 
 # --- Hidden: every other attack silenced, nothing hits the caster -----------------------------------------------------
