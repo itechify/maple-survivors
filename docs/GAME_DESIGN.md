@@ -9709,6 +9709,56 @@ spec corrected its `morph` row (BU-9, 7.92). A schema that lists `effects.hidden
 - **Tests.** `test_hidden_form` proves all of it on a synthetic form (job 999, skill 9991001+): no Shadower data and no asset cache.
   Dark Sight and Assassinate (SH11) copy it.
 
+### 7.132 Safe zone (M18, spec #425 SH4, #429)
+
+`SafeZone` (`scripts/sim/safe_zone.gd`, owned by `RunWorld` as `safe_zones`) is the one place a placed ground box protects the
+character. It is generic: a skill whose cast block is `{"rule": "safe_zone", "min_mobs": n, "mob_within": px}` with a
+`"safe_zone": {"duration": s}` block and `damage "none"` uses it (Smokescreen, SH12, is the first user); no skill id is in the sim.
+`SkillRunner` only dispatches (`has_target`, `_admit_cast`, `resolve_cast`). No RNG is drawn anywhere in it, and a world that never
+places a zone behaves byte-identically (the `safe_zones.is_empty()` guards cost one array test per hit).
+
+- **Place.** The box is the skill's canonical `lt` / `rb` at its level scaled by the `area` modifier (the `box` of `Loadout.stats`),
+  put at the cast origin (the character's body, `RunWorld.cast_origin()`: 30 px above the feet) in world space and **fixed there**:
+  it does not follow the character and has no facing (the WZ box is symmetric). One zone per skill key; a recast replaces it
+  (`safe_zone_ended` `replaced`, then `safe_zone_started`).
+- **Admit.** At least `min_mobs` living monsters whose body centre is within `mob_within` px of the cast origin (inclusive), and the
+  character's body centre not inside a live zone of that key. Otherwise the skill waits with its cooldown at 0 (nothing is
+  spent). A `safe_zone` skill is not an attack (`damage none`), so Hidden does not silence it.
+- **Negate.** `RunWorld.take_hit` asks `SafeZone.negate(world, player_body_center(), source)` right after the guards that already
+  refuse a hit (dead, clearing a map, god, the hit window, Hidden, a hit hook's guard): a body centre inside a live zone (edges
+  inside) returns 0 **before the avoid roll**, so no random number is drawn, no HP is lost, no hit window or knock-back guard starts,
+  no `player_hit` is appended and the hooks, hull and Power Guard never see the hit. One `hit_negated {skill, source}` is appended per
+  negated hit, `source` being the hit's `source_kind`. Contact, monster attacks (including area columns), balls and boss attacks
+  all reach `take_hit` and are negated; a ball that meets the body is used up. Because no hit window starts, a monster touching the
+  character is negated every tick (60 `hit_negated` events a second; the screen rate-limits its "Guard" word). The monsters keep
+  attacking (it is Hidden that makes them stop). Statuses applied by monster skills (Slow, the poison mist) and the Poison tick are
+  not hits and are not negated.
+- **Boss reflect.** `RunWorld._hurt_by_reflect` (the HP a Reflect boss takes from a player's hit) is a hit with a `player_hit` of
+  source_kind `reflect` and is negated like any hit (`hit_negated` `source` `reflect`); the boss keeps its rate slot. tier C: SH4's reading
+  of "every hit the character takes".
+- **Life.** `duration x zone_time`, `zone_time` being a new multiplicative modifier read at placement (`Loadout.stats` adds
+  `zone_time` and `safe_zone_duration` for a skill with a `safe_zone` block and nothing for any other skill); a zone already placed
+  ignores a later `zone_time`. `SafeZone.step` runs at the top of `RunWorld.step` after `time += dt`, so a zone placed in tick N
+  protects ticks N+1 .. N+360 for a 6 s life and is gone in the tick after (it ends, `expired`, before that tick's monsters act).
+  It ends too on a recast (`replaced`), on a map change (`transferred`: `advance_map`; no tick runs during the cleared-map freeze, so the zone
+  is cleared when the next map loads) and on death (`died`, before `player_died`).
+- **Events.** `safe_zone_started {skill, skill_id, pos (top-left), size, duration}`, `safe_zone_ended {skill, reason}`,
+  `hit_negated {skill, source}`; ARCHITECTURE 4.4.3, `test_run_events`.
+- **Presentation** (`SafeZoneView`, `RunScene._on_safe_zone_started`): the skill's own `effect` plays once at the cast through the
+  ordinary `cast` event; the definition's `tile` animation (read from the definition's `tile` path at the cast's level, as `effect`
+  is) loops as a row of puffs over the box's floor for the zone's life; a faint tinted box and outline; a pale "Guard" word over the
+  character on a negated hit (at most one per 0.4 s). A skill without a `tile` path draws the box alone. **Which WZ node is the
+  cloud is a reading (tier C): SH12 confirms or corrects it against SH1's contact sheet.** The probe
+  (`scenes/debug/safe_zone_probe.tscn`) shows the look on synthetic art.
+- **Text.** The card and the Skill window: "Sets off a smoke cloud for {duration} s: hits that land while you stand inside it are
+  negated. Needs {min_mobs} monsters within {mob_within} px." with the resolved life (a `zone_time` card shows 6 -> 9 s: label
+  "Cloud duration").
+- **Bot.** It does not steer for the cloud (recorded, not tuned): the melee kite keeps the character mostly inside it.
+
+Tests: `test_safe_zone` (box by rank and `area`, anchoring, admission with the cooldown left at 0, every hit source, the tick after
+leaving and after expiry, no HP / window / knock-back / RNG change, statuses not negated, `zone_time`, replace / transfer / death /
+expiry, replay), `test_safe_zone_view`, the three events in `test_run_events`.
+
 ### 7.133 Finishing strike (spec #425 SH5, #430)
 
 Constants: "Shadower SH5 constants (#430)". Assassinate (SH11) is the only user; the block is generic and no skill ID is in the code.
@@ -12213,3 +12263,16 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Fallback for a skill with no `action` node (Band of Thieves) | the dagger's own `swingO1` (it draws the dagger; `shoot1` does not) | tier C: ours (#426) |
 | Art roles | Assassinate `effect` = caster burst then slash arcs, `special` = the strike lines on the target; Smokescreen `effect` = the thrown shell and dust, `tile` = eleven looping cloud puffs; Meso Explosion `hit/0..8` = nine variants of one burst; Band of Thieves `hit/0` = the common strike, `hit/1..5` = the five thieves | tier C readings of the art (contact sheets, #426) |
 | Razor 1332005 | added to the `shadower.json` fragment (`character`); the spec believed `thief.json` listed it | tier A (item fact) |
+
+### Shadower SH4 constants (#429)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Admission fallbacks | `min_mobs` 1 when the block names none; `mob_within` is required (`SafeZone.errors`) | tier C: ours (SH4) |
+| Life expiry tolerance | `SafeZone.LIFE_EPS` 1e-6 s (a 6 s life counted down in 1/60 s ticks ends on the 360th tick) | tier C: ours (SH4) |
+| Negation site | after the Hidden / guard net, before the avoid roll; edges of the box count as inside; the test point is the body centre (`player_body_center()`), the box is anchored at the cast origin | tier C: spec #425 SH-11, ours (SH4) |
+| Boss reflect negated | a Reflect boss's hit on the character (`source_kind reflect`) is negated inside a zone | tier C: ours (SH4) |
+| `zone_time` | a multiplicative skill modifier on the life, read at placement; card label "Cloud duration" | tier C: spec #425 |
+| Cloud look | box fill `Color(0.78, 0.8, 0.92, 0.10)`, outline `Color(0.88, 0.9, 1.0, 0.42)` 1 px, puffs every 64 px (every second one 16 px up, at most 20) on the floor line, fade in and out 0.4 s | tier C: ours (SH4) |
+| "Guard" word | text "Guard", 14 px, `Color(0.86, 0.93, 1.0)`, rises 26 px over 0.8 s, at most one per 0.4 s | tier C: ours (SH4) |
+| Card text | "Sets off a smoke cloud for {duration} s: hits that land while you stand inside it are negated. Needs {min_mobs} monsters within {mob_within} px." | tier C: spec #425 |

@@ -185,6 +185,11 @@ const EVENT_FIELDS := {
 	"summon_strike": ["skill", "slot", "mob", "pos", "effect"],
 	"burst_start": ["skill", "wind_up", "span", "facing"],
 	"burst_end": ["skill"],
+	# Spec #425 M18 (SafeZone): a zone was placed (`pos` its top-left corner, `size` its box, `duration` its life in seconds), ended
+	# (`reason`: expired, replaced, transferred or died) or negated a hit (`source` the hit's source_kind).
+	"safe_zone_started": ["skill", "skill_id", "pos", "size", "duration"],
+	"safe_zone_ended": ["skill", "reason"],
+	"hit_negated": ["skill", "source"],
 	# #323 (chain cast rule): the bolt's polyline, caster hand then each struck link's body centre; the hits are mob_hit events.
 	"skill_chain": ["skill", "skill_id", "points"],
 
@@ -306,6 +311,8 @@ var upkeep: PlayerUpkeep
 var book: SkillBook
 var loadout: Loadout
 var meter := PlayerMeter.new()
+## The placed safe zones (M18, SafeZone): the boxes in which every hit the character takes is negated.
+var safe_zones := SafeZone.new()
 ## Second life (#375): the guard timer and the plan of a reaction skill's revive, a HitHook at PlayerRevive.HIT_ORDER.
 var revive := PlayerRevive.new()
 ## One {t, level, rank, source_kind, hp} per second life taken this round (the run summary and balance record carry it).
@@ -672,6 +679,7 @@ func advance_map() -> void:
 		pickups.despawn(slot)
 	_final_queue.clear()
 	runner.clear_pending(self)
+	safe_zones.clear(self, "transferred") # positional: a zone stays on the map it was placed on
 	hazards.clear()
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
@@ -897,6 +905,7 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	if _settle_clear():
 		return
 	time += dt
+	safe_zones.step(dt, self)
 	for hook: HitHook in _hit_hooks:
 		hook.step(dt)
 	potions.tick(dt)
@@ -2886,6 +2895,9 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	# Hidden (#194): nothing from a monster lands, whatever its source (the callers also skip the attack itself).
 	if _dead or _map_clearing or god or _window_blocks(bypass) or is_hidden() or _hit_guarded():
 		return 0
+	# Safe zone (M18): a hit aimed at a character standing in a live zone does nothing at all (no avoid roll, no RNG draw).
+	if not safe_zones.is_empty() and safe_zones.negate(self, player_body_center(), source):
+		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
 	if CombatMath.roll_miss(player_avoid + buffs.effect_total("avoid"), float(source.get("accuracy", 0.0)), rng):
 		_emit_player_hit(0, true, dir, source)
@@ -2918,6 +2930,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		state = DEAD
 		runner.clear_pending(self)
 		runner.forms.clear(self)
+		safe_zones.clear(self, "died")
 		hazards.clear()
 		emit("player_died", {"pos": player.pos})
 	elif bypass or upkeep.may_knock_back():
@@ -3019,6 +3032,8 @@ func _hurt_by_reflect(m: int, amount: int) -> bool:
 		"source_kind": "reflect"}
 	if _dead or _map_clearing or god or is_hidden() or hit_window_blocks(source):
 		return false
+	if not safe_zones.is_empty() and safe_zones.negate(self, player_body_center(), source):
+		return false # a safe zone (M18) negates a boss reflect like any hit; the boss keeps its rate slot
 	_hp -= amount
 	_emit_player_hit(amount, false, 1 if player.pos.x >= swarm.x[m] else -1, source)
 	if _hp <= 0.0 and _hit_hook_saves(source):
@@ -3029,6 +3044,7 @@ func _hurt_by_reflect(m: int, amount: int) -> bool:
 		state = DEAD
 		runner.clear_pending(self)
 		runner.forms.clear(self)
+		safe_zones.clear(self, "died")
 		hazards.clear()
 		emit("player_died", {"pos": player.pos})
 	_write_player_state(0.0)

@@ -384,6 +384,8 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			return bool(st.has_box) and _any_target(world, origin, float(st.range), 1)
 		"chain":
 			return ChainCast.has_target(world, st, origin)
+		"safe_zone":
+			return world.safe_zones.admits(world, key, st, origin)
 		"manual", "reaction":
 			return false # a pressed key or the world's trigger casts it, never the target scan
 		"hp_or_undead":
@@ -426,6 +428,8 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_cluster(world, st, origin)
 		"chain":
 			return ChainCast.admit(world, st, origin)
+		"safe_zone":
+			return {"go": true} if world.safe_zones.admits(world, key, st, origin) else {}
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
 		"manual", "reaction":
@@ -590,6 +594,8 @@ func resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2,
 				_throw(world, key, st, plan)
 			"chain":
 				ChainCast.resolve(world, key, st, plan, world.visual_index(String(st.hit)))
+			"safe_zone":
+				world.safe_zones.place(world, key, st, origin)
 			"hp_or_undead":
 				_resolve_hp_or_undead(world, key, st, targets)
 			"burst":

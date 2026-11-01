@@ -141,6 +141,7 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 	errors.append_array(GroundStrike.errors(out.get("skills", {})))
 	errors.append_array(EchoCast.errors(out.get("skills", {})))
 	errors.append_array(FinishingStrike.errors(out.get("skills", {})))
+	errors.append_array(SafeZone.errors(out.get("skills", {})))
 	errors.append_array(knockback_errors(out.get("skills", {})))
 	# Class-owned balance rows enter through this single reader, after the shared defaults.
 	for line in lines(root):
