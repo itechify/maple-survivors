@@ -360,6 +360,9 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 				var admitted := _buff_admission(world, st, origin)
 				if admitted != BUFF_FALLS_THROUGH:
 					return admitted == BUFF_ADMITTED
+			if _prefers(st):
+				# `cast.prefer` skips physically immune mobs (_find_targets), which _any_target does not know.
+				return _find_targets(world, origin, float(st.range), 1, String(st.cast_params.prefer)) > 0
 			return _any_target(world, origin, float(st.range), int(st.count))
 		"box":
 			var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
@@ -451,7 +454,8 @@ func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector
 			return {"go": true} if admitted == BUFF_ADMITTED else {}
 	# tier C: `cast.focus` (Strafe, spec #332 B7) admits one target, so every arrow of the volley reuses it (_resolve_nearest).
 	var want := 1 if bool(st.cast_params.get("focus", false)) else int(st.count)
-	if _find_targets(world, origin, float(st.range), want) == 0:
+	var prefer := String(st.cast_params.prefer) if _prefers(st) else ""
+	if _find_targets(world, origin, float(st.range), want, prefer) == 0:
 		return {}
 	return {"targets": _tgt.duplicate()}
 
@@ -870,7 +874,7 @@ func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets
 
 ## Fills the target buffer with up to `want` distinct live mobs whose body centre is within `rng_px` of `origin`,
 ## scheduled bosses first, then nearest, then slot (RunWorld.targets_before). Returns how many.
-func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -> int:
+func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int, prefer := "") -> int:
 	var s := world.swarm
 	var n := world.mob_grid.query_radius(origin, rng_px + world.body_pad, _buf)
 	_tgt.resize(0)
@@ -884,9 +888,17 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 		var d2 := ctr.distance_squared_to(origin)
 		if d2 > r2:
 			continue
+		# A preferring skill (Snipe) spends one high-value hit, so a monster that refuses physical hits (a mob skill's weapon
+		# immunity) is no target: the bolt goes to the strongest one that takes it (spec #360 review).
+		if prefer != "" and not world.physical_hit_allowed(m):
+			continue
 		var at := _tgt.size()
-		while at > 0 and world.targets_before(m, d2, _tgt[at - 1], _tgt_d[at - 1]):
-			at -= 1
+		if prefer == "":
+			while at > 0 and world.targets_before(m, d2, _tgt[at - 1], _tgt_d[at - 1]):
+				at -= 1
+		else:
+			while at > 0 and _target_before(world, m, d2, _tgt[at - 1], _tgt_d[at - 1], prefer):
+				at -= 1
 		if at >= want:
 			continue
 		_tgt.insert(at, m)
@@ -895,6 +907,24 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 			_tgt.resize(want)
 			_tgt_d.resize(want)
 	return _tgt.size()
+
+
+## Whether the cast reorders its targets by `cast.prefer` (instant skills only).
+func _prefers(st: Dictionary) -> bool:
+	return String(st.kind) == "instant" and String(st.cast_params.get("prefer", "")) != ""
+
+
+func _target_before(world: RunWorld, a: int, da: float, b: int, db: float, prefer: String) -> bool:
+	if prefer != "max_hp":
+		return world.targets_before(a, da, b, db)
+	var swarm := world.swarm
+	var a_boss := swarm.is_boss(a)
+	var b_boss := swarm.is_boss(b)
+	if a_boss != b_boss:
+		return not a_boss
+	if swarm.max_hp[a] != swarm.max_hp[b]:
+		return swarm.max_hp[a] > swarm.max_hp[b]
+	return da < db if da != db else a < b
 
 
 ## The slot of the nearest live monster within `rng_px` of `origin` (scheduled bosses first, RunWorld.targets_before), or -1.
@@ -939,6 +969,10 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 		if record:
 			echoes.on_cast(world, key, st, shots)
 	else:
+		if st.has("fixed_share") and String(st.ball) != "":
+			for i in mini(int(st.count), targets.size()):
+				# tier C: cosmetic straight flight at the definition's speed; damage lands immediately.
+				world.emit_ammo_flight(key, world.mob_center(targets[i]), String(st.ball), float(st.speed), bool(st.rotate))
 		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), world.visual_index(String(st.hit)))
 
 
@@ -967,6 +1001,7 @@ func fire_shot(world: RunWorld, key: String, st: Dictionary, origin: Vector2, ta
 		"crit_damage_bonus": float(st.crit_damage_bonus),
 		"pierce": int(st.pierce), "skill": key, "level": int(st.level), "element": String(st.element),
 		"pierce_falloff": float(st.pierce_falloff),
+		"pierce_ceiling": float(st.pierce_ceiling),
 		"impact_blast": st.impact_blast,
 		"meter_receipt": st.get("meter_receipt", ProjectileSystem.NO_RECEIPT),
 		"burn_pulse": int(st.get("burn_pulse", 0)),

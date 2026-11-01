@@ -1,0 +1,119 @@
+{
+	"_doc": "Marksman line (spec #360, ticket MS2 #362). The second archer after Bowmaster: its job entry, its AP row and its bot card scores. Skill definitions are in skills/marksman.json; each Marksman skill ticket (MS5-MS9) appended its own region there. Marksman has NO mobility_skill (ruling D1, spec #360): a Marksman owns no skill key and no quick-slot movement cell. playable is true since MS11 #371; JobTree.default_job() stays 212 (survivor/jobs.json default_job). DataRepo discovers this per-line file automatically (docs/ARCHITECTURE.md 4.4.4).",
+	"jobs": {
+		"322": {
+			"starting_skill": "iron_arrow",
+			"_starting_skill": "tier C: spec #360: Iron Arrow : Crossbow is the starting active (slot 1) and the first skill a round learns; MS5 #365 moved its definition from skills/bowman.json into skills/marksman.json.",
+			"skill_pool": [
+				"iron_arrow",
+				"arrow_blow",
+				"strafe_crossbow",
+				"dragons_breath_crossbow",
+				"blizzard_crossbow",
+				"arrow_eruption",
+				"piercing_arrow",
+				"snipe",
+				"golden_eagle",
+				"frostprey"
+			],
+			"_skill_pool": "tier C: spec #360: the ten hand-picked Marksman actives from the 300/320/321/322 books (all auto-cast). arrow_blow is Bowmaster's shared definition (job 300). Undefined keys stay inert until their tickets define them.",
+			"weapon_families": [
+				"crossbow"
+			],
+			"_weapon_families": "tier C: spec #360: crossbows only (WeaponInfo family crossbow, 146xxxx); bows (145xxxx) belong to Bowmaster. Armour and shields drop by the Bowman class bit.",
+			"creation_weapon": 1462001,
+			"_creation_weapon": "tier A: the Crossbow (Item.wz 1462001, reqJob 4 = the Bowman bit, PAD 29; reqLevel 12 is no longer enforced, #292). Already in the Bowman manifest fragment and drop list.",
+			"playable": true,
+			"_provenance": "tier C: spec #360 MS11 #371: Marksman is selectable (the QA ticket flipped it); default_job stays 212.",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/marksman_t2.json",
+				"scrolls": [
+					2044600,
+					2044601,
+					2044602,
+					2044604,
+					2044605,
+					2040803,
+					2040804,
+					2040805,
+					2040810,
+					2040811,
+					2040758,
+					2040759,
+					2040760,
+					2040027,
+					2040029,
+					2040031,
+					2040028,
+					2040030
+				],
+				"equipment": [
+					1002001,
+					1462002,
+					1082002,
+					1040008
+				],
+				"fallback_item": 1462006
+			},
+			"_hub_kit": "tier C: spec #360 MS10 #370: the --hub --job=322 test kit (HubTestKit reads it through lineage_value): the Marksman fixture (Balanche, Bowman-bit hat/shoes/gloves, tier 2), crossbow ATT 100/60/10/dark70/dark30 and the same gloves ATT, shoes ATT and hat DEX stacks as Bowmaster's kit, a spare all-job hat, a second crossbow (1462002, Lv18), Warrior-bit gloves and a Bowman-bit top, and a Lv42 crossbow (1462006) as the flow driver's diagnostic item."
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"322": {
+					"primary": "dex",
+					"secondary": "str",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 6
+						},
+						{
+							"level": 30,
+							"target": 35
+						},
+						{
+							"level": 34,
+							"target": 35
+						},
+						{
+							"level": 35,
+							"target": 40
+						},
+						{
+							"level": 70,
+							"target": 75
+						}
+					],
+					"_ap": "tier C: spec #360: the Bowman (300) row copied verbatim (the Bowman gear pattern, no new tuning); explicit so 322 no longer falls back through 321/320/300."
+				}
+			}
+		},
+		"bot": {
+			"card_scores": {
+				"iron_arrow_new": 100,
+				"iron_arrow_rank": 74,
+				"arrow_blow_new": 100,
+				"arrow_blow_rank": 74,
+				"strafe_crossbow_new": 100,
+				"strafe_crossbow_rank": 74,
+				"dragons_breath_crossbow_new": 100,
+				"dragons_breath_crossbow_rank": 74,
+				"blizzard_crossbow_new": 100,
+				"blizzard_crossbow_rank": 74,
+				"arrow_eruption_new": 100,
+				"arrow_eruption_rank": 74,
+				"piercing_arrow_new": 100,
+				"piercing_arrow_rank": 74,
+				"snipe_new": 100,
+				"snipe_rank": 74,
+				"golden_eagle_new": 100,
+				"golden_eagle_rank": 74,
+				"frostprey_new": 100,
+				"frostprey_rank": 74
+			},
+			"_card_scores": "tier C: spec #360 MS10 #370: explicit learn (100) and rank (74) card scores for all ten Marksman pool skills, the numbers BotInput's pool default gives every curated skill (MS2 #362 scored the two followers, whose kind summon the default does not treat as an attack; the other eight are a guard, not a behaviour change)."
+		}
+	}
+}

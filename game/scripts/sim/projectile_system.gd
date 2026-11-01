@@ -17,7 +17,7 @@ extends RefCounted
 ## rotate (bool), dmg_min, dmg_max, damage_type (fixed/magic/physical; defaults from legacy magic bool), damage_pct
 ## (skill% / 100, default 1), element, crit, crit_mult, crit_damage_bonus (skill-% points), pierce,
 ## skill (survivor key), level (canonical skill level at cast). Defence is live at impact.
-## Optional pierce_falloff is linear damage lost per previous contact (floor set by survivor combat data). impact_blast is a
+## Optional signed pierce_falloff loses damage when positive and rises when negative (combat data bounds it). impact_blast is a
 ## cast-time {box: Rect2, count: int, visual: String} that explodes at the first contact instead of piercing.
 
 ## Most mobs one shot can hit (1 + pierce is clamped to this).
@@ -51,8 +51,10 @@ var crit_mult := PackedFloat32Array()
 ## Hits left before the shot dies (1 + pierce at spawn).
 var hits_left := PackedInt32Array()
 var hit_count := PackedInt32Array()
-## Optional linear damage lost per earlier contact; 0 keeps the shipped full-damage pierce behaviour.
+## Signed linear fraction per earlier contact; negative rises, zero keeps full damage.
 var pierce_falloff := PackedFloat64Array()
+## Rise ceiling captured at launch, including on reused slots.
+var pierce_limit := PackedFloat64Array()
 ## Cast-time blast state; a zero target cap marks an ordinary shot. Rect2 components retain Vector2 precision.
 var blast_position := PackedVector2Array()
 var blast_size := PackedVector2Array()
@@ -91,6 +93,8 @@ var magic_allowed := PackedByteArray()
 var reflect_hit := Callable()
 ## tier C: minimum per-contact multiplier, configured from balance.combat.pierce_floor by RunWorld.
 var pierce_floor := 0.0
+## tier C: rise cap supplied from balance.combat.pierce_ceiling by RunWorld.
+var pierce_ceiling := 1.0
 ## Mob slots killed during the last step() (cleared at the start of each step).
 var kills := PackedInt32Array()
 var _halted := false
@@ -159,7 +163,8 @@ func spawn(spec: Dictionary) -> int:
 	if not spec.get("status_grants", []).is_empty():
 		status_grants[i] = spec.status_grants
 	echo[i] = 1 if bool(spec.get("echo", false)) else 0
-	pierce_falloff[i] = maxf(0.0, float(spec.get("pierce_falloff", 0.0)))
+	pierce_falloff[i] = float(spec.get("pierce_falloff", 0.0))
+	pierce_limit[i] = float(spec.get("pierce_ceiling", pierce_ceiling))
 	blast_count[i] = 0
 	blast_visual[i] = ""
 	if spec.has("impact_blast"):
@@ -322,7 +327,7 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 		hit_count[i] += 1
 	hits_left[i] -= 1
 	_damage(i, m, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd, on_kill,
-		maxf(pierce_floor, 1.0 - pierce_falloff[i] * (hit_count[i] - 1)))
+		PierceCurve.factor(hit_count[i], pierce_falloff[i], pierce_floor, pierce_limit[i]))
 
 
 ## A blast consumes the projectile at its first contact. Select before hits move or kill any targets.
@@ -441,7 +446,7 @@ func _grow(n: int) -> void:
 		return
 	for arr: Variant in [active, rotate, damage_kind, echo]:
 		arr.resize(n)
-	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff]:
+	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff, pierce_limit]:
 		arr.resize(n)
 	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, blast_count, burn_pulse]:
 		arr.resize(n)

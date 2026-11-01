@@ -490,6 +490,11 @@ A timed player-owned ally cast by an active skill. It follows or waits at its ow
 its map-local lifetime ends on expiry or map transfer. It occupies its skill’s active slot, uses the original skill
 id and WZ animations, and is separate from a cash pet or a monster summoned by a boss.
 
+**Piercing rise**:
+A negative `pierce_falloff` that increases an arrow's damage by a fixed number of percentage points for each
+earlier monster contacted, up to the survivor combat ceiling. Immune contacts count; extra pierce contacts keep rising.
+_Avoid_: exponential scaling, multiplicative stacking
+
 **Support summon**:
 A summon whose definition carries `summon.support`: it follows its owner and pulses instead of attacking. Its pulses'
 numbers come from sub-skills read through the summon's rank; the Beholder is the first.
@@ -563,6 +568,11 @@ _Avoid_: life cost, blood magic
 HP a skill takes from its caster after it hit, as a share of the damage the cast dealt, capped at a share of max HP and
 never the last HP. Reported as `hp_spent` with kind `recoil`.
 _Avoid_: backlash, self-damage (the data block is named `self_damage`)
+
+**Fixed-share damage**:
+A hit dealing a rank's share of the target's max HP, capped by a multiple of the caster's base physical damage.
+Canonical and scheduled bosses use a smaller share and cap. Damage bonuses multiply after the cap; defence,
+crit and element do not apply. Physical immunity and ordinary on-hit, kill and loot handling still apply.
 
 **Status bonus** — A rarity or Mastery effect granting an ordered, rank-resolved status to one skill, independently of
 its numeric modifiers and native on-hit status. Repeating the grant adds diminishing chance points (M22, #402).

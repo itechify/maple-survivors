@@ -73,6 +73,8 @@ var max_hp := 1:
 			version += 1
 ## tier C: display/preview input matching ProjectileSystem, supplied from balance.combat.pierce_floor at setup.
 var pierce_floor := 0.0
+## tier C: preview input matching the combat-data rise ceiling.
+var pierce_ceiling := 1.0
 ## Physical caster inputs; RunWorld._refresh_caster assembles these. Setters invalidate cached stats on change.
 var str_stat := 4.0:
 	set(value):
@@ -174,6 +176,7 @@ func clone() -> Loadout:
 	c.char_level = char_level
 	c.max_hp = max_hp
 	c.pierce_floor = pierce_floor
+	c.pierce_ceiling = pierce_ceiling
 	for field: String in ["str_stat", "dex_stat", "luk_stat", "watk", "acc", "weapon_id", "weapon_family",
 			"job_id", "mastery", "crit_bonus", "crit_damage_bonus", "crit_per_acc", "weapon_speed", "speed_steps"]:
 		c.set(field, get(field))
@@ -359,6 +362,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0) * (1.0 + passive_total(DAMAGE_PCT) / 100.0)
 	var lo := 0.0
 	var hi := 0.0
+	var physical_bounds := Vector2.ZERO
 	if dtype == "fixed":
 		lo = book.canonical(key, lv, "fixdamage", 0.0) * dmg_mult
 		hi = lo
@@ -371,6 +375,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	elif dtype == "physical":
 		var bounds := CombatMath.physical_damage_range(str_stat, dex_stat, luk_stat, _summon_watk(key, lv, d), weapon_id,
 			attack_kind, job_id, mastery, d.get("physical_formula", {}))
+		physical_bounds = bounds
 		lo = bounds.x * dmg_mult
 		hi = bounds.y * dmg_mult
 	# Attack speed (#160): an attack skill's action time and cooldown shrink with the Booster steps in effect, relative
@@ -438,8 +443,9 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
 		"count": maxi(1, roundi(skill_stat(key, "count", float(d.get("count", book.canonical(key, lv, "bulletCount", 1.0)))))),
 		"pierce": maxi(0, roundi(skill_stat(key, "pierce", float(d.get("pierce", 0))))),
-		"pierce_falloff": maxf(0.0, skill_stat(key, "pierce_falloff", float(d.get("pierce_falloff", 0.0)))),
+		"pierce_falloff": skill_stat(key, "pierce_falloff", float(d.get("pierce_falloff", 0.0))),
 		"pierce_floor": pierce_floor,
+		"pierce_ceiling": pierce_ceiling,
 		# No chance field = the knock-back always applies (Rush, tier C #302).
 		"knockback_chance": (book.canonical(key, lv, String(d.knockback.chance_field)) if d.knockback.has("chance_field") else 100.0)
 			if d.has("knockback") else 0.0,
@@ -508,6 +514,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 
 	if d.has("revive"):
 		resolved["revive"] = _revive(key, d.revive)
+	if d.has("fixed_share"):
+		resolved["fixed_share"] = FixedShare.resolve(d.fixed_share, r, physical_bounds, dmg_mult)
 	if d.has("flash_jump"):
 		# tier C (#405): the flash's reach at this rank, for the Skill window (RunWorld.flash_jump_distance reads the same).
 		resolved["flash_distance"] = FlashJump.distance(d.flash_jump.distance, r, book.max_rank(key))

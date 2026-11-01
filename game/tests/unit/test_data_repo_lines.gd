@@ -292,6 +292,10 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 	var bishop_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "bishop", root))
 	for key: String in bishop_frag.skills:
 		assert_true(String(bishop_frag.skills[key].book) in ["230", "231", "232"], "%s in bishop" % key)
+	# Marksman (MS2 #362): the 320/321/322 books may live in marksman.json (the shared 300 Arrow Blow stays in bowmaster).
+	var marksman_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "marksman", root))
+	for key: String in marksman_frag.skills:
+		assert_true(String(marksman_frag.skills[key].book) in ["320", "321", "322"], "%s in marksman" % key)
 	# cards: no skill or a common passive's -> common, otherwise magician; #284 deleted the Beginner cards (no
 	# upgrades/beginner.json)
 	assert_false(FileAccess.file_exists(DataRepo.fragment_path("upgrades", "beginner", root)))

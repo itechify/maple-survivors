@@ -26,6 +26,7 @@ const SELF_TEST_FILES := [
 	"res://tests/unit/test_corsair_selection.gd",
 	"res://tests/unit/test_dark_knight_selection.gd",
 	"res://tests/unit/test_bowmaster_selection.gd",
+	"res://tests/unit/test_marksman_selection.gd",
 	"res://tests/unit/test_warrior2_fixtures.gd",
 	"res://tests/unit/test_il_selection.gd", "res://tests/unit/test_buccaneer_selection.gd",
 	"res://tests/unit/test_paladin_selection.gd",
