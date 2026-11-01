@@ -87,11 +87,13 @@ const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "
 ## Event type -> the fields an event carries only when they apply, so an event without them keeps its exact old bytes
 ## (docs/ARCHITECTURE.md 4.4.3): `player_hit.absorbed` (whole points a hull or hit hook soaked, only when positive) and
 ## `form_started.mount` (the TamingMob id of a form that names one) and `summon_spawn.sound` (only a skill that lists a summon
-## sound). test_run_events checks every emitted event against EVENT_FIELDS plus the optional fields it actually carries.
+## sound) and `burst_end.released` (only a skill whose burst_art sets end_on_drop: whether an arrow left).
+## test_run_events checks every emitted event against EVENT_FIELDS plus the optional fields it actually carries.
 const OPTIONAL_EVENT_FIELDS := {
 	"player_hit": ["absorbed"],
 	"form_started": ["mount"],
 	"summon_spawn": ["sound"],
+	"burst_end": ["released"],
 }
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
@@ -184,7 +186,7 @@ const EVENT_FIELDS := {
 	"summon_attack": ["skill", "slot", "pos"],
 	"summon_strike": ["skill", "slot", "mob", "pos", "effect"],
 	"burst_start": ["skill", "wind_up", "span", "facing"],
-	"burst_end": ["skill"],
+	"burst_end": ["skill"], # optional: released (an arrow left; a skill whose burst_art sets end_on_drop, Piercing Arrow)
 	# #323 (chain cast rule): the bolt's polyline, caster hand then each struck link's body centre; the hits are mob_hit events.
 	"skill_chain": ["skill", "skill_id", "points"],
 
@@ -542,6 +544,7 @@ func _init_drops_and_shots() -> void:
 	projectiles.bounds = bounds
 	projectiles.magic_defense_k = float(balance.get("magic_defense_k", CombatMath.MAGIC_DEFENSE_K))
 	projectiles.pierce_floor = float(balance.get("combat", {}).get("pierce_floor", 0.0))
+	projectiles.pierce_ceiling = float(balance.get("combat", {}).get("pierce_ceiling", 1.0))
 	var pk: Dictionary = balance.get("pickup", {}).duplicate()
 	pk["collect_radius"] = float(balance.get("collect_radius", PickupSystem.TUNING_DEFAULTS.collect_radius))
 	pk["gravity"] = physics.gravity_acc
@@ -556,6 +559,7 @@ func _init_skills_and_progression() -> void:
 	loadout = Loadout.new(book)
 	book.status_bonuses = balance.get("status_bonuses", {})
 	loadout.pierce_floor = projectiles.pierce_floor
+	loadout.pierce_ceiling = projectiles.pierce_ceiling
 	var crit: Dictionary = balance.get("crit", {})
 	loadout.crit_chance = float(crit.get("chance", 0.0))
 	loadout.crit_mult = float(crit.get("mult", 1.5))
@@ -2121,10 +2125,15 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	if magic and not magic_hit_allowed(m):
 		return
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
-	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
-		mob_defense(m, magic), projectiles.magic_defense_k, 0.0 if mob_skills.is_darkened(time) else float(st.crit), float(st.crit_mult),
-		hit_rng if hit_rng != null else rng, swarm.element_multiplier(m, String(st.get("element", ""))), dtype,
-		float(st.get("damage_pct", 1.0)), float(st.get("crit_damage_bonus", 0.0)))
+	var roll: Vector2i
+	if st.has("fixed_share"):
+		roll = Vector2i(FixedShare.amount(swarm.max_hp[m], swarm.is_boss(m), st.fixed_share), 0)
+	else:
+		roll = ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
+			mob_defense(m, magic), projectiles.magic_defense_k, 0.0 if mob_skills.is_darkened(time) else float(st.crit),
+			float(st.crit_mult), hit_rng if hit_rng != null else rng,
+			swarm.element_multiplier(m, String(st.get("element", ""))), dtype,
+			float(st.get("damage_pct", 1.0)), float(st.get("crit_damage_bonus", 0.0)))
 	if _reflect_hit(m, magic, roll.x):
 		return
 	var dir := 1 if swarm.x[m] >= player.pos.x else -1
@@ -2241,12 +2250,15 @@ func _final_attack_visual(slot: int, key: String) -> void:
 	var shot := Ammo.projectile(data.get("ammo", {}), held_weapon_family())
 	if shot.is_empty():
 		return
-	var aim := mob_center(slot)
-	var start := shot_origin(aim)
 	# tier C: visual-only straight flight at the current ammo's speed, no hit delay or damage projectile.
-	emit("ammo_shot", {"skill": key, "from": start, "to": aim,
-		"seconds": start.distance_to(aim) / maxf(1.0, float(shot.speed)),
-		"ball": Ammo.bullet_path(ammo_id()), "rotate": bool(shot.rotate)})
+	emit_ammo_flight(key, mob_center(slot), Ammo.bullet_path(ammo_id()), float(shot.speed), bool(shot.rotate))
+
+
+## Emits the cosmetic `ammo_shot` of a bolt that flies straight from the shooting hand to `aim` and deals no damage itself.
+func emit_ammo_flight(key: String, aim: Vector2, ball: String, speed: float, rotate: bool) -> void:
+	var start := shot_origin(aim)
+	emit("ammo_shot", {"skill": key, "from": start, "to": aim, "seconds": start.distance_to(aim) / maxf(1.0, speed),
+		"ball": ball, "rotate": rotate})
 
 
 ## Spread (#181): up to `want` live mobs other than `target` whose body centre is within the held weapon's swing/ranged
