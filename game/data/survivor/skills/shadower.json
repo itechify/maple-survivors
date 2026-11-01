@@ -75,7 +75,8 @@
 			"on_hit": {
 				"status": "stun",
 				"chance_field": "prop",
-				"duration_field": "time"
+				"duration_field": "time",
+				"once_per_target": true
 			},
 			"sounds": {
 				"use": "Sound.wz/Skill.img/4221007/Use",

@@ -2120,7 +2120,8 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 
 
 ## One instant damage line with live defence; hv = hit visual index. Optional hit_rng replaces stream 1 (Final Attack's 12).
-func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = null) -> void:
+## `line` is the 0-based damage line of a multi-line cast on this target (only an `on_hit.once_per_target` status reads it).
+func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = null, line := 0) -> void:
 	if _map_clearing or swarm.active[m] == 0:
 		return
 	var dtype := CombatMath.damage_type_of(String(st.get("damage_type", "")), bool(st.get("magic", false)))
@@ -2155,6 +2156,8 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 			hit["status_grants"] = st.status_grants
 		if bool(st.get("echo", false)):
 			hit["echo"] = true
+		if line > 0:
+			hit["line"] = line
 		_on_player_hit(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
@@ -2296,7 +2299,8 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 	var key := String(hit.skill)
 	var level := int(hit.level)
 	var status: Dictionary = book.def(key).get("on_hit", {})
-	if not status.is_empty():
+	# tier C (D18): `once_per_target` rolls the status on a target's first damage line only (Boomerang Step's WZ `prop` is a per-target chance).
+	if not status.is_empty() and not (bool(status.get("once_per_target", false)) and int(hit.get("line", 0)) > 0):
 		var chance_field := String(status.get("chance_field", ""))
 		var chance := book.canonical(key, level, chance_field) if chance_field != "" else 100.0
 		if chance > 0.0 and (chance >= 100.0 or rng.randf() * 100.0 < chance):

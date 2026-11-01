@@ -123,7 +123,7 @@ func test_boomerang_step_is_a_forward_box_with_a_stun_and_the_shipped_art() -> v
 	assert_eq(String(d.hit), "Skill.wz/422.img/skill/4221007/hit/0")
 	assert_eq(String(d.sounds.use), "Sound.wz/Skill.img/4221007/Use")
 	assert_eq(String(d.sounds.hit), "Sound.wz/Skill.img/4221007/Hit")
-	assert_eq(d.on_hit, {"status": "stun", "chance_field": "prop", "duration_field": "time"})
+	assert_eq(d.on_hit, {"status": "stun", "chance_field": "prop", "duration_field": "time", "once_per_target": true})
 	assert_false(d.has("weapon_families"), "weapons gate nothing")
 	assert_false(d.has("ranks"), "the default 30-level rank table")
 	assert_false(d.has("attack_count_field"), "Boomerang Step reads the node's attackCount")
@@ -189,19 +189,52 @@ func test_boomerang_step_stuns_on_prop_and_never_a_boss() -> void:
 	assert_false(_stunned(none, b), "prop 0 never stuns")
 
 
-func test_boomerang_step_rolls_the_stun_per_struck_monster_at_the_ranks_chance() -> void:
+## How many of `casts` seeded rank-`rank` casts at one snail stun it (D18: one roll per struck target, not per line).
+func _stun_count(rank: int, casts: int) -> int:
 	var stunned := 0
-	var total := 0
-	for p_seed in range(1, 41):
-		var w := _world(STEP, 1, p_seed) # rank 1: prop 38, time 2
+	for p_seed in range(1, casts + 1):
+		var w := _world(STEP, rank, p_seed)
 		w.player.facing = -1
 		var m := _mob(w, -60)
 		_run(w, 5, STEP)
-		total += 1
 		if _stunned(w, m):
 			stunned += 1
-			assert_near(w.swarm.status_time(m, MobSwarm.STUN), 2.0, 0.2, "rank 1 stuns for 2 s")
-	assert_true(stunned > 5 and stunned < total - 5, "38%% of %d casts stun (%d did)" % [total, stunned])
+	return stunned
+
+
+func test_boomerang_step_rolls_the_stun_once_per_struck_monster_at_the_ranks_chance() -> void:
+	# D18 (review #425 S2): the WZ `prop` is a per-target chance; the two damage lines roll it once (the first line), so a
+	# snail is stunned on 38 / 60 / 90 % of casts at ranks 1 / 4 / 8. Per-line rolling would give 62 / 84 / 99 %.
+	# Bounds are the binomial mean +- 3.5 sd for the right chance, which exclude the per-line one at every rank.
+	var one := _stun_count(1, 100) # 38 +- 17 (per-line: 62)
+	assert_true(one >= 21 and one <= 55, "rank 1: 38%% of 100 casts stun (%d did)" % one)
+	var four := _stun_count(4, 100) # 60 +- 17 (per-line: 84)
+	assert_true(four >= 43 and four <= 77, "rank 4: 60%% of 100 casts stun (%d did)" % four)
+	var eight := _stun_count(8, 200) # 180 +- 15 (per-line: 198)
+	assert_true(eight >= 165 and eight <= 193, "rank 8: 90%% of 200 casts stun (%d did)" % eight)
+
+
+func test_boomerang_step_stun_lasts_the_rank_time() -> void:
+	var w := _world(STEP, 1, 1, 100.0)
+	w.player.facing = -1
+	var m := _mob(w, -60)
+	_run(w, 5, STEP)
+	assert_near(w.swarm.status_time(m, MobSwarm.STUN), 2.0, 0.2, "rank 1 stuns for 2 s")
+
+
+func test_the_per_target_roll_is_opt_in_and_other_skills_still_roll_per_line() -> void:
+	# Only the data key `on_hit.once_per_target` changes the roll: without it the same two-line skill rolls twice per target.
+	var per_line := 0
+	for p_seed in range(1, 101):
+		var w := _world(STEP, 1, p_seed)
+		w.book.defs[STEP] = w.book.defs[STEP].duplicate(true)
+		w.book.defs[STEP].on_hit.erase("once_per_target")
+		w.player.facing = -1
+		var m := _mob(w, -60)
+		_run(w, 5, STEP)
+		if _stunned(w, m):
+			per_line += 1
+	assert_true(per_line >= 48, "per-line rolling stuns about 62%% of casts (%d of 100)" % per_line)
 
 
 # --- Band of Thieves --------------------------------------------------------------------------------------------------
