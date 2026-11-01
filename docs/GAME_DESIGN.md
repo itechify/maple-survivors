@@ -6611,6 +6611,9 @@ The `thief --disorder=1` flow-driver probe captures a real cast on an evidence-o
 
 ### 7.23 Dark Sight (#211, spec #167)
 
+**Replaced by the Form in 7.135 (Shadower SH11 #436): the passive-slot buff below, its HP thresholds, its cards and its tests no longer exist; the
+Hidden state, the speed penalty and the 50% avatar opacity it describes carry over to the Form.**
+
 `dark_sight` (4001003, book 400, ranks 1–20, any weapon) reuses the Hidden state in 7.18. It auto-casts below
 30% MaxHP with a living mob within 250 px (the same reach as Oak Barrel), when affordable and ready. It never fails
 and draws no failure RNG. Hidden blocks contact, mob and boss attacks and the character's attacks; movement, buffs,
@@ -9825,64 +9828,11 @@ cast its own critical chance and bonus, read from the skill's canonical level fi
   +{bonus}% critical damage" (`SkillText.level_line`, tier C wording).
 - Data checks: `FinishingStrike.errors` (called by `DataRepo._load_all`) needs an object naming a non-empty `chance_field` and
   `bonus_field`; `FinishingStrike.level_errors(book)` checks that both name numeric canonical fields on every level of every rank
-  (the cache-dependent unit test for the shipped skills belongs to SH11, which adds Assassinate).
+  (`test_dark_sight` runs it on the real Assassinate book, cache-gated, SH11 #436).
 
 ### 7.135 Shadower skill entries (spec #425)
 
-One paragraph per ticket, appended; each ticket's numbers are under its own "Shadower <ticket> constants" heading.
-
-#### 7.135 (SH7 #432): Assaulter
-
-Assaulter (4211002, book 421, `skills/shadower.json`) is Shadower's `mobility_skill` (D1): the stunning cousin of Hero's Rush
-(7.33). Learned at round start next to Double Stab, no slot, not in the pool, never a card, no rarity bonuses. Everything that
-makes Rush a manual dash is unchanged and shared: the `rush` skill key and action (X by default), the direction (held side
-arrow, else the facing; Up/Down ignored), walls, ledges and map limits, no start while climbing, the refused-dash-spends-nothing
-rule, hold-to-repeat, the 2.0 s cooldown, no meter gain and no bonus from a held charge, and the bot escape (`rush
-{bot_threat_distance 60}`, `BotInput.RUSH_MIN_INTERVAL` 3 s). The Key Config row and the HUD quick slot read the skill's own name
-and icon (`manual_skill_keys`), so they say "Assaulter"; no label is hard-coded.
-- **Rank.** The shared `balance.mobility_rank_levels` rule through `RunWorld._level_ranks`: rank 1 (WZ level 4) at Lv1, rank N
-  at Lv 2N, rank 8 (level 30) from Lv16. It uses the default level-30 table, so its rank is **Hero's Rush rank at every round
-  level** (`test_shadower_assaulter` asserts it for Lv1..40). Rank 1 / 4 / 8: damage 240 / 350 / 450%, stun 28 / 50 / 80% for
-  2 / 3 / 4 s.
-- **Reach and targets.** The dash is the box reach `|lt.x|` = 200 px at every rank (the node's box is (-200, -120)..(0, 0) at all
-  30 levels), and the charge strikes `mobCount` 1: the single monster the swept box meets first (the charge's shared order, 7.13:
-  scheduled bosses first, then the nearest to where the dash began). Nothing else in the path is touched.
-- **Stun.** `on_hit {status stun, chance_field prop, duration_field time}` and **no `knockback` block**: the struck monster rolls
-  `prop` with one stream-1 draw (`RunWorld._on_player_hit`, the Shout/Boomerang Step path) and is stunned for `time` seconds.
-  Bosses (and scheduled bosses) take the damage and never the stun (`MobSwarm.accepts_status`). The existing roll draws before that
-  acceptance check, so a struck boss also consumes its draw; this is the shared behaviour and is not changed here.
-- **Art.** Action `assaulter` (the body's two 600 ms frames; the stance is held 0.6 s), the `hit/0` red streak on the struck
-  monster, the `Use` sound, **no `effect`**. The `mob` stun-star node is not wired: the generic stun cue draws the stars.
-- **Hidden.** A Hidden Shadower pressing Assaulter dashes and strikes: manual skills are not gated by Hidden (7.18). Recorded, not
-  changed.
-Tests: `test_shadower_assaulter` (the Rush set for Assaulter, plus one-monster/first-along-the-path, no knock-back, the stun by
-rank and its draw, rank equality with Hero's Rush at Lv1..40, the label, and the real-cache numbers).
-
-**SH8 (#433): Boomerang Step and Band of Thieves.** Two multi-target skills on the existing `box` cast rule, both auto-cast
-with at least one monster in the box, both on the default 30-level rank table (ranks read WZ levels 4 / 8 / 12 / 15 / 19 / 23 /
-27 / 30), no weapon gate (`skills/shadower.json`).
-- **Boomerang Step** (4221007, book 422): the WZ forward line (-300, -110)..(0, 0), mirrored with the facing like every box, stabs
-  the nearest `mobCount` (2 / 3 / 4) monsters `attackCount` 2 lines each at 290 / 400 / 500% per line, and each struck monster
-  rolls the Shout-style `on_hit` stun on `prop` (38 / 60 / 90%) for `time` seconds (2 / 3 / 4). Bosses take the damage and
-  never the stun (`MobSwarm.accepts_status`). 3.0 s cooldown, action `alert5`, `effect`, `hit/0`, `Use` and `Hit` sounds.
-- **Band of Thieves** (4211004, book 421): the symmetric WZ box (+-130 / +-140 / +-150 by +-50) hits the nearest `mobCount`
-  (2 / 4 / 6) monsters, and the node's `x` is the number of lines: each "other self" lands one line on every struck monster
-  (SH-8). The new definition key `attack_count_field` (`Loadout._base_attack_count`, default `attackCount`) reads `x` as the
-  base `attack_count`, so rarity `attack_count` bonuses and the card previews work unchanged. Damage per line is 140 / 150 / 210%
-  at ranks 1 / 4 / 8 and is **not monotone** (it falls at WZ levels 7, 13, 19 and 25, where `x` steps up); the per-cast total
-  (percent x lines x monsters) rises at every one of the eight ranks (1.4, 2.6, 3.4, 4.5, 5.6, 7.2, 9.0, 10.5 per monster
-  before the monster count). 8.0 s cooldown, no status. The node has no `action`: the definition says `weapon` (the held
-  dagger's first stance). The thieves are the effect art, not summons: `effect` plays on the caster, `hit_lines` plays the
-  thief figure `hit/1..5` on each struck monster by line (`hit/0`, the common strike, is the fallback). `hitAfter` (five of
-  the six `hit` nodes carry it) is not modelled: every line lands on the cast tick.
-- **Rarity bonuses** (tier C, #288 schema): Boomerang Step Dagger Mastery damage x1.2, Dagger Booster cooldown x0.88, Second Pass
-  `count` +1 (one more monster in the line); Band of Thieves Band Mastery damage x1.2, Wide Band `area` x1.2, Bigger Band
-  `attack_count` +1 (one more thief). Legendary = the Unique's effect (same id, so it shares the repeat counter) plus damage x1.2.
-- Bot: the geometric box reach is the bot reach (300 and 150 px); no `bot` key, no card-score entry (the pool default gives a
-  learn card 100 and a rank card 74). Not tuned.
-Tests: `test_shadower_boomerang_band` (forward line follows the facing, nearest-N and two lines each, stun roll and boss
-exemption, Band lines / monsters / box by rank, totals rising across the non-monotone percents, per-line hit art, every rarity
-bonus changing the resolved cast, card flow, bot scores, Skill window text, and the real-cache numbers of all eight ranks).
+One subsection per skill ticket; each ticket's numbers are under its own "Shadower SH<k> constants (#n)" heading.
 
 #### 7.135 (SH6 #431): Shadower dagger fillers
 
@@ -9916,6 +9866,61 @@ counter, Mastery repeats x0.8, and the eight WZ levels of each skill against the
 bosses, relocation) stay in `test_bandit_attacks` unchanged; `test_thief` and `test_thief_parity` lost only what asserted the old rank
 lists and cards.
 
+#### 7.135 (SH7 #432): Assaulter
+
+Assaulter (4211002, book 421, `skills/shadower.json`) is Shadower's `mobility_skill` (D1): the stunning cousin of Hero's Rush
+(7.33). Learned at round start next to Double Stab, no slot, not in the pool, never a card, no rarity bonuses. Everything that
+makes Rush a manual dash is unchanged and shared: the `rush` skill key and action (X by default), the direction (held side
+arrow, else the facing; Up/Down ignored), walls, ledges and map limits, no start while climbing, the refused-dash-spends-nothing
+rule, hold-to-repeat, the 2.0 s cooldown, no meter gain and no bonus from a held charge, and the bot escape (`rush
+{bot_threat_distance 60}`, `BotInput.RUSH_MIN_INTERVAL` 3 s). The Key Config row and the HUD quick slot read the skill's own name
+and icon (`manual_skill_keys`), so they say "Assaulter"; no label is hard-coded.
+- **Rank.** The shared `balance.mobility_rank_levels` rule through `RunWorld._level_ranks`: rank 1 (WZ level 4) at Lv1, rank N
+  at Lv 2N, rank 8 (level 30) from Lv16. It uses the default level-30 table, so its rank is **Hero's Rush rank at every round
+  level** (`test_shadower_assaulter` asserts it for Lv1..40). Rank 1 / 4 / 8: damage 240 / 350 / 450%, stun 28 / 50 / 80% for
+  2 / 3 / 4 s.
+- **Reach and targets.** The dash is the box reach `|lt.x|` = 200 px at every rank (the node's box is (-200, -120)..(0, 0) at all
+  30 levels), and the charge strikes `mobCount` 1: the single monster the swept box meets first (the charge's shared order, 7.13:
+  scheduled bosses first, then the nearest to where the dash began). Nothing else in the path is touched.
+- **Stun.** `on_hit {status stun, chance_field prop, duration_field time}` and **no `knockback` block**: the struck monster rolls
+  `prop` with one stream-1 draw (`RunWorld._on_player_hit`, the Shout/Boomerang Step path) and is stunned for `time` seconds.
+  Bosses (and scheduled bosses) take the damage and never the stun (`MobSwarm.accepts_status`). The existing roll draws before that
+  acceptance check, so a struck boss also consumes its draw; this is the shared behaviour and is not changed here.
+- **Art.** Action `assaulter` (the body's two 600 ms frames; the stance is held 0.6 s), the `hit/0` red streak on the struck
+  monster, the `Use` sound, **no `effect`**. The `mob` stun-star node is not wired: the generic stun cue draws the stars.
+- **Hidden.** A Hidden Shadower pressing Assaulter dashes and strikes: manual skills are not gated by Hidden (7.18). Recorded, not
+  changed.
+Tests: `test_shadower_assaulter` (the Rush set for Assaulter, plus one-monster/first-along-the-path, no knock-back, the stun by
+rank and its draw, rank equality with Hero's Rush at Lv1..40, the label, and the real-cache numbers).
+
+#### 7.135 (SH8 #433): Boomerang Step and Band of Thieves
+
+**SH8 (#433): Boomerang Step and Band of Thieves.** Two multi-target skills on the existing `box` cast rule, both auto-cast
+with at least one monster in the box, both on the default 30-level rank table (ranks read WZ levels 4 / 8 / 12 / 15 / 19 / 23 /
+27 / 30), no weapon gate (`skills/shadower.json`).
+- **Boomerang Step** (4221007, book 422): the WZ forward line (-300, -110)..(0, 0), mirrored with the facing like every box, stabs
+  the nearest `mobCount` (2 / 3 / 4) monsters `attackCount` 2 lines each at 290 / 400 / 500% per line, and each struck monster
+  rolls the Shout-style `on_hit` stun on `prop` (38 / 60 / 90%) for `time` seconds (2 / 3 / 4). Bosses take the damage and
+  never the stun (`MobSwarm.accepts_status`). 3.0 s cooldown, action `alert5`, `effect`, `hit/0`, `Use` and `Hit` sounds.
+- **Band of Thieves** (4211004, book 421): the symmetric WZ box (+-130 / +-140 / +-150 by +-50) hits the nearest `mobCount`
+  (2 / 4 / 6) monsters, and the node's `x` is the number of lines: each "other self" lands one line on every struck monster
+  (SH-8). The new definition key `attack_count_field` (`Loadout._base_attack_count`, default `attackCount`) reads `x` as the
+  base `attack_count`, so rarity `attack_count` bonuses and the card previews work unchanged. Damage per line is 140 / 150 / 210%
+  at ranks 1 / 4 / 8 and is **not monotone** (it falls at WZ levels 7, 13, 19 and 25, where `x` steps up); the per-cast total
+  (percent x lines x monsters) rises at every one of the eight ranks (1.4, 2.6, 3.4, 4.5, 5.6, 7.2, 9.0, 10.5 per monster
+  before the monster count). 8.0 s cooldown, no status. The node has no `action`: the definition says `weapon` (the held
+  dagger's first stance). The thieves are the effect art, not summons: `effect` plays on the caster, `hit_lines` plays the
+  thief figure `hit/1..5` on each struck monster by line (`hit/0`, the common strike, is the fallback). `hitAfter` (five of
+  the six `hit` nodes carry it) is not modelled: every line lands on the cast tick.
+- **Rarity bonuses** (tier C, #288 schema): Boomerang Step Dagger Mastery damage x1.2, Dagger Booster cooldown x0.88, Second Pass
+  `count` +1 (one more monster in the line); Band of Thieves Band Mastery damage x1.2, Wide Band `area` x1.2, Bigger Band
+  `attack_count` +1 (one more thief). Legendary = the Unique's effect (same id, so it shares the repeat counter) plus damage x1.2.
+- Bot: the geometric box reach is the bot reach (300 and 150 px); no `bot` key, no card-score entry (the pool default gives a
+  learn card 100 and a rank card 74). Not tuned.
+Tests: `test_shadower_boomerang_band` (forward line follows the facing, nearest-N and two lines each, stun roll and boss
+exemption, Band lines / monsters / box by rank, totals rising across the non-monotone percents, per-line hit art, every rarity
+bonus changing the resolved cast, card flow, bot scores, Skill window text, and the real-cache numbers of all eight ranks).
+
 #### 7.135 (SH9 #434): Ninja Ambush
 
 Constants: "Shadower SH9 constants (#434)". `ninja_ambush_shadower` (4221004, book 422, job 422) is a data copy of Night Lord's
@@ -9932,6 +9937,29 @@ Tests: `test_shadower_ninja_ambush` (the Night Lord set re-run on `ninja_ambush_
 4 / 8 / 12 s, six monsters and one ordinary hit each, `area` widens, `count` adds monsters, a second cast makes a second zone, every
 rarity bonus changing the resolved cast, one rank plus the bonus, Legendary's shared counter; and, with the cache, the two definitions
 resolving equal numbers at all eight ranks against 4121004 and the Use sound resolving through the UOL).
+
+#### 7.135 (SH11 #436): Dark Sight and Assassinate
+
+**Dark Sight and Assassinate (SH11 #436).** `dark_sight` (4001003, book 400, 20 levels, ranks read WZ levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20) moves from
+`thief.json` to `shadower.json` and is rewritten as the Shadower's Form slot: `kind form`, `damage none`, `cast {rule form, mob_within 150}` (a living monster
+within 150 px, so a window is not burned walking between spawns), `form {duration 5.0, exclusive_group shadower_stance, effects {}, subs [assassinate]}`,
+`buff {hidden, stat speed, field speed, duration 5.0}`, a 20 s cooldown from the cast (25% uptime). While the window runs the character is Hidden (7.131):
+monsters ignore it, nothing lands, and every other attack skill is silenced (cooldowns keep running); the speed penalty is the WZ column (-26 / -12 / 0 at ranks
+1 / 4 / 8) and ends with the window; the avatar is drawn at 50% alpha (7.23). The old passive-slot buff (auto-cast below 30% HP, 250 px, ends above 60%, 30 s cooldown),
+its `dark_sight_new` / `dark_sight_rank` cards and its HP-threshold tests are removed; a playable Shadower's cards come from the pool.
+`assassinate` (4221001, book 422, `slot form_sub`, `form_sub_of [dark_sight]`) is the sub: the `subs` entry carries `first_after 0.8`, `interval 2.0` and
+`ignores_hidden true` (casts at 0.8, 2.8 and 4.8 s of the 5 s window), a `box` cast on at least one monster (a scheduled boss first, then the nearest; it waits,
+due and not consumed, while the box is empty) over the canonical box (-100,-120)..(-10,0), `mobCount 1`, three lines (`attackCount 3`; the String says four, the
+node is used) of 230 / 425 / 600% at WZ levels 4 / 15 / 30, and `finish_strike {prop, criticalDamage}` (7.133): the last line crits on 38 / 60 / 90% (plus the base
+chance) for +120 / +175 / +250 points. It ranks with its parent through its own 30-level table, so Dark Sight rank 8 casts level 30. Presentation: the cast stance
+`assassination` held 1.9 s (the whole 11-frame body stance, under the 2.0 s interval), the 25-frame `effect` at the caster, the 10-frame `special` as the hit art on
+each line, `Use` and `Use2` alternating per cast. Rarity bonuses (the form is `damage: none`, so the Rare damage x1.2 multiplies the sub through `form_sub_damage`):
+Rare Assassinate (damage x1.2), Epic Haste (cooldown x0.88), Unique Deep Shadow (`form_time` x1.5, a 7.5 s window with a fourth Assassinate at 6.8 s), Legendary
+Deep Shadow plus damage x1.2; the Legendary shares the Unique's repeat counter and a Normal Mastery repeat cuts the cooldown x0.95 (no damage to raise). Tests:
+`test_dark_sight` (definitions, admission at 150 px, the 5 s window and `form_ended`, the cooldown, the speed by rank, the Assassinate timeline, one monster and
+three lines, nearest and boss-first targeting, waiting with an empty box, rank 8 at level 30, the finisher over 300 casts, silenced attacks, mob and boss attacks
+on a Hidden caster, every rarity bonus, the pool cards and Mastery, the real-cache numbers at all eight ranks and `FinishingStrike.level_errors` on the real
+book), `test_dark_sight_render` (the faded avatar for the window), `test_map_transfer` (a running Dark Sight Form survives the transfer).
 
 ### 7.136 Smokescreen (spec #425 SH12, #437)
 
@@ -10767,9 +10795,9 @@ Thief tracer (#207) additions:
 | Thief equipment weights | PAD 10, LUK 6, DEX 3; other weights match Beginner | C initial selection, untuned |
 | Thief weapons | chosen 1472061/1332063 worn, opposite in Equip or overflow pickup; stars 2070015 | B Dark Lord gifts (v83-facts section 4); A item IDs/stats; C path/overflow presentation |
 | Thief RNG | stream 15, thief_rng, reserved for Steal success | C independent stream; existing streams unchanged |
-| Dark Sight values (#211) | 20 ranks; MP 24→5, duration 10→200 s, speed −30→0, any weapon, no failure, darksight action/effect/Use sound | A Skill.wz/400.img/skill/4001003 |
-| Dark Sight escape (#211) | casts below 30% HP with a mob within 250 px; ends above 60%; fixed 30 s cooldown from cast; action hold 0.6 s | C owner escape/cooldown rules; reach matches Oak Barrel; action hold ours, untuned |
-| Dark Sight cards and appearance (#211) | learn/rank weights 3/2, job 400 only, no carry; Hidden non-morph avatar opacity 0.5 (blink can dim further) | C survivor card/presentation choices; A rank cap 20 |
+| Dark Sight values (#211; speed column only, the rest replaced by SH11 #436) | 20 ranks; MP 24→5, duration 10→200 s, speed −30→0, any weapon, no failure, darksight action/effect/Use sound | A Skill.wz/400.img/skill/4001003 |
+| Dark Sight escape (#211, REMOVED by SH11 #436: see "Shadower SH11 constants") | casts below 30% HP with a mob within 250 px; ends above 60%; fixed 30 s cooldown from cast; action hold 0.6 s | C owner escape/cooldown rules; reach matches Oak Barrel; action hold ours, untuned |
+| Dark Sight cards and appearance (#211; the cards were REMOVED by SH11 #436, the 50% opacity stays) | learn/rank weights 3/2, job 400 only, no carry; Hidden non-morph avatar opacity 0.5 (blink can dim further) | C survivor card/presentation choices; A rank cap 20 |
 | Thief attacks | Lucky Seven: 250px, 1s cooldown, 600px/s, radius8, pierce0; Double Stab: weapon reach, one target, 1.2s cooldown; both action0.6s | C initial untuned cast choices; A counts/costs/damage/action art; B LUK formula |
 | Thief cards | attack learn/rank 4/3, Nimble Body 2/2, behavior weight2/max3, +1 star/target; attacks carry to 410/420 | C initial untuned choices; A rank cap20 |
 | Thief roster | ordinary Lv10–70 Thief-bit gear; shields only for dagger; ordinary/dark ATT scrolls | C curated selection/filter; A IDs and WZ requirements/stats/rates |
@@ -12539,3 +12567,22 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | `ground.strike` `{interval 1.0, first_delay 0.3}`, anchored at the cast | the zone copy of Night Lord's | tier C: spec #425 / NL8 (#407) |
 | Cooldown / action hold / admission | 14.0 s (the 12 s zone never overlaps itself) / 0.6 s / `min_targets` 1 | tier C: spec #425 |
 | Rarity bonuses | Shadow Shifter damage x1.2, Wide Ambush `area` x1.2, Ambush Squad `count` +2, Legendary = Ambush Squad + damage x1.2 | tier C: spec #425 |
+
+### Shadower SH11 constants (#436)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Dark Sight window | 5.0 s (`form.duration` and the literal `buff.duration`); the WZ `time` (30 to 200 s) is session-scale and unused | tier C: spec #425 SH-4 (the WZ field is tier A, unused) |
+| Dark Sight speed penalty | the WZ `speed` column, -26 / -12 / 0 at ranks 1 / 4 / 8 (levels 3 / 10 / 20) | tier A: Skill.wz 4001003 |
+| Dark Sight admission | `cast {rule form, mob_within 150}` | tier C: spec #425 SH-6 (Assassinate's reach) |
+| Dark Sight cooldown | 20 s from the cast (25% uptime) | tier C: spec #425 SH-6 |
+| Dark Sight exclusive group | `shadower_stance` (Smokescreen is a zone, not a form) | tier C: spec #425 |
+| Dark Sight stance hold | `darksight` 0.6 s (the old value) | tier C: ours |
+| Assassinate timing | first cast 0.8 s into the window, then every 2.0 s (0.8 / 2.8 / 4.8 s of 5 s) | tier C: spec #425 SH-5 |
+| Assassinate numbers | damage 230 / 425 / 600% x 3 lines on one monster; `prop` 38 / 60 / 90, `criticalDamage` 120 / 175 / 250; box (-100,-120)..(-10,0); WZ levels 4 / 15 / 30 at ranks 1 / 4 / 8 | tier A: Skill.wz 4221001 (attackCount 3 from the node, not the String's "4") |
+| Last line as the lethal strike | `prop` is the last line's critical chance, `criticalDamage` its bonus in skill-percent points | tier B/C: spec #425 SH-7 (reading of the String) |
+| Assassinate stance hold | `assassination` 1.9 s (the 11-frame body stance, less than the 2.0 s interval) | tier C: ours (SH11) |
+| Assassinate art | `effect` at the caster, `special` as the hit art on each line, `Use` / `Use2` alternating | tier C: SH1 contact-sheet roles; the nodes and sounds are tier A |
+| Assassinate cooldown field | 2.0 s (mirrors the interval; the sub driver does not read it) | tier C: ours |
+| Rarity bonuses | Rare Assassinate damage x1.2; Epic Haste cooldown x0.88; Unique Deep Shadow `form_time` x1.5; Legendary Deep Shadow plus damage x1.2 | tier C: spec #425 first pass |
+| Removed | the passive-slot buff: HP trigger 30%, end above 60%, 250 px, 30 s cooldown, 10 to 200 s duration, `dark_sight_new` / `dark_sight_rank` cards | superseded (7.23) |
