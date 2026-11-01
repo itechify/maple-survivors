@@ -109,6 +109,10 @@ func _in_any_job_pool(key: String, playable_only := true) -> bool:
 	return false
 
 
+## The damaging manual dashes on the shared mobility rank rule: Hero's, Dark Knight's, Paladin's and Shadower's Assaulter (#432).
+const RUSHES := ["rush_hero", "rush_dark_knight", "rush_paladin", "assaulter"]
+
+
 ## `fixtures`: the synthetic books lack some skills (the I/L 221 book, #325); those are checked by the real-cache run only.
 func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) -> void:
 	for key: String in book.defs:
@@ -119,7 +123,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) ->
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
 			assert_eq(book.canonical_level(key, 5), 5)
 			continue
-		if key in ["rush_hero", "rush_dark_knight", "rush_paladin"] and book.skill_node(key).is_empty():
+		if key in RUSHES and book.skill_node(key).is_empty():
 			continue # the synthetic fixtures carry no Rush node; the real-cache run covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
@@ -131,7 +135,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) ->
 			assert_eq(book.max_rank(key), 8, "%s: ranks with its parent" % key)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
-		if key in ["rush_hero", "rush_dark_knight", "rush_paladin"] or String(book.def(key).get("slot", "")) == "form_sub" or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key, false):
+		if key in RUSHES or String(book.def(key).get("slot", "")) == "form_sub" or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key, false):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue

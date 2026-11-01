@@ -278,7 +278,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
-There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash, Rush, Flash Jump) are cast on their own skill keys, all X by default.
+There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash, Rush, Flash Jump; Shadower's Assaulter is on the Rush key) are cast on their own skill keys, all X by default.
 
 Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
 drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
@@ -6303,7 +6303,7 @@ Teleport behaves exactly as before.
 - **Key Config lists only learned manual skills.** `RunWorld.manual_skill_keys()` returns one
   `{action, name, icon, skill}` per learned skill key; `KeyConfigWindow` takes it when it opens and ends its tray with
   those icons (the skill's own icon and name, not the F/P Teleport icon for everyone). `KeyBindings` drafts the fixed
-  actions plus those ids; an unlearned skill key cannot be bound. Teleport, Dash, Rush and Flash Jump all default to X; no character
+  actions plus those ids; an unlearned skill key cannot be bound. Teleport, Dash, Rush (Shadower's Assaulter sits on the `rush` key too) and Flash Jump all default to X; no character
   learns two of them (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
 - **Input.** `MoveInput.skills_pressed` / `skills_held` (id -> true; `press_skill`, `hold_skill`) replace the old
   `teleport_pressed` / `teleport_held`. `RunScene` latches presses of learned skill keys (a held key requests repeats).
@@ -7042,7 +7042,7 @@ Skill.wz level field is tier A.
 Hero's `mobility_skill` (spec #296 D1): a manual directional dash on the skill key that damages and shoves mobs along its
 path. It is the first mobility skill that deals damage. Paladin's Rush (`rush_paladin`, #312) is a copy of Hero's on
 book 122: the same definition, shape, rank rule and tier C numbers (`test_rush_paladin.gd` runs the Hero set for it and
-compares the two ranks at every round level); only the ids, art and sound paths differ. Dark Knight gets its own the same way. Rush is
+compares the two ranks at every round level); only the ids, art and sound paths differ. Dark Knight gets its own the same way; Shadower's Assaulter (7.135, #432) is the same dash on the same key with a stun on one monster in place of the knock-back. Rush is
 learned at round start next to Power Strike (`JobTree.start_skills`), consumes neither slot track, is not in the pool and
 is never offered as a card (`UpgradePool` only draws pool skills).
 
@@ -9831,6 +9831,33 @@ cast its own critical chance and bonus, read from the skill's canonical level fi
 
 One paragraph per ticket, appended; each ticket's numbers are under its own "Shadower <ticket> constants" heading.
 
+#### 7.135 (SH7 #432): Assaulter
+
+Assaulter (4211002, book 421, `skills/shadower.json`) is Shadower's `mobility_skill` (D1): the stunning cousin of Hero's Rush
+(7.33). Learned at round start next to Double Stab, no slot, not in the pool, never a card, no rarity bonuses. Everything that
+makes Rush a manual dash is unchanged and shared: the `rush` skill key and action (X by default), the direction (held side
+arrow, else the facing; Up/Down ignored), walls, ledges and map limits, no start while climbing, the refused-dash-spends-nothing
+rule, hold-to-repeat, the 2.0 s cooldown, no meter gain and no bonus from a held charge, and the bot escape (`rush
+{bot_threat_distance 60}`, `BotInput.RUSH_MIN_INTERVAL` 3 s). The Key Config row and the HUD quick slot read the skill's own name
+and icon (`manual_skill_keys`), so they say "Assaulter"; no label is hard-coded.
+- **Rank.** The shared `balance.mobility_rank_levels` rule through `RunWorld._level_ranks`: rank 1 (WZ level 4) at Lv1, rank N
+  at Lv 2N, rank 8 (level 30) from Lv16. It uses the default level-30 table, so its rank is **Hero's Rush rank at every round
+  level** (`test_shadower_assaulter` asserts it for Lv1..40). Rank 1 / 4 / 8: damage 240 / 350 / 450%, stun 28 / 50 / 80% for
+  2 / 3 / 4 s.
+- **Reach and targets.** The dash is the box reach `|lt.x|` = 200 px at every rank (the node's box is (-200, -120)..(0, 0) at all
+  30 levels), and the charge strikes `mobCount` 1: the single monster the swept box meets first (the charge's shared order, 7.13:
+  scheduled bosses first, then the nearest to where the dash began). Nothing else in the path is touched.
+- **Stun.** `on_hit {status stun, chance_field prop, duration_field time}` and **no `knockback` block**: the struck monster rolls
+  `prop` with one stream-1 draw (`RunWorld._on_player_hit`, the Shout/Boomerang Step path) and is stunned for `time` seconds.
+  Bosses (and scheduled bosses) take the damage and never the stun (`MobSwarm.accepts_status`). The existing roll draws before that
+  acceptance check, so a struck boss also consumes its draw; this is the shared behaviour and is not changed here.
+- **Art.** Action `assaulter` (the body's two 600 ms frames; the stance is held 0.6 s), the `hit/0` red streak on the struck
+  monster, the `Use` sound, **no `effect`**. The `mob` stun-star node is not wired: the generic stun cue draws the stars.
+- **Hidden.** A Hidden Shadower pressing Assaulter dashes and strikes: manual skills are not gated by Hidden (7.18). Recorded, not
+  changed.
+Tests: `test_shadower_assaulter` (the Rush set for Assaulter, plus one-monster/first-along-the-path, no knock-back, the stun by
+rank and its draw, rank equality with Hero's Rush at Lv1..40, the label, and the real-cache numbers).
+
 **SH8 (#433): Boomerang Step and Band of Thieves.** Two multi-target skills on the existing `box` cast rule, both auto-cast
 with at least one monster in the box, both on the default 30-level rank table (ranks read WZ levels 4 / 8 / 12 / 15 / 19 / 23 /
 27 / 30), no weapon gate (`skills/shadower.json`).
@@ -12443,6 +12470,21 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | `balance.status_bonuses.venomous_stab` | poison; chance 14 16 18 20 24 26 28 30; time 2 2 3 3 3 4 4 4; level 4 8 12 15 19 23 27 30; element `s` | tier A: Venomous Stab 4220005 `prop`, `time` and the rank -> poison level map, equal level for level to 4120005 |
 | `repeat_chance` of `venomous_stab` | 3 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #425 SH-13 |
 | `test_late_equipment_bands` Shadower row | job 422, `["dagger"]`, shield check off (the shipped Thief shield list has no piece in bands 1, 2, 14, 15; SH2 changes no equipment data) | tier C: test table, spec #425 |
+
+### Shadower SH7 constants (#432)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Assaulter cooldown | 2.0 s (Rush's; the balance lever) | tier C: spec #425, ours (#302) |
+| Assaulter rank | `balance.mobility_rank_levels` (rank 1 at Lv1, rank 8 from Lv16), equal to Hero's Rush rank at every level | tier C: ours (#296 D1), spec #425 |
+| Assaulter damage / stun chance / stun seconds | 240 / 350 / 450%, 28 / 50 / 80%, 2 / 3 / 4 s at ranks 1 / 4 / 8 | tier A: Skill.wz 4211002 `damage`, `prop`, `time` at WZ levels 4 / 15 / 30 |
+| Assaulter reach / box | 200 px = `|lt.x|` of (-200,-120)..(0,0), the same at every level | tier A: Skill.wz 4211002 `lt`/`rb` |
+| Assaulter targets | `mobCount` 1: the first monster the swept box meets (bosses first, then nearest to the dash start) | tier A `mobCount`; the ordering is the charge's (tier C, #302) |
+| Assaulter status | stun on `prop` for `time`, one stream-1 draw per struck monster; bosses never stunned; no knock-back block | tier C reading of the node (Shout's `on_hit`), spec #425 |
+| Assaulter key / bot | skill key `rush`; the bot dashes away from a mob within 60 px at most every 3 s | tier C: Rush's (#302) |
+| Assaulter action hold | 0.6 s (the `assaulter` body has two 600 ms frames) | tier C: ours (SH7) |
+| Assaulter `mob` stun-star node | not wired: the generic stun cue draws the stars | tier C: ours (SH7) |
+| Assaulter Hidden | a Hidden Shadower may press it (manual skills are not gated, 7.18) | tier C: unchanged |
 
 ### Shadower SH8 constants (#433)
 

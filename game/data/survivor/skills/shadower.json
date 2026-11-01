@@ -1,6 +1,50 @@
 {
 	"_doc": "Shadower skill definitions (spec #425). Empty until the skill tickets land; each appends inside its own region, and a key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). SH6 #431 moves Double Stab, Steal and Savage Blow here from skills/thief.json (ported, no explicit ranks); SH7 #432 Assaulter (mobility); SH8 #433 Boomerang Step and Band of Thieves; SH9 #434 Ninja Ambush (key ninja_ambush_shadower); SH10 #435 Meso Explosion; SH11 #436 Dark Sight (moved from skills/thief.json and rewritten as a hidden Form) and Assassinate (form_sub); SH12 #437 Smokescreen (safe_zone). The pool is in jobs/shadower.json.",
 	"skills": {
+		"assaulter": {
+			"skill_id": 4211002,
+			"book": "421",
+			"job": 421,
+			"kind": "instant",
+			"slot": "mobility",
+			"name": "Assaulter",
+			"desc": "Press the skill key with an arrow key to dash that way, striking the first monster in your path and maybe stunning it. Hold to repeat.",
+			"text": {
+				"desc": "Press the Assaulter key with an arrow key to dash that way, striking the first monster in your path; it may be stunned. Bosses are hit but never stunned. Hold the key to keep dashing.",
+				"h": "Damage {damage}%, {mob_count|monster|monsters}; {prop}% chance to stun for {time} sec, dashes forward."
+			},
+			"icon": "Skill.wz/421.img/skill/4211002/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "manual"
+			},
+			"skill_key": "rush",
+			"cooldown": 2.0,
+			"displacement": {
+				"direction": "input",
+				"when": "during",
+				"field": "lt.x"
+			},
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop",
+				"duration_field": "time"
+			},
+			"rush": {
+				"bot_threat_distance": 60.0
+			},
+			"action": "assaulter",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/421.img/skill/4211002/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4211002/Use",
+				"hit": ""
+			},
+			"_provenance": "Tier A: Skill.wz 4211002 (book 421; rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16 by the shared balance.mobility_rank_levels rule, the same rank as Hero's Rush at every level): damage 240 / 350 / 450 % at ranks 1 / 4 / 8, prop (the stun chance) 28 / 50 / 80 %, time (the stun seconds) 2 / 3 / 4, mobCount 1, the box lt (-200,-120) rb (0,0) at every level, whose reach is also the dash distance (field lt.x, 200 px), the assaulter action, the hit/0 art and the Use sound; the node has no effect. Tier C: the 2.0 s cooldown (the balance lever, Rush's), the stun replaces Rush's always-on knock-back (no knockback block), the first monster along the path (bosses first, then nearest to where the dash began, the charge's ordering), hold-to-repeat, no start while climbing, no meter gain or bonus, never a card (no rarity bonuses), the bot dashes away from a mob within 60 px at most every 3 s (BotInput.RUSH_MIN_INTERVAL), the 0.6 s action hold (the body's two 600 ms frames are not both played), the `mob` stun stars are the generic stun cue (the node is not wired). GAME_DESIGN 7.135 (SH7 #432)."
+		},
 		"boomerang_step": {
 			"skill_id": 4221007,
 			"book": "422",
