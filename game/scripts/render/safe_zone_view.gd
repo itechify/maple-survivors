@@ -6,10 +6,11 @@ extends Node2D
 ## character (GuardLabels, put in the top container so nothing covers it). The skill's `effect` plays once at the cast
 ## through the ordinary `cast` event, not here.
 ##
-## Works from data only: `begin` takes the zone's world box, its life and the tile animation (any SpriteAnim, or null for a
-## cloud without art). Tier C (ours): the whole look. The tile frames are drawn with their WZ origin on the floor line
-## and spread every PUFF_STEP px over the box, the second puff of each pair shifted up PUFF_LIFT px; which WZ node is the
-## cloud is a reading of the Smokescreen node (SH1's contact sheet, confirmed by SH12), not a source.
+## Works from data only: `begin` takes the zone's world box, its life and the cloud's art: one SpriteAnim, an Array of
+## them (the puff VARIANTS of Smokescreen's `tile`, eleven two-frame puffs that each fade in and out, SH1 correction 3), or
+## null for a cloud without art. Tier C (ours): the whole look. Puff `k` is drawn with variant `(k * VARIANT_STRIDE) mod n`
+## standing on the floor line, spread every PUFF_STEP px over the box, the second puff of each pair shifted up PUFF_LIFT px;
+## which WZ node is the cloud is the reading of SH1's contact sheet, confirmed by SH12's screenshot.
 
 ## tier C: the box tint and outline colours (faint, so the cloud shows without hiding the fight), the outline width.
 const FILL := Color(0.78, 0.8, 0.92, 0.10)
@@ -29,6 +30,11 @@ const GUARD_LIFE := 0.8
 const GUARD_RISE := 26.0
 const GUARD_COLOR := Color(0.86, 0.93, 1.0)
 const GUARD_GAP := 0.4
+
+## tier C: puff `k` shows variant `(k * VARIANT_STRIDE) mod n`, so neighbouring puffs differ in size (the stride is coprime
+## with Smokescreen's eleven variants); the part of a puff's height that sinks below the floor line.
+const VARIANT_STRIDE := 5
+const PUFF_SINK := 8.0
 
 ## Asset source (unused by the view itself; the scene resolves the tile animation).
 var library: AssetLibrary
@@ -52,12 +58,13 @@ func _ready() -> void:
 	_ensure_pool()
 
 
-## Starts drawing a zone: `rect` its world box, `total` its life in seconds, `floor_y` the line the puffs stand on, `anim` the
-## tile animation (a SpriteAnim, or null for no art). A zone of the same skill already drawn is dropped first.
-func begin(skill: String, rect: Rect2, total: float, floor_y: float, anim: SpriteAnim) -> void:
+## Starts drawing a zone: `rect` its world box, `total` its life in seconds, `floor_y` the line the puffs stand on, `art` the
+## tile animation (a SpriteAnim, an Array of puff-variant SpriteAnims, or null for no art). A zone of the same skill already
+## drawn is dropped first.
+func begin(skill: String, rect: Rect2, total: float, floor_y: float, art: Variant) -> void:
 	_drop(skill)
 	_zones.append({"skill": skill, "rect": rect, "floor_y": floor_y, "age": 0.0, "left": total,
-		"anim": anim if anim != null and not anim.is_empty() else null, "ending": false})
+		"anims": usable_anims(art), "ending": false})
 	queue_redraw()
 
 
@@ -120,6 +127,35 @@ func guard_count() -> int:
 	return _labels.count() if _labels != null else 0
 
 
+## The non-empty animations in `art` (a SpriteAnim, an Array of them, or null), in order.
+static func usable_anims(art: Variant) -> Array[SpriteAnim]:
+	var out: Array[SpriteAnim] = []
+	var list: Array = art if art is Array else [art]
+	for item: Variant in list:
+		if item is SpriteAnim and not (item as SpriteAnim).is_empty():
+			out.append(item)
+	return out
+
+
+## The puff animations under the WZ node `path`: the node itself when it holds frames (one looping animation), otherwise
+## each numbered child that does (Smokescreen's `tile/0..10`, a two-frame puff each). Empty when neither exists.
+static func load_art(lib: AssetLibrary, path: String) -> Array[SpriteAnim]:
+	var out: Array[SpriteAnim] = []
+	if lib == null or path == "":
+		return out
+	var whole := lib.find_anim(path)
+	if whole != null:
+		out.append(whole)
+		return out
+	var node: Variant = lib.find(path)
+	if node is Dictionary:
+		for key: String in SpriteAnim.frame_keys(node):
+			var variant := lib.find_anim(path + "/" + key)
+			if variant != null:
+				out.append(variant)
+	return out
+
+
 ## Puff anchor positions of a zone: a row on the floor line every PUFF_STEP px across the box, every second one lifted
 ## PUFF_LIFT px, at most MAX_PUFFS. The layout, kept apart from drawing.
 static func puff_positions(rect: Rect2, floor_y: float) -> PackedVector2Array:
@@ -151,16 +187,19 @@ func _draw() -> void:
 
 func _draw_puffs(zi: int) -> int:
 	var zone := _zones[zi]
-	var anim: SpriteAnim = zone.anim
-	if anim == null:
+	var anims: Array = zone.anims
+	if anims.is_empty():
 		return 0
 	var fade := fade_at(float(zone.age), float(zone.left))
 	var positions := puff_positions(zone.rect, float(zone.floor_y))
 	for puff in positions.size():
+		var anim: SpriteAnim = anims[(puff * VARIANT_STRIDE) % anims.size()]
 		# Each puff starts at its own phase of the loop so the row does not pulse in step.
 		var t := float(zone.age) + anim.total * float(puff) / float(maxi(1, positions.size()))
-		_pool.show(zi * MAX_PUFFS + puff, anim.frame_at(t, true), positions[puff].round(), false,
-			anim.alpha_at(t, true) * fade)
+		var frame := anim.frame_at(t, true)
+		# The puff stands on the floor line: its bottom edge (origin-relative) sits PUFF_SINK px under it.
+		var at := positions[puff] - Vector2(0.0, frame.region.size.y - frame.origin.y - PUFF_SINK)
+		_pool.show(zi * MAX_PUFFS + puff, frame, at.round(), false, anim.alpha_at(t, true) * fade)
 	return positions.size()
 
 
