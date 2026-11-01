@@ -295,6 +295,12 @@ about 150 MB read, 95 MB stored in IndexedDB; whole-import time as the worker re
 
 The localhost host has no network latency or bandwidth limit, so the URL rows only show request counts and bytes.
 
+The table above is the manifest of that day (157 imgs). The manifest has grown since: Chromium over the DevTools protocol, URL folder
+with Range, fresh profile, the web export of the sixteen-region progression (C14 #476, 2026-10-31; GAME_DESIGN 4.2 "Progression QA")
+imported 1,707 imgs (4,316 files, 619 MB) in 52.8 s (48.0 s reading, 4.7 s saving; 1,172 requests, 1.1 GB downloaded) and left 509 MB in
+IndexedDB, against 1,156 imgs (2,696 files, 312 MB) in 26.1 s and 251 MB for the manifest just before the regions (33 more maps, 111
+more mobs, and the equipment and item art of the late drop bands). The game booted to its title after the import.
+
 ## 3. WZ format facts (v83, verified)
 
 Verified against all 16 PKG1 archives of the vanilla install (0 parse errors, `docs/research/wz-inventory.md`):

@@ -647,34 +647,60 @@ block and compares the event logs).
   `level_scale_at`; other stages' records keep their bytes.
 
 
-Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
-labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
-aliases; living slots, bests, history and run snapshots migrate on load. The unlock order is the `progression` list
-(henesys, ellinia, perion, kerning, sleepywood; ADR 0007, #450). The former tier list was
-`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253); "tier 1 stages" in
+The sixteen regions of `stages.json` `progression`, in the order they unlock (ADR 0007, #450): a clear of region k opens region
+k+1. `region` and `continent` are the labels map select, the opening title and results show (tier C owner choice; the continent
+is the String.wz group, tier A). Steps 1-5 are Victoria Island and keep the opening ramps of #241/#307; steps 6-16 declare a
+`level_scale` instead (section "Level scale" above, calibrated by C13). Tools accept the former keys `henesys_hg1`,
+`tree_that_grew_1` and `dark_cave` as aliases; living slots, bests, history and run snapshots migrate on load. The former tier
+list was `[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253); "tier 1 stages" in
 older records below, in the smoke and in the job-loop tickets mean the first four regions.
 
-| Stage key | Map 1 | Map 2 | Map 3 | Boss order |
-|---|---|---|---|---|
-| `henesys` | Henesys Hunting Ground I (104040000) | The Pig Beach (104010001) | The Blue Mushroom Forest (100030001) | Mano / Mushmom / Blue Mushmom |
-| `ellinia` | The Tree That Grew I (101010100) | The Forest of Wisdom (100040100) | The Forest of Evil I (100040105) | Stumpy / King Slime / Dyle |
-| `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
-| `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
-| `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
-| `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
-| `omega_sector` | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) | Chief Gray / MT-09 / Zeno |
-| `korean_folk_town` (step 8, #465) | Korean Folk Town - Entrance to Black Mountain (222010000, 2520 px) | Tiger Ridge (222010200, 2520 px) | Fox Ridge (222010300, 3240 px) | Scholar Ghost / Blue King Goblin / Nine-Tailed Fox |
-| `mu_lung` (step 9, #466) | Mu Lung - Snake Area (250010300, 1530 px) | Mu Lung - Wild Bear Area 1 (250010301, 1980 px) | Mu Lung - Peach Farm 3 (250010700, 1980 x 1050 px) | Giant Centipede / Tae Roon / King Sage Cat |
-| `el_nath` (step 10, #467) | Watch Out for Icy Path I (211010000, 3050 px) | Forest of Dead Trees I (211041100, 4310 px) | The Cave of Trial II (211042100, 4290 px) | Snow Witch / Riche / Snowman |
-| `magatia` (step 11, #468) | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) | Deo / Homunscullo / Chimera |
-| `zipangu` (step 12, #469) | Zipangu - A Night in the Forest (800020110, 3228 px, flat) | Showa Street 3 (801030000, 3850 px) | Encounter with the Buddha (800020130, 2868 px, flat) | Male Boss / Female Boss / Black Crow |
-| `leafre` (step 13, #470) | Leafre - The Area of Blue Kentaurus (240020400, 2790 px) | Dragon Forest II (240030200, 2970 px) | Cave of Light (240050300, 3240 px, flat) | Manon / Griffey / Leviathan |
-| `clocktower` (step 15, #472) | Ludibrium - Warped Passage (220060400, 2995 px, flat) | Forgotten Passage (220070400, 2995 px, flat) | Deep Inside the Clocktower (220080000, 4143 px, flat) | Gatekeeper / Thanatos / Papulatus (clock 8500001 into the flying form 8500002) |
-| `temple_of_time` (step 16, #473) | Temple of Time - Memory Lane5 (270010500, 2403 x 1096 px) | Road of Regrets5 (270020500, 2403 x 1096 px) | Road to Oblivion5 (270030500, 2403 x 1096 px) | Dodo / Lilynouch / Lyka |
+| Step | Stage key | Region (continent) | Drop band | Map 1 | Map 2 | Map 3 |
+|---|---|---|---|---|---|---|
+| 1 | `henesys` | Henesys (Victoria Island) | [0, 15] | Henesys Hunting Ground I (104040000) | The Pig Beach (104010001) | The Blue Mushroom Forest (100030001) |
+| 2 | `ellinia` | Ellinia (Victoria Island) | [10, 20] | The Tree That Grew I (101010100) | The Forest of Wisdom (100040100) | The Forest of Evil I (100040105) |
+| 3 | `perion` | Perion (Victoria Island) | [15, 25] | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) |
+| 4 | `kerning` | Kerning City (Victoria Island) | [20, 30] | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) |
+| 5 | `sleepywood` | Sleepywood (Victoria Island) | [30, 40] | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) |
+| 6 | `ludibrium` | Ludibrium (Ossyria) | [35, 45] | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) |
+| 7 | `omega_sector` | Omega Sector (Ossyria) | [40, 50] | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) |
+| 8 | `korean_folk_town` | Korean Folk Town (Ossyria) | [45, 55] | Korean Folk Town - Entrance to Black Mountain (222010000, 2520 px) | Tiger Ridge (222010200, 2520 px) | Fox Ridge (222010300, 3240 px) |
+| 9 | `mu_lung` | Mu Lung (Ossyria) | [50, 60] | Mu Lung - Snake Area (250010300, 1530 px) | Mu Lung - Wild Bear Area 1 (250010301, 1980 px) | Mu Lung - Peach Farm 3 (250010700, 1980 x 1050 px) |
+| 10 | `el_nath` | El Nath (Ossyria) | [55, 65] | Watch Out for Icy Path I (211010000, 3050 px) | Forest of Dead Trees I (211041100, 4310 px) | The Cave of Trial II (211042100, 4290 px) |
+| 11 | `magatia` | Magatia (Ossyria) | [60, 70] | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) |
+| 12 | `zipangu` | Zipangu (Zipangu) | [70, 80] | Zipangu - A Night in the Forest (800020110, 3228 px, flat) | Showa Street 3 (801030000, 3850 px) | Encounter with the Buddha (800020130, 2868 px, flat) |
+| 13 | `leafre` | Leafre (Ossyria) | [80, 90] | Leafre - The Area of Blue Kentaurus (240020400, 2790 px) | Dragon Forest II (240030200, 2970 px) | Cave of Light (240050300, 3240 px, flat) |
+| 14 | `phantom_forest` | Phantom Forest (Masteria) | [90, 100] | Forgotten Path (610010005, 3496 px) | Cavern of Fortitude (610020014, 2230 px) | Twisted Paths (610010103, 3946 px, flat) |
+| 15 | `clocktower` | Ludibrium Clocktower (Ossyria) | [100, 110] | Ludibrium - Warped Passage (220060400, 2995 px, flat) | Forgotten Passage (220070400, 2995 px, flat) | Deep Inside the Clocktower (220080000, 4143 px, flat) |
+| 16 | `temple_of_time` | Temple of Time (Ossyria) | [108, 120] | Temple of Time - Memory Lane5 (270010500, 2403 x 1096 px) | Road of Regrets5 (270020500, 2403 x 1096 px) | Road to Oblivion5 (270030500, 2403 x 1096 px) |
 
-All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
-"Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
-arrivals show the destination's v83 street and map name. Summaries retain region/continent and the ending WZ names.
+The ordinary roster of each region's maps, as the pools resolve them (the monsters the swarm draws from, `Name level`, ascending;
+map 1 is the union of its keyframe pools under 300 s, maps 2 and 3 the pool rule of their stage entry; bosses, their final forms
+and the monsters they summon are not listed; levels are the canonical `info/level`, tier A) and the three scheduled bosses:
+
+| Step | Region | Map 1 roster | Map 2 roster | Map 3 roster | Bosses (mob id) |
+|---|---|---|---|---|---|
+| 1 | Henesys | Snail 1, Blue Snail 2, Shroom 2, Red Snail 4, Slime 6, Stirge 6 | Pig 7, Ribbon Pig 10 | Blue Mushroom 20, Horny Mushroom 22 | Mano (2220000); Mushmom (6130101); Blue Mushmom (9400205) |
+| 2 | Ellinia | Snail 1, Blue Snail 2, Shroom 2, Red Snail 4, Slime 6 | Slime 6 | Zombie Lupin 40, Malady 55 | Prime Minister (3300008); Grey Yeti and King Pepe (3300005); Faust (5220002) |
+| 3 | Perion | Blue Snail 2, Stump 4, Red Snail 4, Dark Stump 10 | Axe Stump 17, Dark Axe Stump 22 | Wild Boar 25, Fire Boar 32 | King Clang (5220001); Stumpy (3220000); Iron Hook (4090000) |
+| 4 | Kerning City | Blue Snail 2, Red Snail 4, Slime 6, Orange Mushroom 8, Octopus 12 | Bubbling 15 | Jr. Necki 21, Ligator 32 | King Slime (9300003); Shade (5090000); Dyle (6220000) |
+| 5 | Sleepywood | Stirge 20, Horny Mushroom 22, Zombie Mushroom 24, Evil Eye 27 | Cold Eye 40, Drake 50, Ice Drake 64 | Cold Eye 40, Tauromacis 70, Taurospear 75 | Zombie Mushmom (6300005); Snack Bar (8220009); Jr. Balrog (8130100) |
+| 6 | Ludibrium | Roloduck 34, Panda Teddy 36 | Panda Teddy 36, Robo 41 | Master Robo 44 | Rombot (4130103); Alishar (9300012); Timer (5220003) |
+| 7 | Omega Sector | Barnard Gray 40 | Mateon 41, Plateon 44 | Plateon 44, Mecateon 46 | Chief Gray (4240000); MT-09 (5120100); Zeno (6220001) |
+| 8 | Korean Folk Town | Moon Bunny 45 | Hodori 50, Hogul 53 | Samiho 56 | Scholar Ghost (6090003); Blue King Goblin (7130401); Nine-Tailed Fox (7220001) |
+| 9 | Mu Lung | Black Porky 43, Blue Flower Serpent 45, Red Flower Serpent 45 | Grizzly 56 | Reindeer 58, Peach Monkey 62 | Giant Centipede (5220004); Tae Roon (7220000); King Sage Cat (7220002) |
+| 10 | El Nath | Jr. Yeti 50, Hector 55 | Coolie Zombie 57 | Jr. Cerebes 43, Cerebes 72 | Snow Witch (6090001); Riche (6090000); Snowman (8220001) |
+| 11 | Magatia | Kiyo 30, Sand Dwarf 32 | Roid 54, Neo Huroid 58 | Homun 65, Saitie 68 | Deo (3220001); Homunscullo (8110300); Chimera (8220002) |
+| 12 | Zipangu | Paper Lantern Ghost 40, Big Cloud Fox 45 | Extra A 45, Extra B 47, Extra C 50, Leader A 62, Leader B 64 | Dreamy Ghost 100 | Male Boss (9400120); Female Boss (9400121); Black Crow (9400014) |
+| 13 | Leafre | Blue Kentaurus 88 | Rexton 95, Green Cornian 100 | Skelegon 110, Skelosaurus 113 | Manon (8180000); Griffey (8180001); Leviathan (8220003) |
+| 14 | Phantom Forest | Firebrand 90, Elderwraith 95, Nightshadow 100 | Firebrand 90, Elderwraith 95, Nightshadow 100 | Firebrand 90, Elderwraith 95, Nightshadow 100 | Headless Horseman (9400549); Master Guardian (9400594); Bigfoot (9400575) |
+| 15 | Ludibrium Clocktower | Ghost Pirate 83, Death Teddy 85, Dual Ghost Pirate 87 | Master Death Teddy 89, Spirit Viking 93, Phantom Watch 95 | Gigantic Spirit Viking 98, Grim Phantom Watch 99 | Gatekeeper (8160000); Thanatos (8170000); Papulatus (8500001) |
+| 16 | Temple of Time | Chief Memory Guardian 101 | Chief Qualm Guardian 116 | Chief Oblivion Guardian 131 | Dodo (8220004); Lilynouch (8220005); Lyka (8220006) |
+
+Map select lists each region's three maps and bosses in `progression` order; its objective is "Defeat 3 bosses across 3 maps".
+Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending
+map. The opening title shows continent above region; transfer arrivals show the destination's v83 street and map name.
+Summaries retain region/continent and the ending WZ names.
 
 Round time includes all combat on every map. The pacing clock is `curve_time = (N - 1) * 300 + time_on_map` for
 one-based map N, resetting to 300 / 600 on transfers regardless of the previous fight's duration. Rate, alive cap,
@@ -882,6 +908,109 @@ No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening mu
 Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
+
+### Progression QA and merge-readiness (C14, #476, 2026-10-31)
+
+QA of the whole sixteen-region progression before `spec/447-region-progression` merges into `redesign`: the flow-driver climb, one
+playtest per new region, the web gate, the regression smoke, the boss attack mix, #509's three bot and boss-placement bugs and the
+docs. Shared private cache (all 16 regions, manifest unchanged), `JOBS=2`, F/P (212) for the smoke, the Hero (112) for the climb and
+the playtests, training seeds 1 / 2 / 2026 only, no balance data touched (the walls are #508). Evidence stays out of the repo
+(`evidence/c14/`: `progression/`, `sheets/`, `playtest/`, `psheets/`, `web/`).
+
+**Flow-driver climb** (`--scenario=progression --through=16 --job=112 --seed=1`, new): **PASSED**, `missing: []`, no world warning.
+A fresh Hero clears all sixteen regions in order with the diagnostic invulnerable warp (a lethal boss hit after each timer; 3 of 3
+bosses each time, round time 900.1-900.3 s). At each of the 16 steps map select showed exactly `step - 1` regions CLEAR, the next one
+NEW and selected, the rest locked, only that next region unlocked, the header `Regions cleared k/16` and Start enabled; the saved
+cleared set equalled the first k keys after every clear and the round count k. At step 1 a locked Ellinia refused Start. Halfway (after
+8 clears) Save & quit, character select and Continue kept the set on disk and on map select (`continued_after_08`). After the 16th
+clear map select read `Regions cleared 16/16` with nothing locked and no frontier. Shots (195 PNGs): every region's start, the arrival
+of each of its three bosses, each map's clear and entry, the results, map select at steps 1 / 6 / 11 / 16 and the 16/16 header. The
+region's six map and boss frames were read by eye as contact sheets: every map draws its v83 backdrop, tiles, objects and swarm, and
+every boss shows its bar and arrival notice (the bosses themselves are often lost in the crowd of 100-350 at their arrival). The
+invulnerable character reads HP 1-20 in many frames: `god` clamps HP, a diagnostic artefact. Clear level of the Hero per step (seed 1,
+diagnostic, not survival evidence): Henesys 32, Ellinia 17, Perion 20, Kerning 22, Sleepywood 27, Ludibrium 29, Omega 27, Korean Folk
+Town 27, Mu Lung 27, El Nath 25, Magatia 25, Zipangu 61, Leafre 27, Phantom Forest 60, Clocktower 41, Temple of Time 24. Its boss-2 frame
+of Zipangu (Showa Street 3) shows no character (the camera is off it in that one frame; real play below shows it), and nothing else was wrong.
+
+**Playtests** (`playtest.sh --stage=<key> --job=112 --character=<per-step fixture> --speed=8 --minutes=20 --seed=2026 --vsync=off`; the
+fixture is `character_fixture.gd --band-of=<previous region> --band-pick=best --cleared=<step - 1>`, the kit a Hero arrives with):
+`missing: []` in all eleven. A natural bot, so most end in a death, which is #508's wall, not a QA finding:
+
+| Step | Region | End | Time | Hero Lv | Maps reached | Bosses killed | Seen by eye |
+|---|---|---|---|---|---|---|---|
+| 6 | Ludibrium | died | 616 s | 37 | 2 | 1 (Rombot) | Rombot's robot and windup, Alishar's attack art and death frame on Toy Factory Zone 4 |
+| 7 | Omega Sector | died | 386 s | 24 | 2 | 1 (Chief Gray) | Chief Gray's falling bolts and shockwave on Kulan Field I |
+| 8 | Korean Folk Town | died | 732 s | 31 | 3 | 2 | Moon Bunny and tiger swarms, Blue King Goblin's attack |
+| 9 | Mu Lung | died | 641 s | 39 | 3 | 2 | Giant Centipede's three attacks, Tae Roon's, the Grizzly swarm |
+| 10 | El Nath | died | 554 s | 32 | 2 | 1 | Snow Witch arrival, the snow and Dead Trees fields |
+| 11 | Magatia | died | 563 s | 34 | 2 | 1 | Deo's windup in the desert, the lab field |
+| 12 | Zipangu | **cleared** | 951 s | 81 | 3 | 3 | Male Boss and Female Boss with their summons, Black Crow in the bamboo |
+| 13 | Leafre | died | 365 s | 24 | 2 | 1 | Manon with both attacks on the Kentaurus field, the Dragon Forest |
+| 14 | Phantom Forest | died | 633 s | 39 | 2 | 1 | Headless Horseman, Master Guardian's attacks in the Cavern |
+| 15 | Clocktower | died | 453 s | 28 | 2 | 1 | Gatekeeper's two attacks, the CLEAR banner, the Forgotten Passage swarm |
+| 16 | Temple of Time | died | 46 s | 1 | 1 | 0 | Chief Memory Guardians on the lane (dead at Lv1) |
+
+Only Zipangu reaches all three maps and bosses in real play; the climb above covers the rest. Steps 13-16 and Ludibrium's second
+map are where the Hero dies young (Temple of Time at 46 s on this seed), the C13 walls (#508).
+
+**Bugs, #509 and the boss attack mix**
+
+- **Ludibrium's Timer (fixed, `BotInput`).** Reproduced (Hero seed 2: TIMEOUT at 1,800 s, Timer alive 865 s, Lv92, 15,886 kills). A trace
+  showed the Timer standing at its spawn (x -1,300) for the whole fight while the bot kited and farmed 3,000 px away: the Timer's seven
+  skills all hold the 3.12 s `skill1` stance at their WZ intervals (10 s buffs and stun, 20 s heal, 30 s immunities), 1.6 s of stance
+  per second, so it never walks, and the director's stalled-pursuit relocation does not count a skill stance as a stall. The bot only
+  ever engaged mobs within 300 px. New rule (section 11 "Progression QA constants"): a boss alive 45 s and more than 700 px away on the
+  bot's level is walked to. Seed 2 now kills the Timer at 85 s (65 s of it walking). Seed 4 dies at 503.7 s as before. The Timer's data is
+  unchanged; `test_bot_melee` pins the hunt (a held far boss is reached after the delay by melee and kiting builds, not before; it
+  needs the boss on the bot's level and beyond the gap).
+- **Papulatus clock "hovering 332 px above the floor" (not a bug).** The trace of a Clocktower run (Hero seed 3, cleared at 950 s) put the
+  clock at (751, -332) with the character at (1738, -332) on foothold 10: `-332` is the floor's own world y in Deep Inside the Clocktower
+  (y grows downward and the map's floor is at -332), the same y the character stands at. The clock is a ground mob and the flying form
+  8500002 aims at the character. The one TIMEOUT C13 saw was the same stationary-boss case as the Timer (the clock's skills also hold
+  it in stance) and the hunt covers it.
+- **The Hero's weapon swap after the Free Market (not reproduced).** Four Temple of Time chains (`--chain=1 --retries=3`, 13
+  attempts) kept the two-handed axe 1412026 through every shop visit; the quick Lv8-16 deaths of attempts 2-4 happen with the axe still
+  worn, so they are #508, not a swap. `BotShop.auto_equip` only wears an item that scores strictly higher on the job's stat weights
+  (the swap C13 saw raised the weighted incPAD). Left alone, no test.
+- **Boss attack mix (fixed, `BossAttacks`).** Of the 33 scheduled bosses only the Papulatus clock starved an attack: `step` started the
+  first listed ready attack, and attack1 holds its stance 9.21 s against the 8 s interval, so attack1 was ready again before the boss
+  could act and attack2 and attack4 were never cast (one cast kind in a 100 s run). Every other boss's stances (0.7-4.95 s) fit the
+  interval and already alternated. The ready attack that has waited longest now starts (`test_boss_attacks`: attack1 9.5 s / attack2 alternate;
+  with stances that fit the interval the listed order is unchanged). The first four regions' smoke and Sleepywood are unchanged to the
+  second (below), so no existing boss's mix moved.
+- **Pool EXP gate (shared).** `tests/region_checks.gd` (test `test_region_pool_exp`) holds the 0.7-1.3x level-curve check for every
+  ordinary mob of steps 6-16, summons included (the Darkstars pay 0 by design and are exempt); it found nothing to fix on the shipped
+  data. Region tests pin their exact neighbours and `test_progression_order` the whole list and its monotone drop bands.
+
+**Web gate** (`scripts/export.sh --web`, `scripts/check_web_artifact.sh`): both pass (27 files, no WZ data or cache-shaped file; wasm
+importer built with `wasm-bindgen` 0.2.105, templates 4.7.2). index.wasm 39.5 MB, index.pck 7.3 MB, 50 MB in all. Imported once in
+Chromium (driven over the DevTools protocol; the localhost source of `web/dev/serve_sources.mjs` typed into the "Web address" tab as a
+player would, Range supported), then the game booted to its title screen. The manifest of this build against the one before the regions
+(`2807314f`, ADR 0007), both imported the same way into a fresh profile:
+
+| Build | Maps / mobs / items | Images | Files | Imported | Time (read + saved) | Requests | Downloaded | IndexedDB |
+|---|---|---|---|---|---|---|---|---|
+| Before the regions | 16 / 47 / 69 | 1,156 | 2,696 | 312 MB | 26.1 s (24.0 + 2.1) | 598 | 598 MB | 251 MB |
+| Now | 49 / 158 / 162 | 1,707 | 4,316 | 619 MB | 52.8 s (48.0 + 4.7) | 1,172 | 1.1 GB | 509 MB |
+
+The import doubles in time and size (the 33 maps and 111 mobs of the regions and the late-band equipment art); about 53 s once, 509 MB stored,
+against a quota of 10.9 GB on this machine. Not judged unreasonable here, but a mobile browser's quota is smaller: the owner's call. Both
+runs on a localhost host (no network latency or bandwidth limit); 161 warnings, all unresolved-UOL notes in Character.wz equipment as
+before (25 in the earlier manifest).
+
+**Regression smoke** (F/P 212, seeds 1 / 2 / 2026, `JOBS=2`, death-only seconds min / median / max): **every batch matches C13's, and so
+#455's, to the second**: Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8
+/ 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 /
+373.2; Sleepywood with the starter wand 11.4 / 11.9 / 15.1 (3 deaths), with `fp_arch_mage.json` one clear and deaths at 23.8 / 395.4 / 767.0. No
+crash, no world warning, `missing` empty. `--chain=16 --retries=2` (a fresh F/P bot, recorded as is): seeds 1 and 2026 die in Henesys on all 3 attempts (seed 1 at 644.1 / 486.3 /
+658.2 s, Lv36 / 24 / 37; seed 2026 at 417.3 / 692.5 / 594.7 s); seed 2 dies at 646.7 and 539.6 s, clears Henesys on its 3rd attempt (906.5 s,
+Lv57) and then dies on all 3 attempts in Ellinia (617.7 / 627.0 / 620.9 s, Lv22-23). 0 of 3 chains passed step 2; Perion and the
+rest were never started. The expected fresh-bot wall of #475, not a regression (the walls of steps 6-16 are #508).
+
+**Tests:** the whole suite with the real cache, `ISOLATE=c14 TEST_TIMEOUT_S=7200 bash scripts/test.sh`: **4,182 tests, 0 failed, 0 skipped,
+366 files** (nothing SKIPs with the cache; CI has no WZ data, so its cache-backed tests SKIP). `cd tools/wzimport && cargo test` with
+`MAPLE_WZ_ROOT` set: 71 passed, 0 failed (50 library, 1, 2 and 18 in the integration files). `node --test web/dev/test/*.test.mjs
+tools/level_curve/test/*.test.mjs`: 70 passed, 0 failed.
 
 ### Region calibration (C13, #475, 2026-10-31)
 
@@ -9919,7 +10048,7 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 
 | Rule | Value / source | Tier |
 |---|---|---|
-| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, ludibrium, omega_sector, el_nath (v83 levelling order; owner request 2026-10-30) | C |
+| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, ludibrium, omega_sector, korean_folk_town, mu_lung, el_nath, magatia, zipangu, leafre, phantom_forest, clocktower, temple_of_time (v83 levelling order; owner request 2026-10-30; sixteen regions, tests pin each region's neighbours) | C |
 | Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]). Steps 6-16, set by their region tickets (#449), are [35, 45], [40, 50], [45, 55], [50, 60], [55, 65], [60, 70], [70, 80], [80, 90], [90, 100], [100, 110] and **[108, 120]** for step 16 (#447 said [110, 120]; widened by #474, see "Equipment for the late bands" in 8.3) | C |
 | Late-band equipment (#474) | `equipment_drops/*.json` hold every ordinary v83 weapon of a listed family and one armour piece per slot, reqLevel and gender up to Lv120; chosen from Character.wz facts (not cash, `only`, `notSale`, `quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`; price above 1; a String.wz name; not a `GMS ...` item). No Cosmic drop data was available to this ticket, so unlike the Lv0-70 lists it is not B-checked against server drops | C |
 | NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
@@ -9967,8 +10096,7 @@ for byte) and the full suite passes (3754 tests, 0 failed, 0 skipped, real cache
 
 Progression step 10 (`stages/el_nath.json`, `asset_manifest.d/region_el_nath.json`). Region and continent labels, the map
 list and the rosters are tier A (v83 Map.wz, Mob.wz, String.wz); the rest is ours, a first draft that no ticket here tunes
-(C13 does). Korean Folk Town and Mu Lung (steps 8 and 9) land in parallel; `progression` lists El Nath after Omega Sector
-until they merge.
+(C13 does). Korean Folk Town and Mu Lung are steps 8 and 9, between Omega Sector and El Nath.
 
 | Rule | Value / source | Tier |
 |---|---|---|
@@ -10036,6 +10164,16 @@ smoke (calibration is C13).
 | Boss attack interval | `level_scale_draft.gd` `ATTACK_INTERVAL` 8 s, as every boss | C |
 | Warning ceiling | `level_scale_draft.gd` `CURVE_FLAT_ABOVE` 131: the reference curves hold their Lv131 values above it (v83 has no stronger ordinary monster) | A |
 | Keyframe level resolution | 0.01 levels | C |
+
+### Progression QA constants (C14, #476, spec #449; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Boss attack order | `BossAttacks._ready_attacks`: of the scheduled attacks whose timer is up, the one that has been ready longest starts (list order breaks a tie); each attack keeps its own `attack_interval` timer, started at its own cast. The old rule started the first listed ready attack, which starved every later attack of a boss whose first stance outlasts the interval: only the Papulatus clock (attack1 holds 9.21 s against 8 s; attack2 and attack4 were never cast) among the 33 scheduled bosses | C |
+| Bot boss hunt | `BotInput.BOSS_HUNT_AFTER` 45 s, `BOSS_HUNT_GAP` 700 px: a scheduled boss of the entered map that has been alive 45 s, stands within `DUEL_DY` (40 px) of the bot's feet height and is more than 700 px away is walked to (any build) until it is within the bot's `engage.chase_range` (300 px); below `ENGAGE_RETREAT_HP` the bot kites as before. A boss that casts nearly all the time never walks (the Timer's seven skills hold a 3.12 s stance 1.6 s per second at their WZ intervals, and the director's stalled-pursuit relocation does not count a skill stance as a stall), so the bot never met it: 2 of the 7 C13 Ludibrium attempts timed out at 1,800 s. The boss's own data is unchanged | C |
+| Pool EXP gate | `tests/region_checks.gd`: every ordinary mob of steps 6-16 (pool mobs and summons, bosses and final forms left out; a summoned decoy with canonical EXP 0, the Clocktower's Darkstars, is exempt) pays 0.7-1.3 times `level_curve.json` EXP at its own `info/level` (Leafre's cave Skelegon copies paid 0.30) | C |
+| Region order tests | each region test pins its exact neighbours in `progression` (`RegionChecks.neighbours`), replacing "after X" | C |
+| Flow-driver climb | `flow_driver --scenario=progression --through=<n>`: a fresh character clears the first n regions with the diagnostic fixed-tick warp (`RunWorld.god`, lethal boss hit after each timer); map select must show exactly the cleared / frontier (selected) / locked states, `Regions cleared k/16` and only the next region unlocked at every step; Save & quit and Continue halfway keep the set; one shot at each boss arrival | C |
 
 ### Review #282: constants and provenance
 
