@@ -16,6 +16,8 @@
 
 # --job=<id> (the character's job, e.g. 212, 112 for Hero, 122 for Paladin, 132 for Dark Knight, 222 for the I/L Arch Mage, 232 for the Bishop, 312 for the Bowmaster (give it a bow: --character=game/tests/fixtures/characters/bowmaster_t2.json), 512 for the Buccaneer or 522 for the Corsair (give it `--character=game/tests/fixtures/characters/corsair_t2.json` for a gun and the tier-1 kit), all playable; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
 # --job=412 is the Night Lord (spec #383, NL11 #410): with --character=game/tests/fixtures/characters/night_lord_t2.json (a claw in hand); it is playable since NL12 #411.
+# --job=422 is the Shadower (spec #425, SH13 #438): refused as "not playable" until SH14 #439 flips `playable`; locally add "playable": true to the 422 entry of jobs/shadower.json (never commit it) and pass
+# --character=game/tests/fixtures/characters/shadower_t2.json (an Iron Dagger kit).
 # --account=<abs JSON> (an account for the round, spec #34: owned cash items, worn cash equipment, pet, ALERT levels; see
 # scripts/balance.sh and game/scripts/core/account_file.gd; summary.json names the file).
 # Map fields: summary.json root and nested summary carry map_times (reached-map entry seconds, starting [0]) and

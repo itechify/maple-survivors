@@ -780,6 +780,16 @@ added to the engine: the `summon.behavior` dispatch of `PlayerSummons` (`SummonT
 `RunWorld.take_hit` absorb hook (`player_hit.absorbed`, `form_ended` reason `broken`, 4.4.3), and the presentation pair `MountArt` / `MountLayers` that draws a Form's
 `presentation.mount` (`AvatarRenderer.set_mount`). Rationale and constants: GAME_DESIGN 7.120 to 7.122.
 
+**Selection tooling for the `shadower` line (spec #425, SH13 #438; `playable` stays `false` until SH14 #439).** Nothing in the engine changed: `--job=422` flows through
+`JobTree.job_error` in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, the fixture tool and `HubTestKit`, which refuse an unplayable job with "not playable in
+this build" and a `--character` of another job with "does not match". Shadower stays out of `DataRepo.CLASS_LINES` (ruling D15), and the line loads without it:
+`DataRepo.lines()` discovers every fragment file (unregistered names sort after the registered ones), so a local `"playable": true` in the 422 entry or the
+`DataRepo.patch` seam (`{"jobs_survivor": {"jobs": {"422": {"playable": true}}}}`) is all a diagnostic run or a test needs. Test-side fixtures: `tests/fixtures/shadower_fixtures.gd`
+(synthetic books 400 / 420 / 421 / 422 for the nine pool skills, Assaulter and Assassinate; a dagger setup that flips `playable` in the caller's data copy only),
+the character fixture `tests/fixtures/characters/shadower_t2.json` (job 422, the four first regions cleared, the Lv25 Iron Dagger kit; `jobs/shadower.json` `hub_kit` points at it)
+and the baseline oracle `test_shadower_baseline`. The Job page's `job_pitch` already shrinks with the row count, so the eleventh row (Shadower between Night Lord and Buccaneer)
+needs no layout change (15 px pitch). Rationale and constants: GAME_DESIGN 7.130 and "Shadower SH13 constants (#438)".
+
 Equipment drops no longer read the character's level or held weapon (#292): each `stages.json` stage's `drop_band` gives its
 region a `reqLevel` band (`EquipmentDrops.band_of(stage)`), `survivor/jobs/<line>.json` lists each exact job's `weapon_families` (`JobTree.weapon_families`), and
 `EquipmentDrops` takes both as arguments. A shield or armour piece is eligible by canonical `reqJob` alone.

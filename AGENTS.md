@@ -132,6 +132,7 @@ bash scripts/playtest.sh --job=312 --character=$PWD/game/tests/fixtures/characte
 bash scripts/playtest.sh --job=412 --character=$PWD/game/tests/fixtures/characters/night_lord_t2.json --minutes=5
                                                                # a Night Lord needs a claw in hand (the fixture's Meba); Night Lord has
                                                                # been playable since NL12 #411 (spec #383)
+# Shadower (--job=422, spec #425 SH13 #438) is not playable yet (SH14 #439 flips it): see "Shadower (422) tooling" below for the diagnostic run.
 bash scripts/playtest.sh --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/fp_arch_mage.json
                                                                # the fifth region with the first-four-regions kit (omit --character: the starter wand only)
 ```
@@ -399,6 +400,20 @@ pistol, hat, gloves and top (`jobs/corsair.json` `hub_kit`); `--job=212` with th
 not match the character's job" error. `flow_driver redesign --job=522` is the QA scenario and `creation --jobs=212,522` checks the Job page (the
 default `creation` would need nine slots: pass at most three jobs). The baseline oracle is `test_corsair_baseline` (six minutes, pool frozen in the
 test). Corsair QA (#399) is recorded in `docs/GAME_DESIGN.md` 7.120.15 and 4.2.
+
+### Shadower (422) tooling (spec #425, SH13 #438)
+
+`playable` stays `false` until SH14 #439, so `--job=422` is refused today with "job 422 (Shadower) is not playable in this build" in `balance.sh`, `playtest.sh`,
+`--run`, `balance_run.gd`, the fixture tool and `--hub`; `--job=212` with a Shadower `--character`, or `--job=422` with `fp_arch_mage.json`, is the usual "does not match the
+character's job" error. For a diagnostic run, add `"playable": true` to the 422 entry of `game/data/survivor/jobs/shadower.json` locally (the tracked entry has no `playable` key)
+and revert it before committing; tools also take `--patch=<json>` / `PATCH=<json>` with `{"jobs_survivor": {"jobs": {"422": {"playable": true}}}}`. Shadower is **not** in
+`DataRepo.CLASS_LINES` (ruling D15, appended at its `redesign` merge) and does not need to be: `DataRepo.lines()` discovers its files. `game/tests/fixtures/characters/shadower_t2.json`
+is the Shadower fixture: kit mode (`--job=422 --kit=1332010,1002171,1072022,1082029,1040002,1060002 --cleared=4 --patch=<playable json>`: an Iron Dagger and the Thief-bit hat,
+shoes and gloves of the Night Lord kit, the starter top and bottom, unscrolled, four regions cleared; its `_doc.patch` names the mirror it was made with). `--hub --job=422` opens it
+with five stacks of dagger ATT scrolls and spare hat, second dagger, gloves and top (`jobs/shadower.json` `hub_kit`). The Job page has eleven rows with 422 playable (15 px pitch,
+Shadower between Night Lord and Buccaneer). The baseline oracles are `test_shadower_baseline` (six minutes at seed 1, bot, god; a second golden with the pool frozen to the three
+skills the first leaves out) and, for the bot, `test_shadower_bot`; the Skill window tabs (Common, Thief, Bandit, Chief Bandit, Shadower) are `test_skill_window_shadower`. Details:
+`docs/GAME_DESIGN.md` 7.130 and "Shadower SH13 constants (#438)".
 
 ## Git
 

@@ -9714,6 +9714,30 @@ well placed, the meter block and a world gaining per 600 mesos without decay and
 from the line file, dagger-only drops synthetic / shipped / seeded / real cache per region band, `requirement_error`, the Razor),
 `test_data_repo_lines` (placement of the 400/420/421/422 books).
 
+**Selection (SH13 #438; `playable` still `false`).** Making Shadower selectable needed no engine change, only data, a fixture and tests; SH14 #439 flips `playable`.
+- *Registration.* Shadower stays out of `DataRepo.CLASS_LINES` (ruling D15) and still loads: `DataRepo.lines()` discovers its files, so `--job=422` with a local
+  `"playable": true` (or `--patch` / `DataRepo.patch`) starts a real Shadower. A diagnostic run that appears to need `CLASS_LINES` has not applied its `playable` edit: the tracked
+  422 entry has no `playable` key, so a `sed` on `"playable": false` matches nothing and the run fails with "not playable in this build".
+- *Tools.* `--job=422` flows through `JobTree.job_error` in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, `character_fixture.gd` and `HubTestKit`; unplayable it is refused
+  ("not playable"), playable a Shadower `--character` with `--job=212` (or the F/P fixture with `--job=422`) is the "does not match" error.
+- *Fixture and hub.* `shadower_t2.json` (job 422, four regions cleared, Iron Dagger 1332010 and the Night Lord kit's Thief-bit hat / shoes / gloves, reqLevels 25 / 30 / 20 / 15) and
+  the job's `hub_kit` (the five dagger ATT scrolls 2043300-2043305 of `scrolls/thief.json`, spare hat 1002001, dagger 1332000, gloves 1082002 and Thief-bit top 1040031, fallback item the
+  Lv40 dagger 1332011).
+- *Job page.* Eleven rows with 422 playable (Shadower between Night Lord and Buccaneer, 15 px pitch, the last row ends above the message strip); ten rows today. Layout, selection, keyboard step
+  and the weapon box (the Razor) are tested on the shipped list, the eleven-row list and a two-row list the patch seam makes.
+- *Skill window.* Tabs Common / Thief / Bandit / Chief Bandit / Shadower (400 / 420 / 421 / 422): `dark_sight` and `double_stab` on 400, `steal` and `savage_blow` on 420, `assaulter`,
+  `band_of_thieves` and `meso_explosion` on 421, `ninja_ambush_shadower`, `smokescreen` and `boomerang_step` on 422; Assassinate is Dark Sight's sub-skill and has no row. Assaulter has one
+  Key Config row on the `rush` action labelled "Assaulter" and the quick-slot cell.
+- *Bot.* All nine pool skills are taken when offered (100 learn, 74 rank; `dark_sight`, `smokescreen` and `meso_explosion` carry explicit entries, the other six the pool default). Reaches
+  (recorded, not tuned): Double Stab and Savage Blow 88 px (the Razor's swing), Steal 100, Band of Thieves 130, Ninja Ambush 120, Boomerang Step 300 (the only one past the 220 px kite
+  reach, so a Shadower with Step ready kites like an archer), and 0 for the finisher, the form, the zone and Assaulter. `has_target` reads the finisher and Smokescreen through their rules
+  (the meter refuses under 4 pips); Dark Sight admits with a monster within 150 px. The only key the bot presses is Assaulter's (a monster within 60 px, 3 s apart).
+- *Oracle.* `test_shadower_baseline`: seed 1, 21,600 ticks, bot, god, synthetic assets, `playable` set only in the test's data copy. The shipped pool is learned in the order Double Stab,
+  Assaulter, Steal, Band of Thieves, Ninja Ambush, Meso Explosion, Dark Sight (six actives full: Boomerang Step, Savage Blow and Smokescreen are not offered in time); the second golden freezes
+  the pool to those three so their casts, the stun and the safe zone are pinned. SH14's HP baseline changes the Shadower's player stats and so moves both goldens: SH14 recaptures them with the
+  cause written next to the constants (nothing else should move them).
+
+
 ### 7.131 Hidden form (spec #425 SH-1, SH-3; SH3 #428)
 
 A **Hidden form** (GLOSSARY) is a Form (7.87) whose `buff` block sets `hidden`. It adds no code to the Form seam beyond one
@@ -12638,6 +12662,20 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Rarity bonuses | Meso Up damage x1.2; Wide Explosion `area` x1.2; Pickpocket `meter_keep` +2; Legendary Pickpocket + damage x1.2; repeats x0.8 | tier C: spec #425 (names are the lineage's) |
 | Mesos | never spent, taken or created by the cast | ruling D7 |
 | Unit word | "pips" in the card and Skill window text | tier C (presentation) |
+
+### Shadower SH13 constants (#438)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Fixture kit (`shadower_t2.json`) | Iron Dagger 1332010 (reqLevel 25, PAD 40) and the Night Lord kit's Thief-bit hat 1002171 (30), shoes 1072022 (20), gloves 1082029 (15), top 1040002, bottom 1060002; four regions cleared | tier C: spec #425 (the item facts are tier A) |
+| `hub_kit.scrolls` | the five dagger ATT scrolls 2043302 / 2043301 / 2043300 / 2043304 / 2043305 (10%, 60%, 100%, dark 70%, dark 30%), 10 of each | tier C: spec #425 (scroll ids tier A: `scrolls/thief.json`) |
+| `hub_kit.equipment` | 1002001 (all-job hat), 1332000 (Lv12 Thief dagger), 1082002 (all-job gloves), 1040031 (Thief-bit top, Lv10) | tier C: ours, the Night Lord kit's pattern with a dagger |
+| `hub_kit.fallback_item` | 1332011 (Lv40 Thief dagger, PAD 55): what the flow driver wears at Lv1 when a round dropped no equipment | tier C: ours |
+| Job page pitch with eleven rows | floor((366 - 198) / 11) = 15 px (ten rows 16, up to eight 21) | tier C: NL11 #410's rule, unchanged |
+| Bot card scores | no new entries; all nine pool skills score 100 learn / 74 rank (three explicit from SH2, six by the pool default) | tier C: spec #425 |
+| Baseline oracle length | 21,600 ticks (six minutes), seed 1, the pre-#241 opening and whole-round curve, creation outfit with the Razor | tier C: the Night Lord and Corsair oracle length |
+| `GOLDEN` (shipped pool) | `4a7a6a0e705ad262721d92019fe1d66d48fa47c42a0180f96b60172cfcd30a72`; 418 casts, 948 hits, 10 Dark Sight windows | tier C: captured here; identical with and without the asset cache |
+| `GOLDEN_OUTSIDERS` (pool frozen to Boomerang Step, Savage Blow, Smokescreen) | `38eac8d13529543734a706e0ab4955db57d50c43253e4e10b6956032eaab313f` | tier C: captured here |
 
 ### Shadower SH11 constants (#436)
 

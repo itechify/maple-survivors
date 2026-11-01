@@ -86,6 +86,16 @@ Night Lord with no claw in hand has no throwing stars (`ammo.json` starts every 
 sprites and the 250 px basic-attack reach are missing; use this file for `--job=412 --character=<absolute path>` runs, `--stage=sleepywood`
 checks and `--hub --job=412`. A `--character` of this file runs as a Night Lord without a `--job` flag; `--job=212` with it is an error.
 
+`shadower_t2.json` is the Shadower (422) fixture (spec #425, SH13 #438): a format-3 Shadower at the start of a round with four regions cleared and the
+first-four-regions dagger kit worn: an Iron Dagger (1332010, reqLevel 25, PAD 40), the Thief-bit reqLevel-30 hat (1002171), reqLevel-20 shoes (1072022),
+reqLevel-15 gloves (1082029) and the starter top and bottom, unscrolled. Kit mode like `night_lord_t2.json`, so its `_doc` records the kit ids, label and revision, no seed
+or policy; the hat, shoes and gloves are the same Thief-bit pieces the Night Lord fixture wears. Reproduce with `tools/character_fixture.gd --job=422
+--kit=1332010,1002171,1072022,1082029,1040002,1060002 --cleared=4 --label=spec425/ticket-438 --revision=<SHA> --out=<absolute path>
+--patch=<json making 422 playable>` (the patch is needed while 422 is `playable: false`, until SH14 #439; `_doc.patch` names its file, a regeneration after the flip needs none).
+**A dagger matters**: a Shadower's reach skills (Double Stab, Savage Blow) read the held weapon's swing, and the Razor or this dagger gives it. Use this file for
+`--job=422 --character=<absolute path>` runs (with the playable flag set locally), `--stage=sleepywood` checks and `--hub --job=422`. A `--character` of this file runs as a
+Shadower without a `--job` flag; `--job=212` with it is an error.
+
 The committed `*_t2.json` files and `fp_arch_mage.json` still carry `tiers_unlocked: 2` (ADR 0007, #450): every loader migrates it to
 `cleared_regions` (the first four progression regions: Henesys, Ellinia, Perion, Kerning City), so Sleepywood is unlocked. New
 files come from `tools/character_fixture.gd --cleared=4` (`--tiers=2` is the compatibility alias).

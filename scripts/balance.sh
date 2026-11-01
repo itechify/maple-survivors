@@ -19,6 +19,8 @@
 #   # --character=<night_lord_t2.json> is its first-four-regions claw kit (a Night Lord needs a claw in hand).
 #   # --job=522 selects the playable Corsair (spec #384, C15 #399); --character=<corsair_t2.json> is its first-four-regions kit. Its records carry a
 #   # "corsair" block (ship boardings/seconds, hull broken/absorbed, landed hits per skill, marks applied, marked monster-seconds).
+#   # --job=422 is the Shadower (spec #425, SH13 #438); it is refused as "not playable" until SH14 #439 flips `playable`. For a diagnostic run pass
+#   # PATCH=<json making 422 playable> and --character=<shadower_t2.json> (its first-four-regions dagger kit).
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
 #   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
 #   # "cash": {slot: id}, "pet": id, "alert": {"hp": f}} (all optional; nx and an old alert.mp ignored). owned = the account's
