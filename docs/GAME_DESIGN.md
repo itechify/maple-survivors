@@ -9681,12 +9681,12 @@ without art the monster takes `MARK_TINT` (red). Burn and freeze tints win over 
 
 Shadower (422) is the second thief and the first **dagger** job. It gets its own data line, `shadower`, discovered from its files
 (`DataRepo.lines()`); ruling D15 keeps it out of `DataRepo.CLASS_LINES` during the spec (it sorts after the registered classes) and
-appends it at its `redesign` merge. SH2 ships it **not playable**: the skills are defined by SH6-SH12, Assaulter by SH7, and SH14 #439
-flips `playable`. `JobTree.default_job()` stays 212 and `--job=422` stays refused (`job_error`: "not playable in this build").
+appends it at its `redesign` merge. SH2 shipped it **not playable** (the skills are defined by SH6-SH12, Assaulter by SH7); SH14 #439 flipped `playable` to `true`
+and gave it Hero's melee HP baseline (7.137). `JobTree.default_job()` stays 212; `--job=422` is accepted.
 
 | Piece | Where | Value |
 |---|---|---|
-| Job entry | `jobs/shadower.json` | `422`: `starting_skill double_stab`, `mobility_skill assaulter`, `weapon_families ["dagger"]`, `creation_weapon 1332005` (the Razor, reqJob 0, reqLevel 5, PAD 20, a dagger), `playable false` |
+| Job entry | `jobs/shadower.json` | `422`: `starting_skill double_stab`, `mobility_skill assaulter`, `weapon_families ["dagger"]`, `creation_weapon 1332005` (the Razor, reqJob 0, reqLevel 5, PAD 20, a dagger), `playable true` (SH14 #439) |
 | Skill pool (9) | `skill_pool` | `double_stab`, `steal`, `savage_blow`, `boomerang_step`, `band_of_thieves`, `meso_explosion`, `ninja_ambush_shadower`, `dark_sight`, `smokescreen` (inert until defined: an undefined key is never offered or learned) |
 | Not in the pool | | `assaulter` (the mobility skill, SH7), `assassinate` (the Dark Sight sub-skill, SH11), Meso Guard (SH-15), Night Lord's `ninja_ambush` (SH-16) |
 | Skill file | `skills/shadower.json` | `{"skills": {}}` with a `_doc` naming the ticket that appends each region: SH6 #431 moves Double Stab, Steal and Savage Blow here from `thief.json`; SH7 Assaulter; SH8 Boomerang Step and Band of Thieves; SH9 Ninja Ambush; SH10 Meso Explosion; SH11 Dark Sight (moved and rewritten) and Assassinate; SH12 Smokescreen (a repeated key is a load error) |
@@ -9714,21 +9714,20 @@ well placed, the meter block and a world gaining per 600 mesos without decay and
 from the line file, dagger-only drops synthetic / shipped / seeded / real cache per region band, `requirement_error`, the Razor),
 `test_data_repo_lines` (placement of the 400/420/421/422 books).
 
-**Selection (SH13 #438; `playable` still `false`).** Making Shadower selectable needed no engine change, only data, a fixture and tests; SH14 #439 flips `playable`.
-- *Registration.* Shadower stays out of `DataRepo.CLASS_LINES` (ruling D15) and still loads: `DataRepo.lines()` discovers its files, so `--job=422` with a local
-  `"playable": true` (or `--patch` / `DataRepo.patch`) starts a real Shadower. A diagnostic run that appears to need `CLASS_LINES` has not applied its `playable` edit: the tracked
-  422 entry has no `playable` key, so a `sed` on `"playable": false` matches nothing and the run fails with "not playable in this build".
-- *Tools.* `--job=422` flows through `JobTree.job_error` in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, `character_fixture.gd` and `HubTestKit`; unplayable it is refused
-  ("not playable"), playable a Shadower `--character` with `--job=212` (or the F/P fixture with `--job=422`) is the "does not match" error.
+**Selection (SH13 #438; `playable` flipped by SH14 #439).** Making Shadower selectable needed no engine change, only data, a fixture and tests; SH14 #439 flipped `playable`.
+- *Registration.* Shadower stays out of `DataRepo.CLASS_LINES` (ruling D15) and still loads: `DataRepo.lines()` discovers its files, so `--job=422` starts a real Shadower
+  with no `CLASS_LINES` entry and no patch (SH13 verified this while the flag was off: the tracked entry then had no `playable` key, so a `sed` on `"playable": false` matched nothing).
+- *Tools.* `--job=422` flows through `JobTree.job_error` in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, `character_fixture.gd` and `HubTestKit`; with `playable` off it is refused
+  ("not playable", the tests use a patch for it); a Shadower `--character` with `--job=212` (or the F/P fixture with `--job=422`) is the "does not match" error.
 - *Fixture and hub.* `shadower_t2.json` (job 422, four regions cleared, Iron Dagger 1332010 and the Night Lord kit's Thief-bit hat / shoes / gloves, reqLevels 25 / 30 / 20 / 15) and
   the job's `hub_kit` (the five dagger ATT scrolls 2043300-2043305 of `scrolls/thief.json`, spare hat 1002001, dagger 1332000, gloves 1082002 and Thief-bit top 1040031, fallback item the
   Lv40 dagger 1332011).
-- *Job page.* Eleven rows with 422 playable (Shadower between Night Lord and Buccaneer, 15 px pitch, the last row ends above the message strip); ten rows today. Layout, selection, keyboard step
+- *Job page.* Eleven rows (Shadower between Night Lord and Buccaneer, 15 px pitch, the last row ends above the message strip); ten with 422 turned off. Layout, selection, keyboard step
   and the weapon box (the Razor) are tested on the shipped list, the eleven-row list and a two-row list the patch seam makes.
 - *Job-page row size fix (found on the eleven-row screenshot).* The row Buttons were given their size before they had a theme and joined the tree, so each took the default font's
   31 px height and kept it: the chosen row's plate was twice the pitch tall and a click at a row's centre (the flow driver's) landed on the row below once the pitch fell to 15 px.
   `character_create.gd` now sets the row size (190 x pitch - 2) after the row is in the tree; the creation tests pass unchanged (they assert positions and widths, a headless Button measures
-  differently), and `flow_driver creation --jobs=212,422` (Shadower made playable locally) selects 212 and 422 correctly.
+  differently), and `flow_driver creation --jobs=212,422` selects 212 and 422 correctly.
 - *Skill window.* Tabs Common / Thief / Bandit / Chief Bandit / Shadower (400 / 420 / 421 / 422): `dark_sight` and `double_stab` on 400, `steal` and `savage_blow` on 420, `assaulter`,
   `band_of_thieves` and `meso_explosion` on 421, `ninja_ambush_shadower`, `smokescreen` and `boomerang_step` on 422; Assassinate is Dark Sight's sub-skill and has no row. Assaulter has one
   Key Config row on the `rush` action labelled "Assaulter" and the quick-slot cell.
@@ -9736,10 +9735,10 @@ from the line file, dagger-only drops synthetic / shipped / seeded / real cache 
   (recorded, not tuned): Double Stab and Savage Blow 88 px (the Razor's swing), Steal 100, Band of Thieves 130, Ninja Ambush 120, Boomerang Step 300 (the only one past the 220 px kite
   reach, so a Shadower with Step ready kites like an archer), and 0 for the finisher, the form, the zone and Assaulter. `has_target` reads the finisher and Smokescreen through their rules
   (the meter refuses under 4 pips); Dark Sight admits with a monster within 150 px. The only key the bot presses is Assaulter's (a monster within 60 px, 3 s apart).
-- *Oracle.* `test_shadower_baseline`: seed 1, 21,600 ticks, bot, god, synthetic assets, `playable` set only in the test's data copy. The shipped pool is learned in the order Double Stab,
+- *Oracle.* `test_shadower_baseline`: seed 1, 21,600 ticks, bot, god, synthetic assets, the shipped data (since SH14 no flip in the test copy). The shipped pool is learned in the order Double Stab,
   Assaulter, Steal, Band of Thieves, Ninja Ambush, Meso Explosion, Dark Sight (six actives full: Boomerang Step, Savage Blow and Smokescreen are not offered in time); the second golden freezes
-  the pool to those three so their casts, the stun and the safe zone are pinned. SH14's HP baseline changes the Shadower's player stats and so moves both goldens: SH14 recaptures them with the
-  cause written next to the constants (nothing else should move them).
+  the pool to those three so their casts, the stun and the safe zone are pinned. SH14's HP baseline changed the Shadower's player stats and so moved both goldens: SH14 recaptured them with the
+  cause written next to the constants (with the two HP rows removed the SH13 hashes reproduced exactly, 7.137).
 
 
 ### 7.131 Hidden form (spec #425 SH-1, SH-3; SH3 #428)
@@ -12294,32 +12293,6 @@ Mount art (GAME_DESIGN 7.120.11). The art numbers (canvases, origins, navels, de
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
 
-### Shadower SH6 constants (#431)
-
-| Constant / rule | Value | Provenance |
-|---|---|---|
-| Rank tables of Double Stab, Steal, Savage Blow | the default `ceil(r x maxLevel / 8)` (ranks 1..8 = levels 3 5 8 10 13 15 18 20 / 4 8 12 15 19 23 27 30), no `ranks` list | tier C: spec #425 (the levels, the numbers and the line counts are tier A, Skill.wz) |
-| Cadence and cast rules | 1.2 s each, `weapon_reach` / `range_around` 100 px, one base target, Steal's block and retry rules | tier C: unchanged from #167 / #207 / #214 |
-| Rare (all three): `dagger_mastery` | damage x1.2 | tier C: spec #425, first pass (lineage passive name) |
-| Double Stab Epic / Savage Blow Epic: `venomous_stab` | grant `venomous_stab` (poison, the SH2 catalogue entry) | tier C: spec #425 |
-| Double Stab Unique: `triple_stab` | `attack_count` +1 | tier C: spec #425 (flavour name) |
-| Steal Epic: `dagger_booster` | cooldown x0.88 | tier C: spec #425 (the existing booster magnitude) |
-| Steal Unique: `pickpocket` | `count` +2 | tier C: spec #425 |
-| Savage Blow Unique: `savage_flurry` | `attack_count` +1 | tier C: spec #425 (flavour name) |
-| Legendary (all three) | the Unique's effect and id, plus damage x1.2 | tier C: spec #425 |
-| Legacy `double_stab_*`, `steal_*`, `savage_blow_*` cards and their `requires.jobs` gates | deleted | tier C: ADR 0006 / spec #425 |
-
-### Shadower SH5 constants (#430)
-
-| Constant / rule | Value | Provenance |
-|---|---|---|
-| Last-line crit chance | `min(1, crit + finish_chance / 100)`, `finish_chance` the level's `prop` (percent) | tier C: SH-7 reading of `prop` as the last line's chance (Assassinate 38 / 60 / 90) |
-| Last-line crit bonus | `crit_damage_bonus + finish_bonus` skill-percent points, `finish_bonus` the level's `criticalDamage` (+120 / +175 / +250) | tier C: SH-7, with the Critical Throw convention it rides on (tier B, SouthPerry) |
-| Which line | the last of each target's `attack_count` lines; a one-line cast's only line | tier C: SH-7 |
-| Sources | any hit resolved by `_resolve_target` (form sub, forced cast); not projectiles, bursts or ground strikes | tier C (ours) |
-| RNG | no draw added or reordered (the existing per-line crit roll, higher chance on the last) | tier C (ours) |
-| Skill-window sentence | "The last strike has a {chance}% chance of +{bonus}% critical damage" | tier C (presentation) |
-
 ## 12. Later phases
 
 Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
@@ -12549,16 +12522,6 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | HP baseline | the shared default (no Hero-style melee HP baseline: the spec does not call for one) | tier C: spec #383 |
 | Everything else | no new constant; the QA smoke is in 4.2 | n/a |
 
-### Shadower SH3 constants (#428)
-
-| Constant / rule | Value | Provenance |
-|---|---|---|
-| Hidden form is a `buff` block | `buff.hidden` plus `stat` / `field`; no `PlayerForms.EFFECTS` entry | tier C: spec #425 SH-1 (the Buccaneer BU-9 precedent) |
-| `ignores_hidden` | bool on a `form.subs` entry, default false; read by the sub driver's Hidden gate only | tier C: spec #425 SH-3 |
-| `ends_form` | not built by Shadower (Paladin's P3 flag stays, unused) | tier C: spec #425 SH-3 |
-| Hidden form card line | "Hidden for {duration} s: monsters ignore you and you cannot attack except with {subs}." | tier C: ours (#428) |
-| Everything else | no new numeric constant; the window length and speed ranks of Dark Sight are SH11's | n/a |
-
 ### Shadower SH1 constants (#426)
 
 | Constant / rule | Value | Provenance |
@@ -12568,19 +12531,6 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Fallback for a skill with no `action` node (Band of Thieves) | the dagger's own `swingO1` (it draws the dagger; `shoot1` does not) | tier C: ours (#426) |
 | Art roles | Assassinate `effect` = caster burst then slash arcs, `special` = the strike lines on the target; Smokescreen `effect` = the thrown shell and dust, `tile` = eleven looping cloud puffs; Meso Explosion `hit/0..8` = nine variants of one burst; Band of Thieves `hit/0` = the common strike, `hit/1..5` = the five thieves | tier C readings of the art (contact sheets, #426) |
 | Razor 1332005 | added to the `shadower.json` fragment (`character`); the spec believed `thief.json` listed it | tier A (item fact) |
-
-### Shadower SH4 constants (#429)
-
-| Constant / rule | Value | Provenance |
-|---|---|---|
-| Admission fallbacks | `min_mobs` 1 when the block names none; `mob_within` is required (`SafeZone.errors`) | tier C: ours (SH4) |
-| Life expiry tolerance | `SafeZone.LIFE_EPS` 1e-6 s (a 6 s life counted down in 1/60 s ticks ends on the 360th tick) | tier C: ours (SH4) |
-| Negation site | after the Hidden / guard net, before the avoid roll; edges of the box count as inside; the test point is the body centre (`player_body_center()`), the box is anchored at the cast origin | tier C: spec #425 SH-11, ours (SH4) |
-| Boss reflect negated | a Reflect boss's hit on the character (`source_kind reflect`) is negated inside a zone | tier C: ours (SH4) |
-| `zone_time` | a multiplicative skill modifier on the life, read at placement; card label "Cloud duration" | tier C: spec #425 |
-| Cloud look | box fill `Color(0.78, 0.8, 0.92, 0.10)`, outline `Color(0.88, 0.9, 1.0, 0.42)` 1 px, puffs every 48 px (every second one 30 px up, at most 20) on the floor line, fade in and out 0.4 s (SH12 changed the puff step 64 -> 48 and the lift 16 -> 30 for the real art, Shadower SH12 constants) | tier C: ours (SH4, SH12) |
-| "Guard" word | text "Guard", 14 px, `Color(0.86, 0.93, 1.0)`, rises 26 px over 0.8 s, at most one per 0.4 s | tier C: ours (SH4) |
-| Card text | "Sets off a smoke cloud for {duration} s: hits that land while you stand inside it are negated. Needs {min_mobs} monsters within {mob_within} px." | tier C: spec #425 |
 
 ### Shadower SH2 constants (#427)
 
@@ -12596,6 +12546,55 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | `balance.status_bonuses.venomous_stab` | poison; chance 14 16 18 20 24 26 28 30; time 2 2 3 3 3 4 4 4; level 4 8 12 15 19 23 27 30; element `s` | tier A: Venomous Stab 4220005 `prop`, `time` and the rank -> poison level map, equal level for level to 4120005 |
 | `repeat_chance` of `venomous_stab` | 3 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #425 SH-13 |
 | `test_late_equipment_bands` Shadower row | job 422, `["dagger"]`, shield check off (the shipped Thief shield list has no piece in bands 1, 2, 14, 15; SH2 changes no equipment data) | tier C: test table, spec #425 |
+
+### Shadower SH3 constants (#428)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Hidden form is a `buff` block | `buff.hidden` plus `stat` / `field`; no `PlayerForms.EFFECTS` entry | tier C: spec #425 SH-1 (the Buccaneer BU-9 precedent) |
+| `ignores_hidden` | bool on a `form.subs` entry, default false; read by the sub driver's Hidden gate only | tier C: spec #425 SH-3 |
+| `ends_form` | not built by Shadower (Paladin's P3 flag stays, unused) | tier C: spec #425 SH-3 |
+| Hidden form card line | "Hidden for {duration} s: monsters ignore you and you cannot attack except with {subs}." | tier C: ours (#428) |
+| Everything else | no new numeric constant; the window length and speed ranks of Dark Sight are SH11's | n/a |
+
+### Shadower SH4 constants (#429)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Admission fallbacks | `min_mobs` 1 when the block names none; `mob_within` is required (`SafeZone.errors`) | tier C: ours (SH4) |
+| Life expiry tolerance | `SafeZone.LIFE_EPS` 1e-6 s (a 6 s life counted down in 1/60 s ticks ends on the 360th tick) | tier C: ours (SH4) |
+| Negation site | after the Hidden / guard net, before the avoid roll; edges of the box count as inside; the test point is the body centre (`player_body_center()`), the box is anchored at the cast origin | tier C: spec #425 SH-11, ours (SH4) |
+| Boss reflect negated | a Reflect boss's hit on the character (`source_kind reflect`) is negated inside a zone | tier C: ours (SH4) |
+| `zone_time` | a multiplicative skill modifier on the life, read at placement; card label "Cloud duration" | tier C: spec #425 |
+| Cloud look | box fill `Color(0.78, 0.8, 0.92, 0.10)`, outline `Color(0.88, 0.9, 1.0, 0.42)` 1 px, puffs every 48 px (every second one 30 px up, at most 20) on the floor line, fade in and out 0.4 s (SH12 changed the puff step 64 -> 48 and the lift 16 -> 30 for the real art, Shadower SH12 constants) | tier C: ours (SH4, SH12) |
+| "Guard" word | text "Guard", 14 px, `Color(0.86, 0.93, 1.0)`, rises 26 px over 0.8 s, at most one per 0.4 s | tier C: ours (SH4) |
+| Card text | "Sets off a smoke cloud for {duration} s: hits that land while you stand inside it are negated. Needs {min_mobs} monsters within {mob_within} px." | tier C: spec #425 |
+
+### Shadower SH5 constants (#430)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Last-line crit chance | `min(1, crit + finish_chance / 100)`, `finish_chance` the level's `prop` (percent) | tier C: SH-7 reading of `prop` as the last line's chance (Assassinate 38 / 60 / 90) |
+| Last-line crit bonus | `crit_damage_bonus + finish_bonus` skill-percent points, `finish_bonus` the level's `criticalDamage` (+120 / +175 / +250) | tier C: SH-7, with the Critical Throw convention it rides on (tier B, SouthPerry) |
+| Which line | the last of each target's `attack_count` lines; a one-line cast's only line | tier C: SH-7 |
+| Sources | any hit resolved by `_resolve_target` (form sub, forced cast); not projectiles, bursts or ground strikes | tier C (ours) |
+| RNG | no draw added or reordered (the existing per-line crit roll, higher chance on the last) | tier C (ours) |
+| Skill-window sentence | "The last strike has a {chance}% chance of +{bonus}% critical damage" | tier C (presentation) |
+
+### Shadower SH6 constants (#431)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Rank tables of Double Stab, Steal, Savage Blow | the default `ceil(r x maxLevel / 8)` (ranks 1..8 = levels 3 5 8 10 13 15 18 20 / 4 8 12 15 19 23 27 30), no `ranks` list | tier C: spec #425 (the levels, the numbers and the line counts are tier A, Skill.wz) |
+| Cadence and cast rules | 1.2 s each, `weapon_reach` / `range_around` 100 px, one base target, Steal's block and retry rules | tier C: unchanged from #167 / #207 / #214 |
+| Rare (all three): `dagger_mastery` | damage x1.2 | tier C: spec #425, first pass (lineage passive name) |
+| Double Stab Epic / Savage Blow Epic: `venomous_stab` | grant `venomous_stab` (poison, the SH2 catalogue entry) | tier C: spec #425 |
+| Double Stab Unique: `triple_stab` | `attack_count` +1 | tier C: spec #425 (flavour name) |
+| Steal Epic: `dagger_booster` | cooldown x0.88 | tier C: spec #425 (the existing booster magnitude) |
+| Steal Unique: `pickpocket` | `count` +2 | tier C: spec #425 |
+| Savage Blow Unique: `savage_flurry` | `attack_count` +1 | tier C: spec #425 (flavour name) |
+| Legendary (all three) | the Unique's effect and id, plus damage x1.2 | tier C: spec #425 |
+| Legacy `double_stab_*`, `steal_*`, `savage_blow_*` cards and their `requires.jobs` gates | deleted | tier C: ADR 0006 / spec #425 |
 
 ### Shadower SH7 constants (#432)
 
@@ -12626,20 +12625,6 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Band of Thieves art | `effect` on the caster, `hit_lines` = `hit/1..5` by line, `hit/0` the fallback; `hitAfter` not modelled (all lines on the cast tick) | tier C: ours (SH8) |
 | Rarity bonuses (both) | damage x1.2, cooldown x0.88 / `area` x1.2, `count` / `attack_count` +1, Legendary = Unique + damage x1.2 | tier C: spec #425 |
 
-### Shadower SH12 constants (#437)
-
-| Constant / rule | Value | Provenance |
-|---|---|---|
-| Smokescreen box by rank | the node's `lt` / `rb` at WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30: +-120 x +-90, (-130,-97)..(130,98), +-140 x +-105, (-150,-112)..(150,113), (-170,-127)..(170,128), +-180 x +-135, (-190,-142)..(190,143), +-200 x +-150; not symmetrised | tier A (Skill.wz 4221006); anchor at the cast origin, spec #425 SH-11 |
-| Smokescreen life / cooldown | 6.0 s / 24 s (WZ `time` 31 -> 60 s and `cooltime` 600 are session values, not read) | tier C: spec #425 SH-11 |
-| Smokescreen admission | `min_mobs` 3 within `mob_within` 250 px, and not inside its own live cloud | tier C: spec #425 SH-11 |
-| Smokescreen action hold | `smokeshell` held 0.6 s (the body plays 7 frames of 120-360 ms) | tier C: ours (SH12) |
-| Smokescreen rank table | the default 30-level table (no `ranks` key) | tier C: spec #425 |
-| Rarity bonuses | Wide Smoke `area` x1.2, Haste cooldown x0.88, Thick Smoke `zone_time` x1.5 (9 s), Legendary = Thick Smoke + `area` x1.2 (same id and counter); repeat scale x0.8; Normal Mastery cooldown x0.95 | tier C: spec #425 |
-| Cloud art | `effect` = the cast (11 frames, once); `tile` = eleven two-frame puff variants (alpha 64 -> 128 -> 64) | tier A nodes; the reading tier C: SH1's contact sheet, confirmed by SH12's screenshot |
-| Puff variant stride / floor sink | puff `k` shows variant `(5 k) mod n` (5 is coprime with 11, so neighbours differ); the puff's bottom edge sits 8 px below the floor line | tier C: ours (SH12) |
-| Puff spacing / lift | every 48 px across the box (was 64), every second puff 30 px up (was 16), at most 20; each puff pulled inside the box's sides | tier C: ours (SH12, replaces SH4's 64 / 16 for the real art) |
-
 ### Shadower SH9 constants (#434)
 
 | Constant / rule | Value | Provenance |
@@ -12667,20 +12652,6 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Mesos | never spent, taken or created by the cast | ruling D7 |
 | Unit word | "pips" in the card and Skill window text | tier C (presentation) |
 
-### Shadower SH13 constants (#438)
-
-| Constant / rule | Value | Provenance |
-|---|---|---|
-| Fixture kit (`shadower_t2.json`) | Iron Dagger 1332010 (reqLevel 25, PAD 40) and the Night Lord kit's Thief-bit hat 1002171 (30), shoes 1072022 (20), gloves 1082029 (15), top 1040002, bottom 1060002; four regions cleared | tier C: spec #425 (the item facts are tier A) |
-| `hub_kit.scrolls` | the five dagger ATT scrolls 2043302 / 2043301 / 2043300 / 2043304 / 2043305 (10%, 60%, 100%, dark 70%, dark 30%), 10 of each | tier C: spec #425 (scroll ids tier A: `scrolls/thief.json`) |
-| `hub_kit.equipment` | 1002001 (all-job hat), 1332000 (Lv12 Thief dagger), 1082002 (all-job gloves), 1040031 (Thief-bit top, Lv10) | tier C: ours, the Night Lord kit's pattern with a dagger |
-| `hub_kit.fallback_item` | 1332011 (Lv40 Thief dagger, PAD 55): what the flow driver wears at Lv1 when a round dropped no equipment | tier C: ours |
-| Job page pitch with eleven rows | floor((366 - 198) / 11) = 15 px (ten rows 16, up to eight 21) | tier C: NL11 #410's rule, unchanged |
-| Bot card scores | no new entries; all nine pool skills score 100 learn / 74 rank (three explicit from SH2, six by the pool default) | tier C: spec #425 |
-| Baseline oracle length | 21,600 ticks (six minutes), seed 1, the pre-#241 opening and whole-round curve, creation outfit with the Razor | tier C: the Night Lord and Corsair oracle length |
-| `GOLDEN` (shipped pool) | `4a7a6a0e705ad262721d92019fe1d66d48fa47c42a0180f96b60172cfcd30a72`; 418 casts, 948 hits, 10 Dark Sight windows | tier C: captured here; identical with and without the asset cache |
-| `GOLDEN_OUTSIDERS` (pool frozen to Boomerang Step, Savage Blow, Smokescreen) | `38eac8d13529543734a706e0ab4955db57d50c43253e4e10b6956032eaab313f` | tier C: captured here |
-
 ### Shadower SH11 constants (#436)
 
 | Constant / rule | Value | Provenance |
@@ -12699,3 +12670,31 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Assassinate cooldown field | 2.0 s (mirrors the interval; the sub driver does not read it) | tier C: ours |
 | Rarity bonuses | Rare Assassinate damage x1.2; Epic Haste cooldown x0.88; Unique Deep Shadow `form_time` x1.5; Legendary Deep Shadow plus damage x1.2 | tier C: spec #425 first pass |
 | Removed | the passive-slot buff: HP trigger 30%, end above 60%, 250 px, 30 s cooldown, 10 to 200 s duration, `dark_sight_new` / `dark_sight_rank` cards | superseded (7.23) |
+
+### Shadower SH12 constants (#437)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Smokescreen box by rank | the node's `lt` / `rb` at WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30: +-120 x +-90, (-130,-97)..(130,98), +-140 x +-105, (-150,-112)..(150,113), (-170,-127)..(170,128), +-180 x +-135, (-190,-142)..(190,143), +-200 x +-150; not symmetrised | tier A (Skill.wz 4221006); anchor at the cast origin, spec #425 SH-11 |
+| Smokescreen life / cooldown | 6.0 s / 24 s (WZ `time` 31 -> 60 s and `cooltime` 600 are session values, not read) | tier C: spec #425 SH-11 |
+| Smokescreen admission | `min_mobs` 3 within `mob_within` 250 px, and not inside its own live cloud | tier C: spec #425 SH-11 |
+| Smokescreen action hold | `smokeshell` held 0.6 s (the body plays 7 frames of 120-360 ms) | tier C: ours (SH12) |
+| Smokescreen rank table | the default 30-level table (no `ranks` key) | tier C: spec #425 |
+| Rarity bonuses | Wide Smoke `area` x1.2, Haste cooldown x0.88, Thick Smoke `zone_time` x1.5 (9 s), Legendary = Thick Smoke + `area` x1.2 (same id and counter); repeat scale x0.8; Normal Mastery cooldown x0.95 | tier C: spec #425 |
+| Cloud art | `effect` = the cast (11 frames, once); `tile` = eleven two-frame puff variants (alpha 64 -> 128 -> 64) | tier A nodes; the reading tier C: SH1's contact sheet, confirmed by SH12's screenshot |
+| Puff variant stride / floor sink | puff `k` shows variant `(5 k) mod n` (5 is coprime with 11, so neighbours differ); the puff's bottom edge sits 8 px below the floor line | tier C: ours (SH12) |
+| Puff spacing / lift | every 48 px across the box (was 64), every second puff 30 px up (was 16), at most 20; each puff pulled inside the box's sides | tier C: ours (SH12, replaces SH4's 64 / 16 for the real art) |
+
+### Shadower SH13 constants (#438)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Fixture kit (`shadower_t2.json`) | Iron Dagger 1332010 (reqLevel 25, PAD 40) and the Night Lord kit's Thief-bit hat 1002171 (30), shoes 1072022 (20), gloves 1082029 (15), top 1040002, bottom 1060002; four regions cleared | tier C: spec #425 (the item facts are tier A) |
+| `hub_kit.scrolls` | the five dagger ATT scrolls 2043302 / 2043301 / 2043300 / 2043304 / 2043305 (10%, 60%, 100%, dark 70%, dark 30%), 10 of each | tier C: spec #425 (scroll ids tier A: `scrolls/thief.json`) |
+| `hub_kit.equipment` | 1002001 (all-job hat), 1332000 (Lv12 Thief dagger), 1082002 (all-job gloves), 1040031 (Thief-bit top, Lv10) | tier C: ours, the Night Lord kit's pattern with a dagger |
+| `hub_kit.fallback_item` | 1332011 (Lv40 Thief dagger, PAD 55): what the flow driver wears at Lv1 when a round dropped no equipment | tier C: ours |
+| Job page pitch with eleven rows | floor((366 - 198) / 11) = 15 px (ten rows 16, up to eight 21) | tier C: NL11 #410's rule, unchanged |
+| Bot card scores | no new entries; all nine pool skills score 100 learn / 74 rank (three explicit from SH2, six by the pool default) | tier C: spec #425 |
+| Baseline oracle length | 21,600 ticks (six minutes), seed 1, the pre-#241 opening and whole-round curve, creation outfit with the Razor | tier C: the Night Lord and Corsair oracle length |
+| `GOLDEN` (shipped pool) | `4a7a6a0e705ad262721d92019fe1d66d48fa47c42a0180f96b60172cfcd30a72`; 418 casts, 948 hits, 10 Dark Sight windows | tier C: captured here; identical with and without the asset cache; **superseded by SH14**: now `1d6313f3...` (HP baseline) |
+| `GOLDEN_OUTSIDERS` (pool frozen to Boomerang Step, Savage Blow, Smokescreen) | `38eac8d13529543734a706e0ab4955db57d50c43253e4e10b6956032eaab313f` | tier C: captured here; **superseded by SH14**: now `9405eac0...` (HP baseline) |

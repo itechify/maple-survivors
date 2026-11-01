@@ -124,7 +124,7 @@ bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in re
 bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
 bash scripts/playtest.sh --stage=ellinia --seed=7 --window-autopick=1   # windows open and answer themselves
-bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the default job; --job=112 is Hero, --job=122 the Paladin, --job=222 the I/L Arch Mage, --job=232 the Bishop, --job=132 the Dark Knight, --job=312 the Bowmaster, --job=512 the Buccaneer, --job=412 the Night Lord, --job=522 the Corsair)
+bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the default job; --job=112 is Hero, --job=122 the Paladin, --job=222 the I/L Arch Mage, --job=232 the Bishop, --job=132 the Dark Knight, --job=312 the Bowmaster, --job=512 the Buccaneer, --job=412 the Night Lord, --job=522 the Corsair, --job=422 the Shadower)
 bash scripts/playtest.sh --job=232 --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/bishop_t2.json
 bash scripts/playtest.sh --job=312 --character=$PWD/game/tests/fixtures/characters/bowmaster_t2.json --minutes=5
                                                                # a Bowmaster needs a bow in hand (the fixture's Battle Bow): with none the
@@ -132,7 +132,9 @@ bash scripts/playtest.sh --job=312 --character=$PWD/game/tests/fixtures/characte
 bash scripts/playtest.sh --job=412 --character=$PWD/game/tests/fixtures/characters/night_lord_t2.json --minutes=5
                                                                # a Night Lord needs a claw in hand (the fixture's Meba); Night Lord has
                                                                # been playable since NL12 #411 (spec #383)
-# Shadower (--job=422, spec #425 SH13 #438) is not playable yet (SH14 #439 flips it): see "Shadower (422) tooling" below for the diagnostic run.
+bash scripts/playtest.sh --job=422 --character=$PWD/game/tests/fixtures/characters/shadower_t2.json --minutes=5
+                                                               # a Shadower needs a dagger in hand (the fixture's Iron Dagger); playable since
+                                                               # SH14 #439 (spec #425), 422 sits between Night Lord and Buccaneer on the Job page
 bash scripts/playtest.sh --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/fp_arch_mage.json
                                                                # the fifth region with the first-four-regions kit (omit --character: the starter wand only)
 ```
@@ -179,7 +181,7 @@ fresh `--shots` directory and the character slots, history and account go to its
 ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scenario=<name> --shots=<abs dir under evidence/>
 ```
 
-- `redesign` (#294, the slice's QA; about 6 minutes; `--job=<id>`, default 212, `--job=112` for Hero, `--job=132` for Dark Knight, `--job=122` for the Paladin, `--job=222` for the I/L Arch Mage, `--job=232` for Bishop, `--job=312` for the Bowmaster, `--job=512` for the Buccaneer, `--job=522` for the Corsair: its Job page row is
+- `redesign` (#294, the slice's QA; about 6 minutes; `--job=<id>`, default 212, `--job=112` for Hero, `--job=132` for Dark Knight, `--job=122` for the Paladin, `--job=222` for the I/L Arch Mage, `--job=232` for Bishop, `--job=312` for the Bowmaster, `--job=512` for the Buccaneer, `--job=522` for the Corsair, `--job=422` for the Shadower: its Job page row is
   clicked, the checks name its start skills and its fallback item is a sword (Hero/Paladin) a staff (I/L, #330) or a Lv40 knuckle or gun (Buccaneer #423, Corsair #398, `hub_kit.fallback_item`)): title -> create the chosen job (name, look, Job page) -> Free Market ->
   map select with Sleepywood locked and its Start refused -> an invulnerable Henesys round (`--seed`, default 1; the bot
   steers, the first level-up, the first offer with every active slot filled, the first Mastery offer and the first boss
@@ -327,7 +329,7 @@ keyframe time), the `level_scale` block (`level = E_sw + 3·(k − 5)`, `exp_lev
 "Level scale". It runs no round and writes nothing.
 
 `--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
-a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Dark Knight (132), Paladin (122; spec #308, P9 #317 flipped `playable`), Arch Mage (Fire, Poison, 212) Bishop (232), Arch Mage (Ice, Lightning, 222; spec #319, I12 flipped `playable`) Bowmaster (312), Buccaneer (512; spec #412, B11 #423 flipped `playable`), Corsair (522; spec #384, C15 #399 flipped `playable`) and Night Lord (412; spec #383, NL12 #411 flipped `playable`: `--job=412`, the hub kit and the fixture work with no patch; a `--patch` / `PATCH` / `DataRepo.patch` of `{"jobs_survivor": {"jobs": {"412": {"playable": false}}}}` makes the tools refuse it again); `--job=112` selects Hero, `--job=122` the Paladin, `--job=222` the I/L Arch Mage, `--job=412` the Night Lord, `--job=512` the Buccaneer and `--job=522` the Corsair; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
+a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Dark Knight (132), Paladin (122; spec #308, P9 #317 flipped `playable`), Arch Mage (Fire, Poison, 212) Bishop (232), Arch Mage (Ice, Lightning, 222; spec #319, I12 flipped `playable`) Bowmaster (312), Buccaneer (512; spec #412, B11 #423 flipped `playable`), Corsair (522; spec #384, C15 #399 flipped `playable`) Shadower (422; spec #425, SH14 #439 flipped `playable` and gave it Hero's melee HP baseline: `--job=422`, the hub kit and the fixture work with no patch) and Night Lord (412; spec #383, NL12 #411 flipped `playable`: `--job=412`, the hub kit and the fixture work with no patch; a `--patch` / `PATCH` / `DataRepo.patch` of `{"jobs_survivor": {"jobs": {"412": {"playable": false}}}}` makes the tools refuse it again); `--job=112` selects Hero, `--job=122` the Paladin, `--job=222` the I/L Arch Mage, `--job=412` the Night Lord, `--job=512` the Buccaneer and `--job=522` the Corsair, `--job=422` the Shadower; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
 `SceneFlow.forced_job_error`), and a `--character` whose job disagrees fails. A tool that names no job gets
 `JobTree.default_job()`, pinned to 212 by `survivor/jobs.json` whatever else is playable. Without `--character`, tools wear the job's `creation_weapon` and the default clothing. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
 `branch`, `forced_branch`, `job_t` or `job_times`; they carry the job id (`jobs` in the summary) and, from #293, `picks`
@@ -401,19 +403,17 @@ not match the character's job" error. `flow_driver redesign --job=522` is the QA
 default `creation` would need nine slots: pass at most three jobs). The baseline oracle is `test_corsair_baseline` (six minutes, pool frozen in the
 test). Corsair QA (#399) is recorded in `docs/GAME_DESIGN.md` 7.120.15 and 4.2.
 
-### Shadower (422) tooling (spec #425, SH13 #438)
+### Shadower (422) tooling (spec #425, SH13 #438, SH14 #439)
 
-`playable` stays `false` until SH14 #439, so `--job=422` is refused today with "job 422 (Shadower) is not playable in this build" in `balance.sh`, `playtest.sh`,
-`--run`, `balance_run.gd`, the fixture tool and `--hub`; `--job=212` with a Shadower `--character`, or `--job=422` with `fp_arch_mage.json`, is the usual "does not match the
-character's job" error. For a diagnostic run, add `"playable": true` to the 422 entry of `game/data/survivor/jobs/shadower.json` locally (the tracked entry has no `playable` key)
-and revert it before committing; tools also take `--patch=<json>` / `PATCH=<json>` with `{"jobs_survivor": {"jobs": {"422": {"playable": true}}}}`. Shadower is **not** in
+`--job=422` is accepted (Shadower is playable since SH14 #439) by `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, the fixture tool and the flow driver with no patch; `--job=212` with a Shadower `--character`, or `--job=422` with `fp_arch_mage.json`, is the usual "does not match the
+character's job" error. Shadower is **not** in
 `DataRepo.CLASS_LINES` (ruling D15, appended at its `redesign` merge) and does not need to be: `DataRepo.lines()` discovers its files. `game/tests/fixtures/characters/shadower_t2.json`
-is the Shadower fixture: kit mode (`--job=422 --kit=1332010,1002171,1072022,1082029,1040002,1060002 --cleared=4 --patch=<playable json>`: an Iron Dagger and the Thief-bit hat,
-shoes and gloves of the Night Lord kit, the starter top and bottom, unscrolled, four regions cleared; its `_doc.patch` names the mirror it was made with). `--hub --job=422` opens it
+is the Shadower fixture: kit mode (`--job=422 --kit=1332010,1002171,1072022,1082029,1040002,1060002 --cleared=4`: an Iron Dagger and the Thief-bit hat,
+shoes and gloves of the Night Lord kit, the starter top and bottom, unscrolled, four regions cleared). `--hub --job=422` opens it
 with five stacks of dagger ATT scrolls and spare hat, second dagger, gloves and top (`jobs/shadower.json` `hub_kit`). The Job page has eleven rows with 422 playable (15 px pitch,
 Shadower between Night Lord and Buccaneer). The baseline oracles are `test_shadower_baseline` (six minutes at seed 1, bot, god; a second golden with the pool frozen to the three
-skills the first leaves out) and, for the bot, `test_shadower_bot`; the Skill window tabs (Common, Thief, Bandit, Chief Bandit, Shadower) are `test_skill_window_shadower`. Details:
-`docs/GAME_DESIGN.md` 7.130 and "Shadower SH13 constants (#438)".
+skills the first leaves out) and, for the bot, `test_shadower_bot`; the Skill window tabs (Common, Thief, Bandit, Chief Bandit, Shadower) are `test_skill_window_shadower`. `flow_driver redesign --job=422` is the QA scenario (with `creation --jobs=212,422` for the Job page). A Shadower round's `balance_run.gd` record carries a `shadower` block (meso charge mean / peak, Dark Sight windows, casts and hits per skill, Assassinate crits, Smokescreen zones, raw negated hits); other jobs' records are unchanged. Details:
+`docs/GAME_DESIGN.md` 7.130, 7.137 and "Shadower SH13 constants (#438)", "Shadower SH14 constants (#439)".
 
 ## Git
 
