@@ -245,6 +245,46 @@ func test_a_monster_ball_inside_the_cloud_is_negated_and_used_up() -> void:
 	assert_eq(w.mob_projectiles.active_count(), 0, "the ball met the body and is spent")
 
 
+## A targeted (type 1) pending attack of monster `m` due now, with hit art, aimed at the character.
+func _pending(w: RunWorld, m: int) -> Dictionary:
+	return {"type": 1, "magic": false, "mob": m, "mob_id": SZ.SNAIL, "damage": ATTACK, "element": "", "hit": "Mob.wz/x/hit",
+		"pos": w.player.pos + Vector2(-30.0, 0.0), "attack": "attack1", "facing": 1, "area": Rect2(), "impact_time": 0.0,
+		"effect_time": 0.0, "effect": "", "sound": "", "boss_index": -1, "elite": false, "dmg_mult": 1.0, "jump_attack": false,
+		"effect_done": true, "impact_done": false}
+
+
+func _hit_art(events: Array) -> Array:
+	return events.filter(func(e: Dictionary) -> bool: return e.type == "mob_attack" and e.phase == "hit")
+
+
+func test_a_negated_attack_and_a_negated_ball_play_no_hit_art() -> void:
+	# The hit-window convention (no damage, no player_hit, no hit art) holds for a safe zone too (review #425, standards S3).
+	var w := _placed()
+	var m := SZ.mob(w, 520.0)
+	w.drain_events()
+	MobAttacks.service(_pending(w, m), w)
+	var events := w.drain_events()
+	assert_eq(SZ.of(events, "hit_negated").size(), 1, "the cloud turns the strike away")
+	assert_true(_hit_art(events).is_empty(), "and the monster's hit art does not burst on the body")
+	assert_false(SZ.of(events, "mob_attack").is_empty(), "the impact phase itself still plays")
+	var from := w.player.pos + Vector2(-120.0, -30.0)
+	var ball := {"pos": from, "velocity": Vector2(300.0, 0.0), "range": 400.0, "visual": -1, "radius": 8.0, "mob": m,
+		"mob_id": SZ.SNAIL, "damage": 100.0, "multiplier": 1.0, "accuracy": 100000.0, "magic": false, "element": "",
+		"hit": "Mob.wz/x/ballhit", "source_pos": from, "ordinary": true}
+	w.mob_projectiles.spawn(ball)
+	events = _run(w, 40)
+	assert_eq(SZ.of(events, "hit_negated").size(), 1)
+	assert_true(SZ.of(events, "mob_projectile_hit").is_empty(), "no ball burst on a negated hit")
+	assert_eq(w.mob_projectiles.active_count(), 0, "the ball is still used up")
+	# Control: with the cloud gone both play their art.
+	w.safe_zones.clear(w, "transferred")
+	w.drain_events()
+	MobAttacks.service(_pending(w, m), w)
+	assert_eq(_hit_art(w.drain_events()).size(), 1, "without a cloud the strike's hit art plays")
+	w.mob_projectiles.spawn(ball)
+	assert_eq(SZ.of(_run(w, 40), "mob_projectile_hit").size(), 1, "and so does the ball's")
+
+
 func test_statuses_are_not_hits_and_are_not_negated() -> void:
 	var w := _placed()
 	w.hazards.spawn({"rect": Rect2(0, 0, 2000, 400), "born": 0.0, "until": 1000.0, "effect": GroundHazards.ICE})

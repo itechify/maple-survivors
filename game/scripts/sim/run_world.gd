@@ -2892,6 +2892,12 @@ func _window_blocks(bypass: bool) -> bool:
 	return upkeep.invincible_t > 0.0 and not bypass
 
 
+## Whether a live safe zone covers the character's body centre now, i.e. take_hit would negate a hit (after its own guards). Balls and
+## pending attacks ask this before take_hit so a negated hit draws no hit art (SafeZone, GAME_DESIGN 7.132).
+func safe_zone_covers_player() -> bool:
+	return not safe_zones.is_empty() and not (_dead or _map_clearing or god) and safe_zones.negates(player_body_center())
+
+
 ## Applies one monster hit through avoid, defense and hit reaction; returns whole damage (0 on miss).
 ## Source fields: accuracy (canonical acc), elite, dmg_mult, mob, mob_id, boss. Events snapshot max_hp at hit time.
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:

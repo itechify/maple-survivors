@@ -25,7 +25,7 @@ var _buf := PackedInt32Array()
 
 
 func _init() -> void:
-	_buf.resize(128)
+	_buf.resize(128) # a starting capacity only: query_radius grows it, so the size changes no result
 
 
 ## Whether any zone is live.
@@ -89,21 +89,18 @@ func step(dt: float, world: RunWorld) -> void:
 
 ## Whether the point `pos` is inside a live zone (edges count as inside).
 func negates(pos: Vector2) -> bool:
-	for zone: Dictionary in _zones:
-		if _contains(zone.rect as Rect2, pos):
-			return true
-	return false
+	return _zone_at(pos) >= 0
 
 
 ## RunWorld.take_hit's question: when `pos` (the character's body centre) is inside a live zone, appends one `hit_negated
 ## {skill, source}` (the first such zone in placement order; `source` is the hit's `source_kind`, "other" without one) and
 ## returns true, else false and nothing.
 func negate(world: RunWorld, pos: Vector2, source: Dictionary) -> bool:
-	for zone: Dictionary in _zones:
-		if _contains(zone.rect as Rect2, pos):
-			world.emit("hit_negated", {"skill": String(zone.skill), "source": String(source.get("source_kind", "other"))})
-			return true
-	return false
+	var at := _zone_at(pos)
+	if at < 0:
+		return false
+	world.emit("hit_negated", {"skill": String(_zones[at].skill), "source": String(source.get("source_kind", "other"))})
+	return true
 
 
 ## Ends every live zone with `reason` (`transferred` on a map change, `died`), oldest first.
@@ -151,6 +148,14 @@ static func errors(skills_file: Dictionary) -> PackedStringArray:
 func _index_of(key: String) -> int:
 	for i in _zones.size():
 		if String(_zones[i].skill) == key:
+			return i
+	return -1
+
+
+## The index of the first (oldest) live zone containing `pos`, or -1.
+func _zone_at(pos: Vector2) -> int:
+	for i in _zones.size():
+		if _contains(_zones[i].rect as Rect2, pos):
 			return i
 	return -1
 
