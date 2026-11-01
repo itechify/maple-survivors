@@ -21,6 +21,12 @@ extends Node
 ##           select, Continue: the cleared set survives on disk and on map select -> a Perion round and a lethal hit: the set is
 ##           unchanged -> the slot swapped for a HubTestKit all-cleared character: map select reads "Regions cleared 5/5" with
 ##           nothing locked. Shots progression_*.png, summary.json. `--seed` (default 1). tier C: automation, not survival evidence.
+##           `--through=<n>` (#476, C14; 16 climbs the whole list) runs instead the climb: a fresh character clears the first n
+##           regions in order, each with the diagnostic invulnerable warp. At every step map select shows exactly the cleared,
+##           frontier and locked states, the header "Regions cleared k/16", exactly the next region unlocked and the frontier
+##           selected; Save & quit, character select and Continue halfway keep the cleared set (on disk and on map select); the
+##           16th clear leaves "Regions cleared 16/16" with nothing locked. Shots `<step>_<region>_*` (start, boss arrival and
+##           clear of each map, results) and `select_step<k>` at steps 1, 6, 11 and 16, summary.json.
 ##   creation the Job page and character creation (spec #296, H9): title -> create a character of each job in `--jobs=<id,id>` (at most three)
 ##           (default: every playable job, in separate slots, then the Job page is checked to list them in order and to show the
 ##           chosen row) -> Free Market each time -> character select with all character slots. Shots creation_*.png, job_<id>_*.png.
@@ -126,6 +132,10 @@ var _rounds: Array[Dictionary] = []
 ## The redesign scenario's card bookkeeping: every offer counted by kind and rarity, and the offers shown in a real window.
 var _offers := {"picks": 0, "bonus": 0, "kinds": {}, "tiers": {}, "taken": {}}
 var _showcased := {}
+## The progression scenario's `--through=N` mode (#476): names every shot after its region (`_shot_prefix`), takes a shot at each
+## boss arrival of a warped map and leaves out the map-fade shots (about 14 shots per region, 16 regions).
+var _shot_prefix := ""
+var _boss_shots := false
 ## The keys scenario: user://settings.cfg as it was before the run (null = there was none), restored on every exit.
 var _settings_backup: Variant = null
 var _settings_saved := false
@@ -207,6 +217,7 @@ func _warp_map(run: RunScene) -> bool:
 	var memo := {}
 	var ticks := 0
 	var boundary_events: Array = []
+	var boss_shot := false
 	# tier C: same 1800 s safety cap / 600-tick yields as the existing diagnostic round warp.
 	while w.time < 1800.0:
 		if not await _answer_choices(run):
@@ -225,6 +236,16 @@ func _warp_map(run: RunScene) -> bool:
 		var events := w.drain_events()
 		boundary_events.append_array(events.filter(func(e: Dictionary) -> bool:
 			return String(e.type) in ["map_cleared", "stage_cleared", "player_died"]))
+		if _boss_shots and not boss_shot and events.any(func(e: Dictionary) -> bool: return String(e.type) == "boss_spawned"):
+			# The boss's arrival as the player would see it: present the warped world, replay the arrival events, run in real
+			# time for a moment and shoot (the character is invulnerable, nothing else is driving it).
+			boss_shot = true
+			run._apply_look()
+			run._present(0.0)
+			run.handle_events(events.filter(func(e: Dictionary) -> bool: return String(e.type) in ["boss_warning", "boss_spawned"]))
+			run.set_process(true)
+			await _shot("boss_%d" % (index + 1), 0.8)
+			run.set_process(false)
 		ticks += 1
 		if ticks % 600 == 0:
 			await get_tree().process_frame
@@ -250,7 +271,8 @@ func _warp_map(run: RunScene) -> bool:
 	if index < 2:
 		if not await _until(func() -> bool: return run._transfer_phase == "out", 10.0, "map fade"):
 			return false
-		await _shot("map_%d_fade" % (index + 1), RunScene.MAP_FADE_TIME * 0.5)
+		if not _boss_shots:
+			await _shot("map_%d_fade" % (index + 1), RunScene.MAP_FADE_TIME * 0.5)
 		if not await _until(func() -> bool: return w.map_index == index + 1 and run._transfer_phase == "",
 				10.0, "map arrival"):
 			return false
@@ -563,6 +585,9 @@ func _scenario_progression() -> void:
 	await _key(KEY_ENTER)
 	if not await _create_character("Progress455", job):
 		return
+	if args.has("through"):
+		await _progression_through(order, job, clampi(int(args.through), 1, order.size()))
+		return
 	var fresh: Dictionary = flow.save.slot(flow.active_slot).character
 	if not _expect(fresh.cleared_regions == [] and not fresh.has("tiers_unlocked"), "a new character has cleared no region"):
 		return
@@ -712,6 +737,99 @@ func _scenario_progression() -> void:
 	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
 	file.store_string(JSON.stringify(report, "\t"))
 	print("flow_driver: progression PASSED")
+	get_tree().quit()
+
+
+## The `--through=<n>` climb of the progression scenario (#476): see the scenario's doc. The caller has created the character and
+## stands in its Free Market.
+func _progression_through(order: Array, job: int, through: int) -> void:
+	var total := order.size()
+	var halfway := maxi(1, through / 2) # Save & quit and Continue after this many clears
+	_boss_shots = true
+	var steps: Array[Dictionary] = []
+	for step in through:
+		var key := String(order[step])
+		if not await _open_map_select():
+			return
+		var select: StageSelectScene = flow.current
+		var want := _states(order, step, key)
+		var header := "Regions cleared %d/%d" % [step, total]
+		if not _expect(_card_states(select) == want and String(select.stages[select.selected].key) == key
+				and select.unlocked_keys() == order.slice(0, step + 1) and select.progress_label.text == header
+				and not (select.start_button as WzButton).disabled,
+				"step %d: %s is the only new region, the frontier and selected, header '%s'; saw %s / %s / selected %s" % [
+				step + 1, key, header, _card_states(select), select.progress_label.text, select.stages[select.selected].key]):
+			return
+		if step in [0, 5, 10, 15]:
+			_shot_prefix = ""
+			await _shot("select_step%02d" % (step + 1))
+		if step == 0:
+			# The next region is refused while locked, then the frontier is selected again.
+			await _key(KEY_DOWN)
+			if not _expect(bool(select.stages[select.selected].locked) and (select.start_button as WzButton).disabled, "step 1: Ellinia is locked and its Start disabled"):
+				return
+			await _key(KEY_UP)
+		_shot_prefix = "%02d_%s_" % [step + 1, key]
+		if not await _clear_selected_region(key, "%02d_%s" % [step + 1, key]):
+			return
+		_shot_prefix = ""
+		var slot := flow.save.slot(flow.active_slot)
+		var cleared: Array = slot.character.cleared_regions.duplicate()
+		cleared.sort()
+		var expected: Array = order.slice(0, step + 1)
+		expected.sort()
+		if not _expect(cleared == expected and int(slot.rounds_played) == step + 1,
+				"step %d: the clear of %s leaves exactly the first %d regions cleared: %s" % [step + 1, key, step + 1, cleared]):
+			return
+		steps.append({"step": step + 1, "key": key, "bosses_killed": flow.last_summary.get("bosses_killed", -1),
+			"level": flow.last_summary.get("level", -1), "time": snappedf(float(flow.last_summary.get("time", 0.0)), 0.1)})
+		if step + 1 == halfway and step + 1 < through:
+			# Save & quit, character select, Continue: the cleared set survives on disk and on map select.
+			await _save_and_quit_ui()
+			if _failed:
+				return
+			_reload_save()
+			var reread: Array = flow.save.slot(0).character.cleared_regions.duplicate()
+			reread.sort()
+			if not _expect(reread == expected, "Save & quit left the cleared set on disk after %d clears: %s" % [step + 1, reread]):
+				return
+			await _sleep(0.5)
+			await _click(flow.current.slot_buttons[0])
+			await _click(flow.current.select_button)
+			if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Continue after %d clears" % (step + 1)):
+				return
+			if not await _open_map_select():
+				return
+			var continued: StageSelectScene = flow.current
+			if not _expect(_card_states(continued) == _states(order, step + 1, String(order[step + 1])) and continued.unlocked_keys() == order.slice(0, step + 2),
+					"Continue shows the same progression after %d clears: %s" % [step + 1, _card_states(continued)]):
+				return
+			_shot_prefix = ""
+			await _shot("continued_after_%02d" % (step + 1))
+			await _key(KEY_ESCAPE) # back to the Free Market; the next turn of the loop reopens map select
+			if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market after Continue"):
+				return
+	# The end: the climb's last map select.
+	if not await _open_map_select():
+		return
+	var last: StageSelectScene = flow.current
+	var final_header := "Regions cleared %d/%d" % [through, total]
+	var final_states := _card_states(last)
+	var all_cleared := through == total
+	if not _expect(last.progress_label.text == final_header and last.unlocked_keys() == order.slice(0, mini(through + 1, total))
+			and (not all_cleared or (not final_states.values().has("locked") and not final_states.values().has("frontier")))
+			and (all_cleared or final_states == _states(order, through, String(order[through]))),
+			"after %d clears: header '%s', states %s" % [through, last.progress_label.text, final_states]):
+		return
+	await _shot("select_final_%d_of_%d" % [through, total])
+	_collect_missing(flow.current)
+	if not _expect(_missing.is_empty() and not _failed, "missing assets or failed checks: %s" % [_missing]):
+		return
+	var report := {"scenario": "progression", "through": through, "seed": int(args.seed), "job": job, "diagnostic": true,
+		"steps": steps, "history": flow.save.history, "missing": Array(_missing), "failures": []}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	print("flow_driver: progression through %d PASSED" % through)
 	get_tree().quit()
 
 
@@ -2676,7 +2794,7 @@ func _shot(step: String, settle_seconds := 0.35) -> void:
 	RenderingServer.force_draw()
 	_collect_missing(flow.current)
 	_n += 1
-	var path := shots_dir.path_join("%02d_%s.png" % [_n, step])
+	var path := shots_dir.path_join("%02d_%s%s.png" % [_n, _shot_prefix, step])
 	var img := get_viewport().get_texture().get_image()
 	var err := img.save_png(path) if img != null else ERR_CANT_CREATE
 	print("flow_driver: shot %s %s err=%d" % [path.get_file(), img.get_size() if img != null else Vector2i.ZERO, err])
