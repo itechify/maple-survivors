@@ -122,9 +122,33 @@ func test_eleven_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> vo
 	# Eleven rows: the pitch shrinks to floor((JOB_LIST_BOTTOM - ROW_AT.y) / 11) = 15 px so the last row still ends above the
 	# "Choose your job." message strip.
 	assert_eq(creation.job_pitch, 15.0)
-	var end: float = _row(creation, 522).position.y + creation.job_pitch - 2.0 # the intended row height; a headless Button measures taller
+	var end: float = _row(creation, 522).position.y + creation.job_pitch - 2.0 # the intended row height; the real heights are asserted by test_job_rows_are_pitch_tall_and_never_overlap
 	assert_true(end <= CREATE.JOB_LIST_BOTTOM, "the last row ends at %s, above %s" % [end, CREATE.JOB_LIST_BOTTOM])
 	assert_true(end <= CREATE.MESSAGE_BOX.position.y, "and clear of the message strip")
+
+
+func test_job_rows_are_pitch_tall_and_never_overlap() -> void:
+	# Review #425 S1: a Button given its size before it is in the tree keeps the default font's 31 px minimum height (the size is
+	# clamped to the minimum measured without the theme), so at the eleven-row page's 15 px pitch each row (and the chosen row's plate
+	# and click box) covered the next rows. CreateCharacter sets the size after add_child; this fails if that line moves back.
+	if not require_cache():
+		return
+	var creation := _job_page(_flow(), "ShRows02")
+	var ids: Array[int] = IDS.duplicate()
+	for i in ids.size():
+		var row := _row(creation, ids[i])
+		if row == null:
+			assert_true(false, "row for %d" % ids[i])
+			return
+		assert_true(row.size.y <= creation.job_pitch - 2.0 + 0.01, "row %d is %s tall, at most the pitch less its gap (%s)" % [i, row.size.y, creation.job_pitch - 2.0])
+		if i + 1 < ids.size():
+			assert_true(row.position.y + row.size.y <= _row(creation, ids[i + 1]).position.y, "row %d ends above row %d" % [i, i + 1])
+	# A click at the centre of Shadower's row selects Shadower, not the row below it.
+	var shadower := _row(creation, 422)
+	var centre := shadower.position + shadower.size / 2.0
+	for id in ids:
+		var other := _row(creation, id)
+		assert_eq(Rect2(other.position, other.size).has_point(centre), id == 422, "the centre of the Shadower row is inside row %d only if it is Shadower's" % id)
 
 
 func test_clicking_shadower_selects_it_and_moves_the_highlight() -> void:
