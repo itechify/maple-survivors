@@ -147,3 +147,31 @@ func test_real_mushroom_attack_metadata_keeps_its_canonical_impact_and_wave_fram
 		assert_near(effect.frames[8].start, 1.1, 1e-6, "the original ground-wave frames begin after the 1.05 s impact")
 		assert_eq(effect.frames[8].size(), Vector2(217, 51))
 	lib.free()
+
+
+## A boss whose first listed attack holds its stance longer than `attack_interval` (the Papulatus clock: attack1 9.21 s against
+## 8 s) still casts its other attacks (#476); the attack that has waited longest goes first.
+func _attack_starts(w: RunWorld, seconds: float) -> Array[String]:
+	var out: Array[String] = []
+	w.god = true # the slams are not what is measured; the character must outlive them
+	for tick in int(seconds / DT):
+		w.step(DT, MoveInput.new())
+		for event: Dictionary in w.drain_events():
+			if event.type == "boss_attack" and event.phase == "start":
+				out.append(String(event.attack))
+	return out
+
+
+func test_a_long_first_attack_does_not_starve_the_second() -> void:
+	var w := RunWorld.new(BF.setup(6130101, 2302, Rect2(-250, -150, 500, 150), ["attack1", "attack2"], {"attack1": 9.5}))
+	var starts := _attack_starts(w, 60.0)
+	assert_true(starts.size() >= 4, "the boss keeps attacking: %s" % [starts])
+	assert_true(starts.has("attack2"), "attack2 is cast although attack1 outlasts the 8 s interval: %s" % [starts])
+	assert_eq(starts.slice(0, 4), ["attack1", "attack2", "attack1", "attack2"], "the two attacks alternate")
+
+
+func test_attacks_that_fit_the_interval_keep_their_listed_order() -> void:
+	var w := RunWorld.new(BF.setup(6130101, 2302, Rect2(-250, -150, 500, 150), ["attack1", "attack2"]))
+	var starts := _attack_starts(w, 40.0)
+	assert_true(starts.size() >= 4, "the boss keeps attacking: %s" % [starts])
+	assert_eq(starts.slice(0, 4), ["attack1", "attack2", "attack1", "attack2"], "listed order, one cast per interval each")

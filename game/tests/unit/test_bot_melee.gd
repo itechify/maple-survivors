@@ -227,3 +227,78 @@ func test_melee_bot_kites_below_the_hp_threshold_and_during_a_boss_telegraph() -
 	w.boss_attacks._pending[0] = {}
 	assert_true(w.boss_attacks.telegraph_up())
 	assert_true(BotInput.decide(w, {}).left, "a boss attack winding up: run")
+
+
+
+## The melee world with a scheduled boss (a snail held in place, 100000x HP) that arrives at 0.5 s and is then moved to x -900.
+func _hunt_world() -> RunWorld:
+	var data := RF.quiet_data()
+	data.upgrades.cards = []
+	data.balance.magnet_radius = 0
+	data.skills.skills["slash"] = {"skill_id": 9991001, "book": "999", "job": 100, "kind": "instant",
+		"damage": "fixed", "ranks": [1], "cooldown": 1.0, "action": "swingO1", "action_time": 0.4,
+		"cast": {"rule": "box"}}
+	RF.set_bosses(data.stages.stages.quiet, [{"mob_id": 100100, "time": 0.5, "hp_mult": 100000.0, "dmg_mult": 1.0}])
+	var setup := RF.with_basic_attack(RF.setup("quiet", 9, data))
+	setup.skill_imgs["999"] = {"skill": {"9991001": {"level": {"1": {
+		"lt": {"$v": [-90.0, -60.0]}, "rb": {"$v": [10.0, 0.0]}, "mobCount": 1.0, "attackCount": 1.0,
+		"fixdamage": 10.0, "mpCon": 1.0}}}}}
+	var w := RunWorld.new(setup)
+	RF.place_player(w, 400)
+	w.player.facing = 1
+	w.god = true
+	w.loadout.order.clear()
+	w.learn_skill("slash")
+	w.bosses.rules["teleport_stall"] = 1.0e9 # a boss in its stance is never relocated to the character: the hunt is on trial
+	w.drain_events()
+	return w
+
+
+## Runs `seconds` of bot input; returns the boss slot once it spawned (moved to x -900, held in its stance), else -1.
+func _run_hunt(w: RunWorld, memo: Dictionary, seconds: float, boss_slot: int) -> int:
+	for t in int(seconds / DT):
+		w.step(DT, BotInput.decide(w, memo))
+		w.drain_events()
+		var record: Dictionary = w.bosses.records[0]
+		if boss_slot < 0 and int(record.slot) >= 0:
+			var f := w.fhm.find_below(-900.0, 190.0)
+			boss_slot = w.relocate_mob(int(record.slot), Vector2(-900.0, w.fhm.y_at(f, -900.0)), f)
+			record.slot = boss_slot
+			(w.mob_kinds[w.swarm.kind[boss_slot]] as MobKind).move_speed = 0.0 # held in its stance
+	return boss_slot
+
+
+## A boss that casts nearly all the time hardly walks (the Timer, #509): a melee bot walks to it once it has been alive
+## BOSS_HUNT_AFTER seconds and stands farther away than the chase range, and not before.
+func test_a_melee_bot_walks_to_a_far_standing_boss_after_the_hunt_delay() -> void:
+	var w := _hunt_world()
+	var memo := {}
+	var slot := _run_hunt(w, memo, BotInput.BOSS_HUNT_AFTER - 5.0, -1)
+	assert_true(slot >= 0, "the boss arrived")
+	var gap_before := absf(w.player.pos.x - w.swarm.x[slot])
+	assert_true(gap_before > 400.0, "the bot has not gone to it yet (%.0f px; boss x %.0f player x %.0f)" % [gap_before, w.swarm.x[slot], w.player.pos.x])
+	_run_hunt(w, memo, 60.0, slot)
+	assert_true(absf(w.player.pos.x - w.swarm.x[slot]) < 150.0, "a minute after the delay the bot stands at the boss (%.0f px)" % absf(w.player.pos.x - w.swarm.x[slot]))
+
+
+func test_a_kiting_build_walks_to_a_far_standing_boss_too() -> void:
+	var w := _hunt_world()
+	w.balance["bot"] = {"engage": {"kite_reach": 0.0}}
+	var memo := {}
+	var slot := _run_hunt(w, memo, BotInput.BOSS_HUNT_AFTER + 60.0, -1)
+	assert_true(slot >= 0, "the boss arrived")
+	assert_true(absf(w.player.pos.x - w.swarm.x[slot]) < 400.0, "the bot came to the boss (%.0f px)" % absf(w.player.pos.x - w.swarm.x[slot]))
+
+
+func test_the_boss_hunt_direction_needs_a_far_old_boss_on_the_bots_level() -> void:
+	var w := _hunt_world()
+	var slot := _run_hunt(w, {}, 1.0, -1)
+	assert_eq(BotInput._boss_hunt_direction(w, false, 300.0), 0, "a boss that has just arrived is not hunted")
+	w.time = float(w.bosses.records[0].spawn_time) + BotInput.BOSS_HUNT_AFTER + 1.0
+	assert_eq(BotInput._boss_hunt_direction(w, false, 300.0), -1, "an old boss 1300 px to the left is")
+	w.swarm.x[slot] = w.player.pos.x - BotInput.BOSS_HUNT_GAP + 50.0
+	assert_eq(BotInput._boss_hunt_direction(w, false, 300.0), 0, "one inside the hunt gap is left to the ordinary rules")
+	assert_eq(BotInput._boss_hunt_direction(w, true, 300.0), -1, "a hunt under way goes on to the chase range")
+	w.swarm.x[slot] = w.player.pos.x - 1300.0
+	w.swarm.y[slot] -= 200.0
+	assert_eq(BotInput._boss_hunt_direction(w, false, 300.0), 0, "one on another level is not walked to")

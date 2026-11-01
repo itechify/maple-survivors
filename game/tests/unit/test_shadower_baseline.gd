@@ -31,7 +31,11 @@ const OUTSIDERS := ["boomerang_step", "savage_blow", "smokescreen"]
 ## Recaptured by the #425 review fixes (was 9405eac0a78bc0b476efabfe2cc3f766297bc531dd1c1e785c3a4b11b3a537a6). Cause: D18 only
 ## (Boomerang Step's stun rolls once per struck target instead of once per line, so one stream-1 draw fewer per target); D17 and
 ## D19 touch Dark Sight and Assassinate, which this pool leaves out, and the replay at the D17 commit reproduced the old hash.
-const GOLDEN_OUTSIDERS := "7743804555d0a8699205fe01fb56bfc6e959fe1fe24187f11eadf7588301f977"
+## Recaptured by the region-progression merge (#449, #513; was 7743804555d0a8699205fe01fb56bfc6e959fe1fe24187f11eadf7588301f977).
+## Cause: the bot's boss hunt only (#476 C14, `BotInput.BOSS_HUNT_AFTER`: the bot walks to a scheduled boss alive 45 s and more than
+## 700 px away); with this pool the Henesys boss outlives 45 s. With `BOSS_HUNT_AFTER` set out of reach the old hash reproduced
+## exactly, and the main GOLDEN above does not move.
+const GOLDEN_OUTSIDERS := "76ec000ee33766d49140f0fa177ace01ac86a3e02d9b0be562873343e3613071"
 
 
 ## {"digest": hex, "skills": {skill key: hits}, "casts": int, "picked": [keys the bot learned], "assaults": int, "forms": int,

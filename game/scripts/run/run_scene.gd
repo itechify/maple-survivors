@@ -1454,7 +1454,8 @@ func _on_area_attack(e: Dictionary) -> void:
 func _on_mob_attack(e: Dictionary) -> void:
 	match String(e.phase):
 		"start":
-			_sound(String(e.sound))
+			if not attack_sound_absent_in_v83(String(e.sound)): # tier A: Peach Monkey 6130207's v83 node is misspelled "Arrack1" (#466)
+				_sound(String(e.sound))
 			# tier C: capture the first windup halfway to its impact, like the boss windup shots.
 			_first_event_shot("mob_attack_windup", "mob_attack_windup.png",
 				maxf(DT, (float(e.impact_time) - float(e.time)) * 0.5))

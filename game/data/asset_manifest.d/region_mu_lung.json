@@ -1,0 +1,7 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Mu Lung region (spec #449 C4, ticket #466, progression step 9). maps: Snake Area 250010300, Wild Bear Area 1 250010301 and Peach Farm 3 250010700. mobs: map 1's own roster Black Porky 4230502 and the Blue and Red Flower Serpents 4230503 / 4230504, Grizzly 5120500 (Wild Bear Area 1's, and Tae Roon's MobSkill 200 summon), Reindeer 5120505 and Peach Monkey 6130207 (Peach Farm 3's), and the three bosses Giant Centipede 5220004, Tae Roon 7220000 and King Sage Cat 7220002. items: the Etc drops their mobs.json entries use as the EXP pickup (Needle Pouch, Snake Leather, Peach Seed, Bear Foot, Leather, Yellow Belt, Old Paper, Centipede Red Marble). No Mob skill-effect art beyond the mobs' own imgs is imported.",
+	"maps": [250010300, 250010301, 250010700],
+	"mobs": [4230502, 4230503, 4230504, 5120500, 5120505, 6130207, 5220004, 7220000, 7220002],
+	"items": [4000021, 4000278, 4000281, 4000282, 4000283, 4000284, 4000298, 4031227]
+}

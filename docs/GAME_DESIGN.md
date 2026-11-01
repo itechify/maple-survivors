@@ -643,7 +643,10 @@ block and compares the event logs).
     sets should stay at or below about 131; above that a stage gains no strength from a higher E.
   - Lv108-131 rest on 0-1 samples per level (see `_doc.samples.per_level`), so the tail is coarse; the monotone fit and
     smoothing carry it between the few sampled levels.
-  - `mad` holds 117.8 below Lv30: no mainline monster under Lv30 has a magic attack, so the curve has no earlier sample.
+  - `mad` (C13, #475): no mainline monster under Lv28 has a magic attack, so the curve has no sample there. It used to hold 117.8 (a
+    Lv5 monster's magic hit was as strong as a Lv28 one's, twice its physical twin's), which made level-scaled magic attackers
+    (Barnard Gray, Omega Sector) the first killer of a Lv1 character. Below its first sampled level it now follows `pad`:
+    `mad(L) = mad(first) * pad(L) / pad(first)` (`tools/level_curve/generate.mjs`, step 6 of its method).
   - Level-scale stages run a per-tick loop over the live slots in `RunWorld._fill_live_defense` to apply the captured
     PDD/MDD multipliers. Check its cost in the first perf capture of a level-scale stage (`scripts/playtest.sh
     --vsync=off`, `sim_us_per_tick`); stages without the block skip it.
@@ -667,34 +670,73 @@ block and compares the event logs).
   later and at a higher level, so its HP lands above the target by `hp(level_later)/hp(level_arrival)` (no model change). `attack_interval` is 8. The
   tool warns when a keyframe `level` (or `exp_level`) is above 131, where the reference curves go flat (#453 review): the offset
   of 3 reaches only E_sw + 33 at step 16, but a later offset change in C13 would cross it.
+- **Calibrated numbers (C13, #475; tier C).** The first draft above did not survive a bot: from the first second a Lv1 character met
+  monsters 3 x (step - 5) levels above Sleepywood's pace, so a Lv1 Hero with the previous band's gear died in 12-40 s from step 13 on
+  and within 1-2 minutes on most of steps 7-12 (4.2 "Region calibration"). The shipped keyframes are
+  `level(t) = lerp(1, E_sw(t) + above_k, min(1, t / 600))` with `exp_level(t) = E_sw(t)` unchanged: the stage starts at effective level 1
+  and reaches its step's level at 10:00, and `above_k` is 0.75 levels per step to step 12 and 0.25 per step after it (section 11,
+  "Region calibration (C13) constants"). `level_scale_draft.gd --step=<k> --stage=<key> --above=<above_k> --start=1 --warmup=600
+  --boss-hp-scale=12` prints these keyframes and the boss multipliers (the tool's defaults stay the first draft). The same ticket made the
+  `mad` reference curve follow `pad` below Lv28.
 - **Determinism and telemetry.** No RNG is drawn. A balance record of a level-scale stage gains `level_scale_at`
   (`[{boss_index, mob_id, level}]`, the effective level at each boss arrival) and each `boss_fights` entry its own
   `level_scale_at`; other stages' records keep their bytes.
 
 
-Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
-labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
-aliases; living slots, bests, history and run snapshots migrate on load. The unlock order is the `progression` list
-(henesys, ellinia, perion, kerning, sleepywood; ADR 0007, #450). The former tier list was
-`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253); "tier 1 stages" in
+The sixteen regions of `stages.json` `progression`, in the order they unlock (ADR 0007, #450): a clear of region k opens region
+k+1. `region` and `continent` are the labels map select, the opening title and results show (tier C owner choice; the continent
+is the String.wz group, tier A). Steps 1-5 are Victoria Island and keep the opening ramps of #241/#307; steps 6-16 declare a
+`level_scale` instead (section "Level scale" above, calibrated by C13). Tools accept the former keys `henesys_hg1`,
+`tree_that_grew_1` and `dark_cave` as aliases; living slots, bests, history and run snapshots migrate on load. The former tier
+list was `[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253); "tier 1 stages" in
 older records below, in the smoke and in the job-loop tickets mean the first four regions.
 
-| Stage key | Map 1 | Map 2 | Map 3 | Boss order |
-|---|---|---|---|---|
-| `henesys` | Henesys Hunting Ground I (104040000) | The Pig Beach (104010001) | The Blue Mushroom Forest (100030001) | Mano / Mushmom / Blue Mushmom |
-| `ellinia` | The Tree That Grew I (101010100) | The Forest of Wisdom (100040100) | The Forest of Evil I (100040105) | Stumpy / King Slime / Dyle |
-| `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
-| `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
-| `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
-| `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
-| `omega_sector` | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) | Chief Gray / MT-09 / Zeno |
-| `korean_folk_town` (step 8, #465) | Korean Folk Town - Entrance to Black Mountain (222010000, 2520 px) | Tiger Ridge (222010200, 2520 px) | Fox Ridge (222010300, 3240 px) | Scholar Ghost / Blue King Goblin / Nine-Tailed Fox |
-| `el_nath` (step 10, #467) | Watch Out for Icy Path I (211010000, 3050 px) | Forest of Dead Trees I (211041100, 4310 px) | The Cave of Trial II (211042100, 4290 px) | Snow Witch / Riche / Snowman |
-| `magatia` (step 11, #468) | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) | Deo / Homunscullo / Chimera |
+| Step | Stage key | Region (continent) | Drop band | Map 1 | Map 2 | Map 3 |
+|---|---|---|---|---|---|---|
+| 1 | `henesys` | Henesys (Victoria Island) | [0, 15] | Henesys Hunting Ground I (104040000) | The Pig Beach (104010001) | The Blue Mushroom Forest (100030001) |
+| 2 | `ellinia` | Ellinia (Victoria Island) | [10, 20] | The Tree That Grew I (101010100) | The Forest of Wisdom (100040100) | The Forest of Evil I (100040105) |
+| 3 | `perion` | Perion (Victoria Island) | [15, 25] | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) |
+| 4 | `kerning` | Kerning City (Victoria Island) | [20, 30] | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) |
+| 5 | `sleepywood` | Sleepywood (Victoria Island) | [30, 40] | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) |
+| 6 | `ludibrium` | Ludibrium (Ossyria) | [35, 45] | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) |
+| 7 | `omega_sector` | Omega Sector (Ossyria) | [40, 50] | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) |
+| 8 | `korean_folk_town` | Korean Folk Town (Ossyria) | [45, 55] | Korean Folk Town - Entrance to Black Mountain (222010000, 2520 px) | Tiger Ridge (222010200, 2520 px) | Fox Ridge (222010300, 3240 px) |
+| 9 | `mu_lung` | Mu Lung (Ossyria) | [50, 60] | Mu Lung - Snake Area (250010300, 1530 px) | Mu Lung - Wild Bear Area 1 (250010301, 1980 px) | Mu Lung - Peach Farm 3 (250010700, 1980 x 1050 px) |
+| 10 | `el_nath` | El Nath (Ossyria) | [55, 65] | Watch Out for Icy Path I (211010000, 3050 px) | Forest of Dead Trees I (211041100, 4310 px) | The Cave of Trial II (211042100, 4290 px) |
+| 11 | `magatia` | Magatia (Ossyria) | [60, 70] | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) |
+| 12 | `zipangu` | Zipangu (Zipangu) | [70, 80] | Zipangu - A Night in the Forest (800020110, 3228 px, flat) | Showa Street 3 (801030000, 3850 px) | Encounter with the Buddha (800020130, 2868 px, flat) |
+| 13 | `leafre` | Leafre (Ossyria) | [80, 90] | Leafre - The Area of Blue Kentaurus (240020400, 2790 px) | Dragon Forest II (240030200, 2970 px) | Cave of Light (240050300, 3240 px, flat) |
+| 14 | `phantom_forest` | Phantom Forest (Masteria) | [90, 100] | Forgotten Path (610010005, 3496 px) | Cavern of Fortitude (610020014, 2230 px) | Twisted Paths (610010103, 3946 px, flat) |
+| 15 | `clocktower` | Ludibrium Clocktower (Ossyria) | [100, 110] | Ludibrium - Warped Passage (220060400, 2995 px, flat) | Forgotten Passage (220070400, 2995 px, flat) | Deep Inside the Clocktower (220080000, 4143 px, flat) |
+| 16 | `temple_of_time` | Temple of Time (Ossyria) | [108, 120] | Temple of Time - Memory Lane5 (270010500, 2403 x 1096 px) | Road of Regrets5 (270020500, 2403 x 1096 px) | Road to Oblivion5 (270030500, 2403 x 1096 px) |
 
-All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
-"Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
-arrivals show the destination's v83 street and map name. Summaries retain region/continent and the ending WZ names.
+The ordinary roster of each region's maps, as the pools resolve them (the monsters the swarm draws from, `Name level`, ascending;
+map 1 is the union of its keyframe pools under 300 s, maps 2 and 3 the pool rule of their stage entry; bosses, their final forms
+and the monsters they summon are not listed; levels are the canonical `info/level`, tier A) and the three scheduled bosses:
+
+| Step | Region | Map 1 roster | Map 2 roster | Map 3 roster | Bosses (mob id) |
+|---|---|---|---|---|---|
+| 1 | Henesys | Snail 1, Blue Snail 2, Shroom 2, Red Snail 4, Slime 6, Stirge 6 | Pig 7, Ribbon Pig 10 | Blue Mushroom 20, Horny Mushroom 22 | Mano (2220000); Mushmom (6130101); Blue Mushmom (9400205) |
+| 2 | Ellinia | Snail 1, Blue Snail 2, Shroom 2, Red Snail 4, Slime 6 | Slime 6 | Zombie Lupin 40, Malady 55 | Prime Minister (3300008); Grey Yeti and King Pepe (3300005); Faust (5220002) |
+| 3 | Perion | Blue Snail 2, Stump 4, Red Snail 4, Dark Stump 10 | Axe Stump 17, Dark Axe Stump 22 | Wild Boar 25, Fire Boar 32 | King Clang (5220001); Stumpy (3220000); Iron Hook (4090000) |
+| 4 | Kerning City | Blue Snail 2, Red Snail 4, Slime 6, Orange Mushroom 8, Octopus 12 | Bubbling 15 | Jr. Necki 21, Ligator 32 | King Slime (9300003); Shade (5090000); Dyle (6220000) |
+| 5 | Sleepywood | Stirge 20, Horny Mushroom 22, Zombie Mushroom 24, Evil Eye 27 | Cold Eye 40, Drake 50, Ice Drake 64 | Cold Eye 40, Tauromacis 70, Taurospear 75 | Zombie Mushmom (6300005); Snack Bar (8220009); Jr. Balrog (8130100) |
+| 6 | Ludibrium | Roloduck 34, Panda Teddy 36 | Panda Teddy 36, Robo 41 | Master Robo 44 | Rombot (4130103); Alishar (9300012); Timer (5220003) |
+| 7 | Omega Sector | Barnard Gray 40 | Mateon 41, Plateon 44 | Plateon 44, Mecateon 46 | Chief Gray (4240000); MT-09 (5120100); Zeno (6220001) |
+| 8 | Korean Folk Town | Moon Bunny 45 | Hodori 50, Hogul 53 | Samiho 56 | Scholar Ghost (6090003); Blue King Goblin (7130401); Nine-Tailed Fox (7220001) |
+| 9 | Mu Lung | Black Porky 43, Blue Flower Serpent 45, Red Flower Serpent 45 | Grizzly 56 | Reindeer 58, Peach Monkey 62 | Giant Centipede (5220004); Tae Roon (7220000); King Sage Cat (7220002) |
+| 10 | El Nath | Jr. Yeti 50, Hector 55 | Coolie Zombie 57 | Jr. Cerebes 43, Cerebes 72 | Snow Witch (6090001); Riche (6090000); Snowman (8220001) |
+| 11 | Magatia | Kiyo 30, Sand Dwarf 32 | Roid 54, Neo Huroid 58 | Homun 65, Saitie 68 | Deo (3220001); Homunscullo (8110300); Chimera (8220002) |
+| 12 | Zipangu | Paper Lantern Ghost 40, Big Cloud Fox 45 | Extra A 45, Extra B 47, Extra C 50, Leader A 62, Leader B 64 | Dreamy Ghost 100 | Male Boss (9400120); Female Boss (9400121); Black Crow (9400014) |
+| 13 | Leafre | Blue Kentaurus 88 | Rexton 95, Green Cornian 100 | Skelegon 110, Skelosaurus 113 | Manon (8180000); Griffey (8180001); Leviathan (8220003) |
+| 14 | Phantom Forest | Firebrand 90, Elderwraith 95, Nightshadow 100 | Firebrand 90, Elderwraith 95, Nightshadow 100 | Firebrand 90, Elderwraith 95, Nightshadow 100 | Headless Horseman (9400549); Master Guardian (9400594); Bigfoot (9400575) |
+| 15 | Ludibrium Clocktower | Ghost Pirate 83, Death Teddy 85, Dual Ghost Pirate 87 | Master Death Teddy 89, Spirit Viking 93, Phantom Watch 95 | Gigantic Spirit Viking 98, Grim Phantom Watch 99 | Gatekeeper (8160000); Thanatos (8170000); Papulatus (8500001) |
+| 16 | Temple of Time | Chief Memory Guardian 101 | Chief Qualm Guardian 116 | Chief Oblivion Guardian 131 | Dodo (8220004); Lilynouch (8220005); Lyka (8220006) |
+
+Map select lists each region's three maps and bosses in `progression` order; its objective is "Defeat 3 bosses across 3 maps".
+Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending
+map. The opening title shows continent above region; transfer arrivals show the destination's v83 street and map name.
+Summaries retain region/continent and the ending WZ names.
 
 Round time includes all combat on every map. The pacing clock is `curve_time = (N - 1) * 300 + time_on_map` for
 one-based map N, resetting to 300 / 600 on transfers regardless of the previous fight's duration. Rate, alive cap,
@@ -903,6 +945,409 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+### Progression QA and merge-readiness (C14, #476, 2026-10-31)
+
+QA of the whole sixteen-region progression before `spec/447-region-progression` merges into `redesign`: the flow-driver climb, one
+playtest per new region, the web gate, the regression smoke, the boss attack mix, #509's three bot and boss-placement bugs and the
+docs. Shared private cache (all 16 regions, manifest unchanged), `JOBS=2`, F/P (212) for the smoke, the Hero (112) for the climb and
+the playtests, training seeds 1 / 2 / 2026 only, no balance data touched (the walls are #508). Evidence stays out of the repo
+(`evidence/c14/`: `progression/`, `sheets/`, `playtest/`, `psheets/`, `web/`).
+
+**Flow-driver climb** (`--scenario=progression --through=16 --job=112 --seed=1`, new): **PASSED**, `missing: []`, no world warning.
+A fresh Hero clears all sixteen regions in order with the diagnostic invulnerable warp (a lethal boss hit after each timer; 3 of 3
+bosses each time, round time 900.1-900.3 s). At each of the 16 steps map select showed exactly `step - 1` regions CLEAR, the next one
+NEW and selected, the rest locked, only that next region unlocked, the header `Regions cleared k/16` and Start enabled; the saved
+cleared set equalled the first k keys after every clear and the round count k. At step 1 a locked Ellinia refused Start. Halfway (after
+8 clears) Save & quit, character select and Continue kept the set on disk and on map select (`continued_after_08`). After the 16th
+clear map select read `Regions cleared 16/16` with nothing locked and no frontier. Shots (195 PNGs): every region's start, the arrival
+of each of its three bosses, each map's clear and entry, the results, map select at steps 1 / 6 / 11 / 16 and the 16/16 header. The
+region's six map and boss frames were read by eye as contact sheets: every map draws its v83 backdrop, tiles, objects and swarm, and
+every boss shows its bar and arrival notice (the bosses themselves are often lost in the crowd of 100-350 at their arrival). The
+invulnerable character reads HP 1-20 in many frames: `god` clamps HP, a diagnostic artefact. Clear level of the Hero per step (seed 1,
+diagnostic, not survival evidence): Henesys 32, Ellinia 17, Perion 20, Kerning 22, Sleepywood 27, Ludibrium 29, Omega 27, Korean Folk
+Town 27, Mu Lung 27, El Nath 25, Magatia 25, Zipangu 61, Leafre 27, Phantom Forest 60, Clocktower 41, Temple of Time 24. Its boss-2 frame
+of Zipangu (Showa Street 3) shows no character (the camera is off it in that one frame; real play below shows it), and nothing else was wrong.
+
+**Playtests** (`playtest.sh --stage=<key> --job=112 --character=<per-step fixture> --speed=8 --minutes=20 --seed=2026 --vsync=off`; the
+fixture is `character_fixture.gd --band-of=<previous region> --band-pick=best --cleared=<step - 1>`, the kit a Hero arrives with):
+`missing: []` in all eleven. A natural bot, so most end in a death, which is #508's wall, not a QA finding:
+
+| Step | Region | End | Time | Hero Lv | Maps reached | Bosses killed | Seen by eye |
+|---|---|---|---|---|---|---|---|
+| 6 | Ludibrium | died | 616 s | 37 | 2 | 1 (Rombot) | Rombot's robot and windup, Alishar's attack art and death frame on Toy Factory Zone 4 |
+| 7 | Omega Sector | died | 386 s | 24 | 2 | 1 (Chief Gray) | Chief Gray's falling bolts and shockwave on Kulan Field I |
+| 8 | Korean Folk Town | died | 732 s | 31 | 3 | 2 | Moon Bunny and tiger swarms, Blue King Goblin's attack |
+| 9 | Mu Lung | died | 641 s | 39 | 3 | 2 | Giant Centipede's three attacks, Tae Roon's, the Grizzly swarm |
+| 10 | El Nath | died | 554 s | 32 | 2 | 1 | Snow Witch arrival, the snow and Dead Trees fields |
+| 11 | Magatia | died | 563 s | 34 | 2 | 1 | Deo's windup in the desert, the lab field |
+| 12 | Zipangu | **cleared** | 951 s | 81 | 3 | 3 | Male Boss and Female Boss with their summons, Black Crow in the bamboo |
+| 13 | Leafre | died | 365 s | 24 | 2 | 1 | Manon with both attacks on the Kentaurus field, the Dragon Forest |
+| 14 | Phantom Forest | died | 633 s | 39 | 2 | 1 | Headless Horseman, Master Guardian's attacks in the Cavern |
+| 15 | Clocktower | died | 453 s | 28 | 2 | 1 | Gatekeeper's two attacks, the CLEAR banner, the Forgotten Passage swarm |
+| 16 | Temple of Time | died | 46 s | 1 | 1 | 0 | Chief Memory Guardians on the lane (dead at Lv1) |
+
+Only Zipangu reaches all three maps and bosses in real play; the climb above covers the rest. Steps 13-16 and Ludibrium's second
+map are where the Hero dies young (Temple of Time at 46 s on this seed), the C13 walls (#508).
+
+**Bugs, #509 and the boss attack mix**
+
+- **Ludibrium's Timer (fixed, `BotInput`).** Reproduced (Hero seed 2: TIMEOUT at 1,800 s, Timer alive 865 s, Lv92, 15,886 kills). A trace
+  showed the Timer standing at its spawn (x -1,300) for the whole fight while the bot kited and farmed 3,000 px away: the Timer's seven
+  skills all hold the 3.12 s `skill1` stance at their WZ intervals (10 s buffs and stun, 20 s heal, 30 s immunities), 1.6 s of stance
+  per second, so it never walks, and the director's stalled-pursuit relocation does not count a skill stance as a stall. The bot only
+  ever engaged mobs within 300 px. New rule (section 11 "Progression QA constants"): a boss alive 45 s and more than 700 px away on the
+  bot's level is walked to. Seed 2 now kills the Timer at 85 s (65 s of it walking). Seed 4 dies at 503.7 s as before. The Timer's data is
+  unchanged; `test_bot_melee` pins the hunt (a held far boss is reached after the delay by melee and kiting builds, not before; it
+  needs the boss on the bot's level and beyond the gap).
+- **Papulatus clock "hovering 332 px above the floor" (not a bug).** The trace of a Clocktower run (Hero seed 3, cleared at 950 s) put the
+  clock at (751, -332) with the character at (1738, -332) on foothold 10: `-332` is the floor's own world y in Deep Inside the Clocktower
+  (y grows downward and the map's floor is at -332), the same y the character stands at. The clock is a ground mob and the flying form
+  8500002 aims at the character. The one TIMEOUT C13 saw was the same stationary-boss case as the Timer (the clock's skills also hold
+  it in stance) and the hunt covers it.
+- **The Hero's weapon swap after the Free Market (not reproduced).** Four Temple of Time chains (`--chain=1 --retries=3`, 13
+  attempts) kept the two-handed axe 1412026 through every shop visit; the quick Lv8-16 deaths of attempts 2-4 happen with the axe still
+  worn, so they are #508, not a swap. `BotShop.auto_equip` only wears an item that scores strictly higher on the job's stat weights
+  (the swap C13 saw raised the weighted incPAD). Left alone, no test.
+- **Boss attack mix (fixed, `BossAttacks`).** Of the 33 scheduled bosses only the Papulatus clock starved an attack: `step` started the
+  first listed ready attack, and attack1 holds its stance 9.21 s against the 8 s interval, so attack1 was ready again before the boss
+  could act and attack2 and attack4 were never cast (one cast kind in a 100 s run). Every other boss's stances (0.7-4.95 s) fit the
+  interval and already alternated. The ready attack that has waited longest now starts (`test_boss_attacks`: attack1 9.5 s / attack2 alternate;
+  with stances that fit the interval the listed order is unchanged). The first four regions' smoke and Sleepywood are unchanged to the
+  second (below), so no existing boss's mix moved.
+- **Pool EXP gate (shared).** `tests/region_checks.gd` (test `test_region_pool_exp`) holds the 0.7-1.3x level-curve check for every
+  ordinary mob of steps 6-16, summons included (the Darkstars pay 0 by design and are exempt); it found nothing to fix on the shipped
+  data. Region tests pin their exact neighbours and `test_progression_order` the whole list and its monotone drop bands.
+
+**Web gate** (`scripts/export.sh --web`, `scripts/check_web_artifact.sh`): both pass (27 files, no WZ data or cache-shaped file; wasm
+importer built with `wasm-bindgen` 0.2.105, templates 4.7.2). index.wasm 39.5 MB, index.pck 7.3 MB, 50 MB in all. Imported once in
+Chromium (driven over the DevTools protocol; the localhost source of `web/dev/serve_sources.mjs` typed into the "Web address" tab as a
+player would, Range supported), then the game booted to its title screen. The manifest of this build against the one before the regions
+(`2807314f`, ADR 0007), both imported the same way into a fresh profile:
+
+| Build | Maps / mobs / items | Images | Files | Imported | Time (read + saved) | Requests | Downloaded | IndexedDB |
+|---|---|---|---|---|---|---|---|---|
+| Before the regions | 16 / 47 / 69 | 1,156 | 2,696 | 312 MB | 26.1 s (24.0 + 2.1) | 598 | 598 MB | 251 MB |
+| Now | 49 / 158 / 162 | 1,707 | 4,316 | 619 MB | 52.8 s (48.0 + 4.7) | 1,172 | 1.1 GB | 509 MB |
+
+The import doubles in time and size (the 33 maps and 111 mobs of the regions and the late-band equipment art); about 53 s once, 509 MB stored,
+against a quota of 10.9 GB on this machine. Not judged unreasonable here, but a mobile browser's quota is smaller: the owner's call. Both
+runs on a localhost host (no network latency or bandwidth limit); 161 warnings, all unresolved-UOL notes in Character.wz equipment as
+before (25 in the earlier manifest).
+
+**Regression smoke** (F/P 212, seeds 1 / 2 / 2026, `JOBS=2`, death-only seconds min / median / max): **every batch matches C13's, and so
+#455's, to the second**: Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8
+/ 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 /
+373.2; Sleepywood with the starter wand 11.4 / 11.9 / 15.1 (3 deaths), with `fp_arch_mage.json` one clear and deaths at 23.8 / 395.4 / 767.0. No
+crash, no world warning, `missing` empty. `--chain=16 --retries=2` (a fresh F/P bot, recorded as is): seeds 1 and 2026 die in Henesys on all 3 attempts (seed 1 at 644.1 / 486.3 /
+658.2 s, Lv36 / 24 / 37; seed 2026 at 417.3 / 692.5 / 594.7 s); seed 2 dies at 646.7 and 539.6 s, clears Henesys on its 3rd attempt (906.5 s,
+Lv57) and then dies on all 3 attempts in Ellinia (617.7 / 627.0 / 620.9 s, Lv22-23). 0 of 3 chains passed step 2; Perion and the
+rest were never started. The expected fresh-bot wall of #475, not a regression (the walls of steps 6-16 are #508).
+
+**Tests:** the whole suite with the real cache, `ISOLATE=c14 TEST_TIMEOUT_S=7200 bash scripts/test.sh`: **4,182 tests, 0 failed, 0 skipped,
+366 files** (nothing SKIPs with the cache; CI has no WZ data, so its cache-backed tests SKIP). `cd tools/wzimport && cargo test` with
+`MAPLE_WZ_ROOT` set: 71 passed, 0 failed (50 library, 1, 2 and 18 in the integration files). `node --test web/dev/test/*.test.mjs
+tools/level_curve/test/*.test.mjs`: 70 passed, 0 failed.
+
+### Region calibration (C13, #475, 2026-10-31)
+
+First-pass calibration of regions 6-16 (spec #449, balance ticket), training seeds 1-4 only (no held-out range, 701-730 unused),
+the shared private cache, `JOBS=2`. A fresh F/P bot dies in Henesys, so `--chain=16` from a fresh character never passes step 1;
+each step was calibrated from a per-step fixture instead. `character_fixture.gd --band-of=<previous region> --job=<id> --cleared=<n>`
+(new) writes the kit a character arrives with: per slot the item of the previous region's `drop_band` that the bot's equipment weights
+score highest (Hero 112: a two-handed axe, no shield, the band's best hat, overall or top and bottom, gloves, shoes; F/P 212: the band's
+best wand or staff, hat, overall, gloves and shoes). `balance.sh <seeds> --stage=<key> --chain=1 --retries=3 --job=<id>
+--character=<fixture>` (`--chain` now accepts `--character`) counts the attempts a region needs from that kit, the loot of a failed
+round carried through the Free Market visit as `--retries` does. A **clear** below is a chain that clears in at most 4 attempts.
+
+**Findings first**
+
+- **Holds vs damage: damage.** Re-run of the Temple of Time (seed 1, Hero, step 16) in god mode (`balance_run.gd --god`, new; no bosses
+  held at all), same late-style kit: first-draft data **TIMEOUT at 1800 s, Lv16, 313 kills**, kills per minute 1 / 10 / 25 / 37 / 54 / 63
+  over the first six minutes (the first boss arrives at 300 s), Dodo alive 421 s and Lilynouch 221 s unheld, EXP 165-1,366 per minute;
+  calibrated data **CLEARED at 950 s, Lv60, 7,684 kills**, kills per minute 187 / 439 / 720 / 1,029 / 1,409 over the first five, bosses 4 / 37 /
+  9 s, EXP 3,404-27,544 per minute. Clocktower (seed 1): first draft Lv29 TIMEOUT, 1,853 kills (Gatekeeper 174 s, Thanatos 69 s, the
+  clock alive); calibrated Lv66 CLEARED at 935 s, 8,176 kills. So the Lv23 and Lv44 of the diagnostics are the character's damage against
+  level-scaled swarm HP (and the offset that sets that HP), not boss time: a hold only adds seconds during which the swarm keeps
+  spawning and being killed (kills never stop), so it cannot lower the clear level, and with no hold at all the first-draft run was
+  already 25-60 kills a minute before any boss. The cause in numbers: from t=0 a region sat 3 x (k - 5) levels above Sleepywood's pace,
+  and at step 16 t=900 the HP is **8.6 x** and the weapon attack **2.5 x** Sleepywood's (level_curve at 89.85 against 56.85) against a
+  weapon that adds about 2 x damage, so a kill took about 4 x longer and the character levelled later while the clock kept raising E (a
+  death spiral). The step itself adds 1.2 x per step (the Temple review's figure); it is the sum over the progression and the Lv1 start
+  that breaks.
+- **The Lv1 start is the wall.** First-draft Hero one-offs (4 seeds per step, below): **9 of 44 clear**, and the other 35 die with a median
+  death of 13-282 s, steps 13-16 within 12-41 s with 0-2 kills. A death is a few dozen ranged or magic hits of 10-48 damage from a
+  swarm of 50, not a big hit, and the `mad` curve was 118 at every level under 28, so magic attackers (Barnard Gray, Omega Sector) were twice as
+  hard as their physical twins at any E.
+- **F/P does not move with the offset.** With the offset at 0 (Sleepywood's own pace, warm-up on) F/P still died at 465-650 s on Ludibrium,
+  El Nath and the Temple (1 clear in 12), with 3-6 potions drunk in a run against the Hero's 20-47: the caster is bursted down on map 2, as it is
+  in Sleepywood (the smoke's kit: one clear in three). It is the F/P bot's survivability, which no per-step number in this ticket changes
+  (see the F/P table below).
+
+**Changes (before -> after, tier C, details in section 11 "Region calibration (C13) constants")**
+
+1. `level_scale` of regions 6-16: `level = E_sw + 3 x (k - 5)` from 0:00 -> `lerp(1, E_sw + above_k, min(1, t / 600))` with `above_k` 0.75 per
+   step to step 12 (Ludibrium 0.75 ... Zipangu 5.25) and 0.25 per step after (Leafre 5.5, Phantom Forest 5.75, Clocktower 6.0, Temple
+   6.25). `exp_level` is unchanged, so EXP per kill is what it was.
+2. `level_curve.json` `mad` below Lv28 follows `pad` (was 117.8).
+3. Boss `hp_mult` and `final_form_hp_mult` of all 33 bosses x12: x4 because the calibration Hero killed the first draft in 1-3 s (median 2-13 s),
+   then x3 for fights of 10-25 s (a probe on six steps with the same clears, 24 of 24).
+4. Tool changes: `character_fixture.gd --band-of/--band-pick`, `balance_run.gd --chain` with `--character`, `--god`, `--hit-log=N`,
+   `level_scale_draft.gd --above/--start/--warmup/--boss-hp-scale`, `tools/level_curve/generate.mjs` step 6.
+
+**Hero (112, melee), per step**: first draft one-offs ("before": same fixture and seeds, no retries) against the shipped data
+("after": the same four seeds as chains with 3 retries; attempt 1 is the same round as the one-off). Deaths are per failed attempt.
+
+| Step | Region | Gear at the start (previous band) | Before: clears of 4 / median death | After attempt 1: clears / median death | After: chains clearing within 4 attempts | Attempts per clear | Deaths on map 1 / 2 / 3 | Clear Lv (median) | Boss fight, median s (n) | Lv at 5 / 10 / 15 min (clears) | Highest reqLevel worn at the clear |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 6 | Ludibrium | Sleepywood [30, 40] | 2 / 282 s | 2 / 504 s | **4 / 4** | 1.75 | 0 / 1 / 0 (+2 TIMEOUT) | 67 | 25 (17) | 22 / 36 / 56 | 45 |
+| 7 | Omega Sector | Ludibrium [35, 45] | 0 / 57 s | 2 / 179 s | 3 / 4 | 1.67 | 5 / 1 / 0 | 62 | 24 (10) | 22 / 36 / 58 | 50 |
+| 8 | Korean Folk Town | Omega [40, 50] | 1 / 265 s | 1 / 685 s | 3 / 4 | 2.33 | 0 / 1 / 7 | 59 | 11 (24) | 22 / 35 / 51 | 50 |
+| 9 | Mu Lung | Korean Folk Town [45, 55] | 2 / 223 s | 3 / 302 s | **4 / 4** | 1.25 | 1 / 0 / 0 | 66 | 20 (12) | 22 / 37 / 57 | 60 |
+| 10 | El Nath | Mu Lung [50, 60] | 2 / 144 s | 2 / 478 s | **4 / 4** | 2.00 | 1 / 1 / 2 | 62 | 21 (17) | 21 / 32 / 54 | 65 |
+| 11 | Magatia | El Nath [55, 65] | 1 / 96 s | 2 / 496 s | **4 / 4** | 1.50 | 0 / 2 / 0 | 66 | 11 (14) | 22 / 37 / 58 | 70 |
+| 12 | Zipangu | Magatia [60, 70] | 1 / 98 s | 3 / 339 s | **4 / 4** | 1.25 | 0 / 1 / 0 | 80 | 25 (13) | 22 / 38 / 68 | 80 |
+| 13 | Leafre | Zipangu [70, 80] | 0 / 18 s | 1 / 295 s | 2 / 4 | 2.00 | 8 / 2 / 0 | 63 | 19 (8) | 22 / 36 / 58 | 90 |
+| 14 | Phantom Forest | Leafre [80, 90] | 0 / 13 s | 2 / 629 s | **4 / 4** | 1.75 | 0 / 1 / 2 | 80 | 17 (17) | 22 / 38 / 62 | 100 |
+| 15 | Clocktower | Phantom Forest [90, 100] | 0 / 14 s | 1 / 401 s | 1 / 4 | 1.00 | 2 / 9 / 1 | 71 | 5 (14) | 22 / 35 / 56 | 110 |
+| 16 | Temple of Time | Clocktower [100, 110] | 0 / 24 s | 1 / 359 s | 1 / 4 | 1.00 | 7 / 5 / 0 | 58 | 15 (8) | 20 / 32 / 51 | 110 |
+| | | | **9 / 44** | 20 / 44 | **34 / 44** | | | | | | |
+
+**Regions that miss the 1-4 attempt target**: Leafre (2 of 4 chains), Clocktower (1 of 4) and the Temple of Time (1 of 4). The 62 failed
+attempts of the table died 24 times on map 1, 24 on map 2 and 12 on map 3, plus 2 TIMEOUTs (Ludibrium's Timer, below): a spread, not a
+single wall, and 39 of the 62 end after the 300 s boss. But the three misses are a wall for this bot: 32 of their 34 failed attempts end by
+500 s (Leafre's 10 all by 415 s, 8 before the 300 s boss; the Temple's 12 by 477 s), the Hero at Lv20-29 chipped down by the swarm (Leafre's
+Blue Kentaurus at 285 s, the Chief Qualm Guardians on the Temple's map 2). Lowering `above` for steps 13-16 to 4.5-5.0 did not move them (a
+probe with the x4 bosses: Leafre 1 of 4, Clocktower 3, Temple 1), so the offset is not their lever; what separates them from Zipangu and
+Phantom Forest (4 of 4, Lv80 clears) is the pool's EXP and attack mix, which this ticket's scope (offset, boss multipliers, band edges)
+does not reach. Left for the owner (below).
+
+**F/P (212, caster)**, shipped data, seeds 1-4, one-off rounds (no retries) from the same kind of fixture: **2 of 44 clear** (Mu Lung 1,
+Magatia 1, both Lv57-61). Every other round dies on map 2 or 3 (one on map 1, after the 300 s boss): Ludibrium 475-614 s, Omega Sector 448-632 s, Korean Folk Town 541-634 s, El Nath
+536-997 s, Zipangu 632-815 s, Leafre 479-580 s, Phantom Forest 313-544 s, Clocktower 481-609 s, Temple of Time 466-618 s: the deaths are
+spread over a minute and a half, and every death is after the first boss (the target). The x4-boss sweep of the same
+fixtures gave 2 of 44 (Magatia). F/P is not tuned by anything in this ticket (the offset is not its lever, above).
+
+**Random policy**: Hero, shipped data x4 bosses, seeds 1 and 2, one-off rounds: seed 1 **clears all 11 regions** (Lv48-81), seed 2 dies in
+all 11 (133-523 s). Two seeds are not a rate.
+
+**Boss fights** (Hero, shipped data): median 5-25 s per region, 11 to 25 s on every step but Clocktower (5 s, whose Gatekeeper and Thanatos
+still fall in seconds) and Korean Folk Town; the first draft was 2-13 s. Levels at the 5 / 10 / 15 min marks are 20-22 / 32-38 / 51-68 (the
+character levels at Sleepywood's pace, as the spec asks, because `exp_level` is unchanged). Flat heals (Lyka 114/9, the clock's 114/4, Lilynouch
+114/23) did not matter: the Temple's completed fights were 16 / 39 / 24 s. Summons did not either (Alishar's Darkness, Papulatus's
+Darkstars, Leviathan's Wyverns at the shipped cadences).
+
+**Not changed (and why)**: *boss mesos* (`balance.mesos.fallback` 4 + 1.5L): a Hero round paid 45,313,646 mesos from ordinary mobs in
+the Temple and 5-12 M elsewhere, nothing is spent short, so the fallback was not binding and was left; *band edges*: the Magician
+[80, 90] pool (10 items, 2 weapons) cannot be blamed, F/P dies on every step including the ones with deep pools, and the Hero's gear reached
+each band's top (last column); *`skill_intervals`*: no spam found in the 44 chains' deaths (they are touch and ranged hits of 7-48 damage);
+steps 1-5 untouched. **Found, not fixed (bot and map issues, not balance)**: (1) **Ludibrium's Timer** was not killed in 1,800 s in 2 of the 7
+attempts that reached it (seed 2 at Lv92, seed 4 stuck at 4,720 kills for the last six minutes), also once with the x4 bosses; the bot is stuck or
+cannot hit it in Toy Factory Zone 1 (best distance 1.55 px). (2) **The Papulatus clock** hovers about 332 px above the floor, out of a melee
+Hero's reach: one Clocktower attempt (x4 sweep) ended TIMEOUT at Lv92 with the clock alive 874 s. (3) After a Free Market visit the bot's
+equipment weights swapped the Hero's two-handed axe for a 1402036 weapon in one Temple chain and the next attempts died at Lv1-16
+(retries are not always better). (4) The Hero sits at 15-25% HP for minutes (potion cooldown) before the chip kills it; a potion or
+regeneration change would move every row.
+
+**Regression smoke** (seeds 1 / 2 / 2026, F/P, `JOBS=2`, no tuning): **every first-four-regions batch matches #455's table to the second**:
+Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 /
+421.7 / 651.8, random 331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood with the starter wand 11.4 /
+11.9 / 15.1, with `fp_arch_mage.json` one clear and deaths at 23.8 / 395.4 / 767.0 (the 395.4 death is #455's third kit seed); no crashes, no
+world warnings. Steps 1-5 read no changed number (`level_scale` is only in regions 6-16, and `level_curve` is read only by them).
+Tests: the whole suite, `TEST_TIMEOUT_S=7200 bash scripts/test.sh` with the real cache (so nothing SKIPs): **4,172 tests, 0 failed, 0 skipped**; `node --test
+tools/level_curve/test/*.test.mjs` passes. CI has no WZ data, so its cache-backed tests SKIP.
+
+
+### Phantom Forest (C9) regression smoke and diagnostic round (#471, 2026-10-30)
+
+Spec #447 branch with the Phantom Forest region (step 14, after Leafre), private cache, F/P (212), seeds 1/2/2026, `JOBS=1`, no tuning, no held-out seeds. Bot and random on the first four regions,
+Sleepywood with the starter wand and with `fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 /
+646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random
+331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one clear
+and deaths at 23.8 / 767.0 (the other kit seed died at 395.4)), no crashes and no world warnings. Phantom Forest itself is not in
+the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=phantom_forest --job=112 --character=late_progression.json`, seed 1, windowed (x8 between bosses, x1 in the boss
+fights, vsync off), god mode (`RunWorld.god`) with the autoplay bot, each boss held at >= 50% HP for 40 s so its attacks show, then one lethal
+diagnostic hit: **CLEARED, 3 bosses, Lv63, 1021.1 s, `missing: []`, no warnings**. Map entries at 0 / 340.4 / 680.7 s, 347 alive at the last boss (the same round with the native Stormbreaker and Windraider pooled cleared at Lv67: see the EXP gate in the constants).
+Arena check, by eye: all three first picks stay. The Forgotten Path (a dead-tree hillside under a castle on a red-brown sky, stepped stone tiers;
+Nightshadows fill the floor and the ledges, flying Firebrand flames and Elderwraith ghosts swarm above), the Cavern of Fortitude (a teal cavern with a long
+floor, ledges and a rope; Nightshadows on the floor, Firebrand flames and Elderwraiths filling the air) and Twisted Paths (one flat floor between
+red tree-hollows; the same Nightshadows and fliers line it, the crowd reaches 350) are wide and open with no pit and no shaft. The three boss
+bars show (the Horseman's and Master Guardian's borrowed Zeno icon, Bigfoot's own). Seen in the round: all three arrival notices and bars; the
+bosses themselves hide under the crowd and the fixture's damage numbers. A second, clean probe (the shipped bosses alone on the Forgotten Path,
+late fixture, damage off) shows each attack's wind-up and impact: the Horseman (a pink horse and rider under a floating jack-o'-lantern head; attack1's
+wind-up, attack2's flaming head flying out in front), Master Guardian (a spiked armoured knight; attack1's wind-up, attack2's impact burst)
+and Bigfoot (a large yellow-haired beast with a small rider; attack1's dust on impact). **Not shown by a god-mode run:** what a landed attack does to
+a character (god lands no hit, so nothing here is survival or balance evidence), the bosses seen at their arena's own geometry (the clean probe
+puts them on map 1), and Master Guardian's Seal (skipped, nothing to show). With the late fixture (Lv100-band gear at Lv1) the bosses die at once
+when not held: the first draft is a starting point for C13, not a balance claim.
+
+### Zipangu (C7) regression smoke and diagnostic round (#469, 2026-10-30)
+
+Spec #447 branch with the Zipangu region (step 12 once Mu Lung lands), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`,
+no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with
+`fp_arch_mage.json`: **every batch matches #468's table to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 /
+489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 /
+449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one
+clear and deaths at 23.8 / 767.0), no crashes and no world warnings. The change adds data only (a stage file, `mobs.json` entries,
+a manifest fragment, three `enabled_ids`, one `progression` entry), so the first four regions cannot move. Zipangu itself is not
+in the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=zipangu --job=112 --character=late_progression.json`, seed 1, windowed, a throwaway uncommitted driver
+(`RunScene` with the autoplay bot, x8 between bosses and x1 in the boss fights, vsync off), god mode (`RunWorld.god`), each boss
+held for a while (a x100 HP pool pinned at a fraction so no tick can kill it; the Male Boss 100 s sliding from 96% to 4%, so its
+Summon thresholds pass; the Female Boss and Black Crow 45 s at 50%), with every other mob cleared and the spawner and the
+character's skills quiet at each boss's arrival, the boss pulled beside the character when it stood off-screen, then one lethal
+hit: **CLEARED, 3 bosses, Lv60, 1090.0 s, `missing: []`, no warnings**. Map entries at 0 / 400.0 / 745.0 s. A first pass without
+the quiet and pull-in options (all three bosses were lost under the fixture's damage numbers) reported
+`missing: ['Effect.wz/Summon.img/7']`: the Male Boss's Summon names summonEffect 7, so the fragment now imports it.
+
+Arena check, by eye: all three first picks stay. A Night in the Forest (a moonlit coast with Mount Fuji, a rope-fenced bridge
+walk and a grassy ledge with the tombstone portal on the right; the Paper Lantern Ghosts and Big Cloud Foxes stream in from both
+ends and crowd the walk), Showa Street 3 (a sunset street of tiled roofs, poles and a stone retaining wall in two tiers, ropes
+between them; the bot climbs to the upper tier) and Encounter with the Buddha (a bamboo grove, a stone lantern and tile-roofed
+graves along one flat floor) are wide, flat or two-tier with ropes the bot uses: no shaft, no pit, nothing that traps the
+character. The three boss bars show Zeno's borrowed icon (v83 has none for any of them). Seen: all three warning and arrival
+shots and notices, the Male Boss (a grey-haired man in a suit; his Summon cast brought an Extra, a bald thug in an orange shirt, out beside him),
+the Female Boss (a woman in a pink kimono with a bun), Black Crow (a white-haired, red-faced tengu in the Buddha's clearing)
+and every boss's attack1 and attack2 wind-up and shockwave shot (all six).
+**Not shown by a god-mode run:** what a landed attack does to a character (god lands no hit, so nothing here is survival or
+balance evidence), the Male Boss's later Summon levels (its per-level `limit` of 1-4 lets a cast spawn only while fewer of its
+summons live, and the quiet character killed none, so only the first cast, an Extra at 95%, was seen; Leader A/B and the
+others share the same code and mobs that the map 2 crowd shows), and the 40 s Summon cadence over a full fight. With the late
+fixture (Lv100-band gear at Lv1) the bosses die at once when not held (the 100 s / 45 s holds are why the round took 1090 s):
+the first draft is a starting point for C13, not a balance claim.
+
+### Temple of Time (C11) regression smoke and diagnostic round (#473, 2026-10-31)
+
+Spec #447 branch with the Temple of Time region (step 16), private cache, F/P (212), seeds 1/2/2026, `JOBS=1`, no tuning, no
+held-out seeds. Reduced smoke, because the change is additive data (a stage file, a manifest fragment, `mobs.json` entries, three
+`enabled_ids`, one `progression` key) and touches no code: Henesys bot (death seconds **417.3 / 644.1 / 646.7**), Sleepywood with the
+starter wand (**11.4 / 11.9 / 15.1**) and with `fp_arch_mage.json` (one clear, deaths at **23.8 / 767.0**) all **match #455's table
+to the second**, no crashes and no warnings. Ellinia, Perion and Kerning and the random policy were not re-run (a stage reads
+only its own file and nothing shared changed): that is the unrun part of the smoke. Temple of Time itself is not in the smoke
+(calibration is C13). Draft tool: `--step=16 --stage=temple_of_time` raised no warning (highest level 89.85, below 131).
+
+Diagnostic one-off, `--run=temple_of_time --job=112 --character=late_progression.json`, seed 1, windowed at x6 (vsync off),
+god mode (`RunWorld.god`) with the autoplay bot, each boss held at 40% HP for 70 s so its gated skills (Reflect, Heals) show, then
+1 HP at +100 s: **CLEARED, 3 bosses, Lv23, 1219.7 s, `missing: []`, no warnings**. Map entries at 0 / 400.4 / 819.0 s, `max_alive`
+352. **Lv23 is far below the other regions' Lv44-64** (Clocktower, step 15: Lv44): not a pool problem (the three pool mobs pay
+1.01 / 0.94 / 1.00x of the level curve's EXP at their own levels) and not explained by the +3 step alone: the step's mob HP is only about 1.2x Clocktower's (level_curve at
+each keyframe; enough for roughly 4 levels), yet Lv23 is about 7x less cumulative EXP than Clocktower's Lv44. The rest is unattributed:
+the late fixture's damage against Lv101-131 swarm HP (788 kills over 1220 s) and the boss holds are the candidates, and this data
+cannot separate them. Left for C13 (#475), which should rerun with Clocktower-style holds or none and report kills and EXP per
+minute; the biggest open item of this ticket. A first diagnostic with the hold released only at +60 s and no 1 HP finisher never killed Lyka: a Lv22 god-mode bot
+did not get through 400 Chief Oblivion Guardians (Lv131, 141000 HP at base) to her in 1300 s (state PLAYING at the 2600 s
+cap, `missing: []`). Dodo and Lilynouch died unheld after 170 s each in that run. Also for C13.
+
+Arena check, by eye: all three first picks stay, no alternate. Memory Lane5 is a green-and-cream ruin of marble arches and vines
+under a blue sky, two long stone floors joined by ladders with stepped ledges between; Chief Memory Guardians (black armoured
+shells with a green flame) crowd both. Road of Regrets5 is the same frame in ice (hanging icicles, ice crystals, a moon): the
+Chief Qualm Guardians wear a blue fire. Road to Oblivion5 is the frame in chains and cracked lava rock with an hourglass: the
+Chief Oblivion Guardians trail red. No shaft, no pit; the ladders are the bot's route between floors.
+
+*Seen* (screenshots checked by eye, none committed): Dodo's arrival (the whale at the floor's left, boss bar and "Dodo has
+appeared!"), its type-2 ball and type-0 bolt wind-ups and impacts, the Banish (the character vanishes and reappears on another
+ledge, notice "You have been ousted by the force of Dodo.", the blue swirl), and PDD Up 102/3 (a purple glow on Dodo). Lilynouch's
+bar and notice on arrival (the boss itself hidden by the floor's crowd and the damage numbers), the two wind-ups and impacts, and
+Reflect 145/1 (its icon above her, "Lilynouch is reflecting your attacks!"; the sim logged `boss_reflect` hits at 856.5 s).
+Lyka's arrival (the red-and-white beast at the left), the area warning (fire eggs along the floor) and strike (the columns
+burst, 15 columns, 7 struck), the Seduce (128/7: the character wrapped in its blue seal), Attack Up 100/2 and the Heal 114/9
+notice ("Lyka recovered 50000 HP"). Casts in the first run, from the sim's own log: Dodo's Banish at 321.8 / 372.8 / 402.4 /
+461.8 s (the cooldown is 15 s, but a cast needs the character inside Banish's 122 x 194 px box and a miss spends nothing, so the gaps are 50, 30 and 59 s) and PDD Up every 30 s; Lyka's Seduce every 20 s, Attack Up 40 s,
+Heal 30 s. **A god-mode run cannot show**: what a landed attack, Banish arrival or Seduce does to a character who can die
+(god lands no hit; Seduce's pull and the Banish's relocation were observed, not their danger), whether Reflect kills a character
+(the hits it returns were logged at 17 to 45 damage), the Heal's effect on the swarm (no `mob_healed` event fired: nothing in
+its box was damaged), or any survival or balance claim.
+
+### Ludibrium Clocktower (C10) regression smoke and diagnostic round (#472, 2026-10-31)
+
+Spec #447 branch with the Clocktower region (step 15), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no held-out
+seeds. Reduced smoke, because the change is additive data (a stage file, a manifest fragment, `mobs.json` entries, four `enabled_ids`,
+one `progression` key) and touches no code: Henesys bot and Sleepywood with the starter wand and with `fp_arch_mage.json`
+**match #455's table to the second** (Henesys bot deaths 417.3 / 644.1 / 646.7; Sleepywood starter 11.4 / 11.9 / 15.1; kit one clear
+and deaths at 23.8 / 767.0), no crashes and no warnings. Ellinia, Perion and Kerning and the random policy were not re-run (a stage
+reads only its own file, and nothing shared changed). The Clocktower itself is not in the smoke (calibration is C13). Draft tool:
+`--step=15 --stage=clocktower` raised no warning (highest level 86.85).
+
+Diagnostic one-off, `--run=clocktower --job=112 --character=late_progression.json`, seed 1, windowed at x12 outside the boss windows
+(vsync off), god mode (`RunWorld.god`) with the autoplay bot, each boss held at 50% HP for 40-45 s (the clock for 90 s, the flying form
+for 25 s) so its kit shows, then a lethal diagnostic hit; run after the review fixes below and the merge of Phantom Forest:
+**CLEARED, 3 bosses, Lv44, 1101.5 s, `missing: []`, no warnings**. Map entries at 0 / 340.4 / 685.7 s, `max_alive` 392. Lv44 is below the
+other regions' Lv49-64: every pool mob pays 0.90-1.00x of the level curve's EXP at its own level, so the gap is the step (a higher
+effective level than Magatia's, so higher mob HP at each keyframe and slower kills) plus the holds; left for C13. Arena check, by eye:
+all three first picks stay. Warped Passage and Forgotten Passage are one long flat floor under a blue cloud-and-spike strip, with a sky
+of Clocktower gears, suns and moons (the second adds arched doors and two low steps) and Deep Inside the Clocktower a flat floor with a
+stepped marble block at the left end; the Ghost Pirate, Death Teddy and Dual Ghost Pirate, then the Master Death Teddy, Spirit Viking
+and Phantom Watch, then the Gigantic Spirit Viking and Grim Phantom Watch fill the floor. No shaft or pit.
+
+*Seen* (screenshots checked by eye, none committed; "cast" counts come from the sim's own skill timers and action log):
+- **Gatekeeper**: bar and notice on arrival (the boss itself is hidden by the floor's 130+ mobs); attack1 x5, attack2 x5 and skill1
+  (Stun 123/1) x3 in 40 s, each stance logged, Stun's star on the character. Which of its two attacks hit, and what they did, is not
+  readable in the crowd.
+- **Thanatos**: at the left edge; attack1 x6 as blue warned columns that then burst; skill1, skill2 and skill4 (Poison 125/1, Curse 124/1,
+  Darkness 121/1; Seal 120 is skipped) x4 each, one cycle every 10 s.
+- **Papulatus clock**: arrival at the right edge with the blue Time Sphere sprite on its gear; Dispel 127/1 x2 (a diagnostic buff, the
+  yellow "Papulatus Clock dispelled ..." notice); Slow 126/1 x13; heal 114/4 x4 in 90 s (its notice "Papulatus Clock recovered 30000 HP",
+  on the isolated clock); the Low and High Darkstar summons 200/39 x5 and 200/40 x4 in 90 s; Stun 123/4 attempted x38 (every second, the
+  interval-1 cast) and, on the isolated clock below, landing 4 times in 40 s (at 12.0, 19.8, 29.1 and 36.9 s: 3 s stun, 4 s lockout floor,
+  then the next cast).
+- **Darkstars stay bounded**: sampled every 6.4 s, the live Darkstars (the bot kills some) were 0, 0, 4, 8, 16, 20, 20, 20, 20, 20, 19, 27,
+  34, 34, 42 over the clock's 90 s: about 8 per 8 s at most, 42 at the end, against 400+ mobs on the floor before `skill_intervals` 200.
+- **Flying form**: a new bar ("Papulatus") at the clock's death position, a blue-green flyer beside the character 15 s later, its logged
+  positions sweeping both sides of the arena: it chases and touches.
+- **Isolated clock** (a scratch driver: the clock alone on the Henesys map, no ordinary spawns, the stage's attacks and intervals):
+  with Stun 123/4 pushed out of the way for 100 s it cast **attack1 x8 only**, skill2 x7 (Slow), skill3 x14 (the summons) and skill4 x3
+  (heal; 671,750 and 701,750 of 874,000 HP at the two heals). The attack1 stance shows as a blue vortex on the character; the heal
+  as its HP notice.
+
+*Not seen*: **attack2 and attack4 never ran** (not in the full round, not in the 100 s isolated run): the attack1 stance lasts 9.21 s
+(its canonical frame delays), the cast order tries attack1 first once its 8 s cadence is up, and the skill casts fill the gaps in between,
+so the clock effectively attacks with attack1 alone about every 13 s. Left as a finding for C13 (listing the attacks in another order, or
+a shorter hold, would change it). Also not seen: what a landed attack, Stun, Poison, Curse or Darkness does to a character (god lands no
+hit, so nothing here is survival or balance evidence), the Darkstars' own touch hits, the form's contact damage, and Thanatos's Seal 120
+(skipped by design). The scratch driver logs the player's `body.position` as a constant, so the form's chase is read from the screenshots
+and the form's own positions, not from a distance. With the late fixture (Lv100-band gear at Lv1) the bosses die at once when not held:
+the first draft is a starting point for C13, not a balance claim.
+
+The review of #501 added three tier C fairness fixes on the clock (the constants section below): `skill_intervals` {"114": 15, "200": 8}
+and the removal of attack3. Targeted tests after the merge of Phantom Forest (step 14): `region_clocktower region_ unique_bosses mesos
+data_files stage_schema final_form`, 194 tests, 0 failed, 0 skipped.
+
+
+### Leafre (C8) regression smoke and diagnostic round (#470, 2026-10-30)
+
+Spec #447 branch with the Leafre region (step 13), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no held-out
+seeds. Reduced smoke, because the change is additive data (a stage file, a manifest fragment, `mobs.json` entries, three
+`enabled_ids`, one `progression` key) and touches no code: Henesys bot and Sleepywood with the starter wand and with
+`fp_arch_mage.json` **match #455's table to the second** (Henesys bot 417.3 / 644.1 / 646.7; Sleepywood starter 11.4 / 11.9 /
+15.1, kit one clear and deaths at 23.8 / 767.0), no crashes and no warnings. Ellinia, Perion and Kerning and the random policy
+were not re-run (a stage reads only its own file, and nothing shared changed): that is the unrun part of the smoke. Leafre itself
+is not in the smoke (calibration is C13). Draft tool: `--step=13 --stage=leafre` raised no warning (highest level 80.85).
+
+Diagnostic one-off, `--run=leafre --job=112 --character=late_progression.json`, seed 1, windowed at x3 (vsync off), god mode
+(`RunWorld.god`) with the autoplay bot, each boss held at HP floors (78% for 25 s, 48% to 50 s, 28% to 75 s, 12% to 150 s, then
+1 HP) so its kit and Leviathan's three Wyvern summons show: **CLEARED, 3 bosses, Lv49, 1291.2 s, `missing: []`, no warnings**.
+Map entries at 0 / 462.8 / 841.0 s, `max_alive` 351. A first round with map 3 on the cave's instance copies (Skelegon 2 in Cave and
+T-Skelegon in Cave, EXP 1500, about 0.30x of the level curve) cleared at Lv39; the explicit Skelegon / Skelosaurus pool (EXP 4500 and
+4750) lifts that to Lv49. Maps 1 and 2 pay the curve at their own levels (Blue Kentaurus Lv88 1600 / 1638 = 0.98, Rexton 0.99,
+Green Cornian 1.01; the new pool 0.92 and 0.90), so the remaining gap to the other regions' Lv52-64 is the step itself (mob HP
+about 1.5x Magatia's at each keyframe, so slower kills) plus the diagnostic's boss HP-floor holds; left for C13. Arena check, by eye: all three first
+picks stay. The Area of Blue Kentaurus
+(a green forest with a water strip below; one long grass-and-rock floor, rope-linked ledges; Blue Kentaurus fills the floor from
+the right), Dragon Forest II (an orange-sky forest: one full-width floor plus floating ledges on ropes; Rexton and the Green
+Cornian line the floor) and the Cave of Light (a blue crystal cave, one flat floor with a stepped left end and a raised right
+block; Skelegon and Skelosaurus crowd it) are wide with ropes the bot uses: no shaft, no pit. Seen: Manon's arrival (the red dragon at
+the left edge, the bar and notice), its three wind-ups and shockwaves; Griffey's arrival and attack1 to attack3 wind-ups and
+shockwaves (the boss is mostly hidden by the floor's 200+ mobs and damage numbers); Leviathan's arrival (the blue dragon at the
+left), its wind-ups and shockwaves, a Red Wyvern from Summon 200/89 beside the bone pile, and the Confuse and Weakness shots (the
+first round; the second round showed the same Leviathan arrival and the real skeletons' names and art). **Not shown by a god-mode
+run:** what a landed attack, Confuse or Weakness does to a character (god lands no hit, so nothing here is survival or balance
+evidence), and whether Wyvern summons 200/90 and 200/91 landed visibly (only the first was identified in a shot). With the late
+fixture (Lv100-band gear at Lv1) the bosses die at once when not held (the holds are why the round took 1291 s): the first
+draft is a starting point for C13, not a balance claim. The [80, 90] drop band's Magician pool is thin: 10 items for a Magician, 2
+of them weapons (80% armour), which is why `test_equipment_drops` keeps a floor of 5 from band 80.
+
 ### Magatia (C6) regression smoke and diagnostic round (#468, 2026-10-30)
 
 Spec #447 branch with the Magatia region (step 11 once Mu Lung lands; after El Nath at step 10), private cache, F/P (212), seeds 1/2/2026,
@@ -982,6 +1427,27 @@ not held: the first draft is a starting point for C13, not a balance claim.
 **Alishar's Skill1 sound.** v83 `Sound.wz/Mob.img/9300012` has Attack1, Damage, Die and CharDam1 but no Skill1, so the cast
 of its Darkness reported `Sound.wz/Mob.img/9300012/Skill1` missing. A skill sound v83 does not have is now silent like
 an absent attack sound (`attack_sound_absent_in_v83`, tier A, #463); an absent whole Mob.img entry still reports.
+
+### Mu Lung (C4) regression smoke and diagnostic round (#466, 2026-10-30)
+
+Spec #447 branch with the Mu Lung region (step 9), private cache, F/P (212), seeds 1/2/2026, `JOBS=1`, no tuning, no
+held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with `fp_arch_mage.json`:
+**every batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0;
+Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 /
+466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one clear
+and deaths at 23.8 / 767.0 (the other kit seed died at 395.4)), no crashes and no world warnings. Mu Lung itself is not in the
+smoke (calibration is C13).
+
+Diagnostic one-off, `--run=mu_lung --job=112 --character=late_progression.json`, seed 1, god mode (`RunWorld.god`) with the
+bot, one lethal diagnostic hit after 40 / 110 / 70 s of each boss fight (bosses held at 50% HP meanwhile so their kits
+show): **CLEARED, 3 bosses, Lv59, 1121 s, `missing: []`, no world warnings**. Map entries at 0 / 340 / 751 s; bosses
+arrive at 300 / 641 / 1051 s with 38 / 220 / 351 monsters alive (`max_alive` 351). Checked by eye: Snake Area (grey Black
+Porkies, then pink and blue Flower Serpents on the floor and ledges), Wild Bear Area 1 (rows of Grizzlies on all four levels),
+Peach Farm 3 (cherry-blossom farm; Peach Monkeys and Reindeer on the floor and every ledge, 318-330 alive from 4:30 into the
+map, a dense clump around the character but no pile-up off-screen); the three boss bars (Giant Centipede's borrowed icon,
+Tae Roon's and King Sage Cat's own); Giant Centipede's three attacks, Tae Roon's attack1 and attack2 windups and shockwaves,
+its Grizzly summons and weapon immunity, King Sage Cat (a fan-wielding cat in a crowd) and its "recovered 700 HP" heal.
+The bot parks on the floor of every map (the monsters come to it), so this shows crowding and boss casting, not movement.
 
 ### Progression QA and merge-readiness smoke (#455, A6, 2026-10-30)
 
@@ -10994,7 +11460,7 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 
 | Rule | Value / source | Tier |
 |---|---|---|
-| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, ludibrium, omega_sector, el_nath (v83 levelling order; owner request 2026-10-30) | C |
+| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, ludibrium, omega_sector, korean_folk_town, mu_lung, el_nath, magatia, zipangu, leafre, phantom_forest, clocktower, temple_of_time (v83 levelling order; owner request 2026-10-30; sixteen regions, tests pin each region's neighbours) | C |
 | Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]). Steps 6-16, set by their region tickets (#449), are [35, 45], [40, 50], [45, 55], [50, 60], [55, 65], [60, 70], [70, 80], [80, 90], [90, 100], [100, 110] and **[108, 120]** for step 16 (#447 said [110, 120]; widened by #474, see "Equipment for the late bands" in 8.3) | C |
 | Late-band equipment (#474) | `equipment_drops/*.json` hold every ordinary v83 weapon of a listed family and one armour piece per slot, reqLevel and gender up to Lv120; chosen from Character.wz facts (not cash, `only`, `notSale`, `quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`; price above 1; a String.wz name; not a `GMS ...` item). No Cosmic drop data was available to this ticket, so unlike the Lv0-70 lists it is not B-checked against server drops | C |
 | NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
@@ -11042,8 +11508,7 @@ for byte) and the full suite passes (3754 tests, 0 failed, 0 skipped, real cache
 
 Progression step 10 (`stages/el_nath.json`, `asset_manifest.d/region_el_nath.json`). Region and continent labels, the map
 list and the rosters are tier A (v83 Map.wz, Mob.wz, String.wz); the rest is ours, a first draft that no ticket here tunes
-(C13 does). Korean Folk Town and Mu Lung (steps 8 and 9) land in parallel; `progression` lists El Nath after Omega Sector
-until they merge.
+(C13 does). Korean Folk Town and Mu Lung are steps 8 and 9, between Omega Sector and El Nath.
 
 | Rule | Value / source | Tier |
 |---|---|---|
@@ -11111,6 +11576,16 @@ smoke (calibration is C13).
 | Boss attack interval | `level_scale_draft.gd` `ATTACK_INTERVAL` 8 s, as every boss | C |
 | Warning ceiling | `level_scale_draft.gd` `CURVE_FLAT_ABOVE` 131: the reference curves hold their Lv131 values above it (v83 has no stronger ordinary monster) | A |
 | Keyframe level resolution | 0.01 levels | C |
+
+### Progression QA constants (C14, #476, spec #449; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Boss attack order | `BossAttacks._ready_attacks`: of the scheduled attacks whose timer is up, the one that has been ready longest starts (list order breaks a tie); each attack keeps its own `attack_interval` timer, started at its own cast. The old rule started the first listed ready attack, which starved every later attack of a boss whose first stance outlasts the interval: only the Papulatus clock (attack1 holds 9.21 s against 8 s; attack2 and attack4 were never cast) among the 33 scheduled bosses | C |
+| Bot boss hunt | `BotInput.BOSS_HUNT_AFTER` 45 s, `BOSS_HUNT_GAP` 700 px: a scheduled boss of the entered map that has been alive 45 s, stands within `DUEL_DY` (40 px) of the bot's feet height and is more than 700 px away is walked to (any build) until it is within the bot's `engage.chase_range` (300 px); below `ENGAGE_RETREAT_HP` the bot kites as before. A boss that casts nearly all the time never walks (the Timer's seven skills hold a 3.12 s stance 1.6 s per second at their WZ intervals, and the director's stalled-pursuit relocation does not count a skill stance as a stall), so the bot never met it: 2 of the 7 C13 Ludibrium attempts timed out at 1,800 s. The boss's own data is unchanged | C |
+| Pool EXP gate | `tests/region_checks.gd`: every ordinary mob of steps 6-16 (pool mobs and summons, bosses and final forms left out; a summoned decoy with canonical EXP 0, the Clocktower's Darkstars, is exempt) pays 0.7-1.3 times `level_curve.json` EXP at its own `info/level` (Leafre's cave Skelegon copies paid 0.30) | C |
+| Region order tests | each region test pins its exact neighbours in `progression` (`RegionChecks.neighbours`), replacing "after X" | C |
+| Flow-driver climb | `flow_driver --scenario=progression --through=<n>`: a fresh character clears the first n regions with the diagnostic fixed-tick warp (`RunWorld.god`, lethal boss hit after each timer); map select must show exactly the cleared / frontier (selected) / locked states, `Regions cleared k/16` and only the next region unlocked at every step; Save & quit and Continue halfway keep the set; one shot at each boss arrival | C |
 
 ### Review #282: constants and provenance
 
@@ -12784,6 +13259,24 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Flags ignored | none of the three maps carries a field flag | A |
 | Alternates | not needed if the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
 
+### Mu Lung (C4) constants (#466, spec #449; progression step 9)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/mu_lung.json`: `region` Mu Lung, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [50, 60] (#447 table), maps 250010300 / 250010301 / 250010700 (widths 1530 / 1980 / 1980 px, foothold spans of Map.wz; Peach Farm 3 is 1050 px tall with 6 ledge levels), `original_life` of map 1 (Black Porky 9, Blue Flower Serpent 11, Red Flower Serpent 7) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged; Sleepywood has no `post_duration_slope`. No `opening_ramp` (maps nor stage): `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Black Porky 4230502 (Lv43) alone at 0:00, then Porky 2 : Blue Flower Serpent 4230503 1 : Red Flower Serpent 4230504 1 (both Lv45) from 2:00; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`, no exclusions: Wild Bear Area 1 holds Grizzly 5120500 (Lv56) x19 only, Peach Farm 3 Reindeer 5120505 (Lv58) x4 and Peach Monkey 6130207 (Lv62) x20; none is timed, hidden or an event mob | A life lists, C rule |
+| Arena check | #270's three picks are narrow, so each was played in-engine with the god-mode bot (late fixture, seed 1): Snake Area keeps 40-66 monsters alive through its 300 s; Wild Bear Area 1 and Peach Farm 3 fill to the stage's 330 alive (max 350 with bursts) with monsters on every ledge as well as the floor; nothing jammed, no map traps the character. No Herb Town or Practice Field alternate was needed (Old Swamp 251010400: 2111 px but only Mr. Alli Lv64 and Kru Lv68; Practice Field 250020200: target dummies) | C |
+| `level_scale` | first draft of `level_scale_draft.gd --step=9 --stage=mu_lung` (not tuned): `level` 21.15, 21.73, 22.8, 34.22, 48.44, 60.23, 68.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (9 - 5) = E_sw + 12) | C |
+| Bosses | Giant Centipede 5220004 (hp_mult 11.647, dmg_mult 0.949, attack_dmg_mult 0.712; `attack1`-`attack3`), Tae Roon 7220000 (1.798, 0.736, 0.916; `attack1`, `attack2`), King Sage Cat 7220002 (2.434, 1.59, 1.986; `attack1`), each 300 s after its map's entry with `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids`. Every attack of the three is magic (`magic` = 1), matched on MAD | C |
+| Boss kits | Giant Centipede casts nothing. Tae Roon: weapon immunity 140, buffs 110/112/113 and MobSkill 200 level 83, which summons Grizzlies 5120500 through `StageRoster` at <= 80% HP (limit 15). King Sage Cat: heal 114, buffs 110/112/113, weapon immunity 140. All supported as written in Skill.wz | A skills, C support |
+| Fights fought in these maps | Giant Centipede is native to Herb Town's 1160 px Garden, Tae Roon and King Sage Cat to 1530-1620 px territories: all three fight in the hunting fields | C |
+| `mobs.json` | names and `exp_item`: Black Porky Needle Pouch 4000278, both Flower Serpents Snake Leather 4000281, Grizzly Bear Foot 4000283, Reindeer Leather 4000021, Peach Monkey Peach Seed 4000282, Tae Roon Yellow Belt 4000284, King Sage Cat Old Paper 4000298 (each the mob's first Etc drop in the MonsterBook); Giant Centipede has no Etc drop there (scrolls only) and uses Centipede Red Marble 4031227, the quest item named for it. Giant Centipede has no MobGage icon or hpTag and borrows Dyle's 6220000 with the standard 1/5 tag; Tae Roon and King Sage Cat's are canonical | A ids/names, C association |
+| Meso ranges | ordinary mobs only: centre interpolated from the Lv40 Cold Eye / Zombie Lupin (125) and Lv50 Drake (250) ranges for the Lv43-45 mobs (Black Porky [130, 196], Flower Serpents [150, 226]) and from the Lv55 Malady (305) and Lv64 Ice Drake (405) ranges for the Lv56-62 mobs (Grizzly [253, 379], Reindeer [270, 406], Peach Monkey [306, 460]), +-20%; bosses use the `balance.mesos` level fallback | C |
+| Peach Monkey attack sound | v83's `Sound.wz/Mob.img/6130207` spells its attack sound `Arrack1`, so `.../Attack1` is absent: an ordinary mob's attack sound that v83 does not have is now silent like a boss's (`attack_sound_absent_in_v83`), instead of reported missing | A |
+| Flags ignored | none of the three maps has a field flag (`mobRate` 1.3 / 2 / 1.2 on the maps is not read) | C |
+| Diagnostic gap | Under god mode no hit lands on the character, so the status visuals of the bosses' buffs on the character are not exercised. Tae Roon's attack2 (the type-2 ball) windup and impact fired and were captured, but its projectile is not told apart from the swarm of Grizzlies in the frame. The Grizzly summons (200), King Sage Cat's heal (114) and every buff cast (110/112/113/140) were seen | C |
 ### Magatia (C6) constants (#468, spec #449; progression step 11)
 
 | Rule | Value / source | Tier |
@@ -12801,6 +13294,114 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv27 Evil Eye (60), Lv35 Curse Eye / Jr. Boogie (97), Lv50 Drake (250), Lv55 Malady (305), Lv64 Ice Drake (405) and Lv70 Tauromacis (420) ranges at the mob's level (Kiyo Lv30 [59, 89], Sand Dwarf Lv32 [66, 100], Roid Lv54 [235, 353], Neo Huroid Lv58 [270, 406], Homun Lv65 [326, 490], Saitie Lv68 [332, 498]), +-20%; bosses use the `balance.mesos` level fallback | C |
 | Flags ignored | none of the three maps carries a field flag (lab maps carry `mobRate` 2, which the sim does not read) | A |
 | Alternates | map 1 260020400 / 260020100, map 2 261020200 / 261020700, map 3 261010103 (1954 px, narrower than Unit 201): not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Leafre (C8) constants (#470, spec #449; progression step 13)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/leafre.json`: `region` Leafre, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [80, 90] (#447 table), maps 240020400 / 240030200 / 240050300 (widths 2790 / 2970 / 3240 px, foothold spans of Map.wz), `original_life` of map 1 (Blue Kentaurus 22) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s: Blue Kentaurus 8140103 (Lv88), the field's whole roster, alone | C weights, A roster |
+| Map 2 pool | `pool_from_life`: Dragon Forest II holds Rexton 8140702 x10 (Lv95) and Green Cornian 8150200 x6 (Lv100); no `exclude` | A life list, C rule |
+| Map 3 pool | explicit `pool` {Skelegon 8190003 (Lv110, EXP 4500): 11, Skelosaurus 8190004 (Lv113, EXP 4750): 6}, not `pool_from_life`: the Cave of Light's only monsters are Skelegon 2 in Cave 9300076 x15 and T-Skelegon in Cave 9300077 x6, `hideName` instance copies with an EXP of 1500 (about 0.30x of the level curve's ~4900-5250 against about 0.9x for the real mobs), which the spec's rule excludes as instance-only monsters. The weights are the 11 : 6 spawn ratio of Nest of a Dead Dragon 240040510, where the two real mobs live (they stay out of `mobs.json` and the manifest). Their `skill1` is not read for ordinary mobs | A mobs and life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=13 --stage=leafre` (not tuned): `level` 33.15, 33.73, 34.8, 46.22, 60.44, 72.23, 80.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (13 - 5)). No level above 131, so the tool warned nothing. The Lv88 to Lv113 monsters run at these effective levels, not their own | C |
+| Bosses | Manon 8180000 (hp_mult 0.828, dmg_mult 1.019, attack_dmg_mult 0.661, `attack1`-`attack3` all type 0 with `magic` 1, `attack1` fire, matched on MAD 680), Griffey 8180001 (0.186, 0.729, 0.698, the same attacks, matched on MAD 680), Leviathan 8220003 (0.115, 1.555, 1.815, `attack1` ice and `attack2` fire, both type 0 with `magic` 1, matched on MAD 710), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids`. The multipliers fall below 1 because the draft matches Sleepywood's effective HP at the level the step reaches, against a v83 boss of 3.7M and 13.4M HP | C |
+| Boss kits | Manon and Griffey: none (three plain attacks). Leviathan: Confuse 132/2 (its interval key is spelled `inteval`, read by `MobSkillRunner.interval_of`), Weakness 122/3 (both B3) and Summon 200/89, 200/90, 200/91 (Red Wyvern 8150300 x6 at 80% HP, Blue 8150301 x4 at 50%, Dark 8150302 x4 at 30%), as written in Skill.wz; the Wyverns are all in v83 Mob.wz, so `StageRoster.ABSENT_IN_V83` gets no entry | A skills, C support |
+| Rooms | the bosses' own maps are Manon 240020401 and Griffey 240020101 (1530 x 90 strips) and Leviathan 240040401 (an 806 x 1347 shaft), so they fight in the Kentaurus field, Dragon Forest II and the Cave of Light | C |
+| `mobs.json` | names and `exp_item`, each mob's first monster-drop Etc item (4000xxx) in the MonsterBook: Blue Kentaurus Kentaurus's Marrow 4000233, Rexton Rexton Leather 4000264, Green Cornian Wooden Shoulder Pad 4000266, Manon Manon's Tail 4000235, Griffey Griffey Horn 4000243, Leviathan and Red Wyvern Wyvern Wing 4000268, Blue Wyvern Wyvern Gill 4000269, Dark Wyvern Wyvern Toenail 4000270; Skelegon 8190003 Broken Horn 4000274 and Skelosaurus 8190004 Old Neck Bone 4000273; all three bosses' MobGage icons and hpTags are canonical (no `boss_ui`) | A ids/names, C association |
+| Meso ranges | ordinary mobs only: no v83 ordinary mob above Lv75 has a range, so the centre extrapolates the Lv70 Tauromacis (420) to Lv75 Taurospear (504) slope (16.8 per level) as Ludibrium's method would interpolate, +-20% (Blue Kentaurus Lv88 [578, 866], Rexton Lv95 [672, 1008], Green Cornian Lv100 [739, 1109], Skelegon Lv110 [874, 1310], Skelosaurus Lv113 [914, 1370]); bosses and Wyverns use the `balance.mesos` level fallback. Known tier C gap for calibration (C13): that fallback is about 5x below the extrapolated ordinary ranges at Lv89-120 | C |
+| Flags ignored | none of the three maps carries a field flag the sim reads (the cave carries instance bits `FL` 270456, ignored) | A |
+| Alternates | map 1 240020300 / 240020100, map 2 240030300 / 240030000, map 3 Cave of Darkness 240050310: not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Phantom Forest (C9) constants (#471, spec #449; progression step 14)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/phantom_forest.json`: `region` Phantom Forest, `continent` Masteria (String.wz group `MasteriaGL`), `drop_band` [90, 100] (#447 table), maps 610010005 / 610020014 / 610010103 (widths 3496 / 2230 / 3946 px, foothold spans of Map.wz), `original_life` of map 1 (Stormbreaker 5, Firebrand 3, Elderwraith 2) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| EXP gate | every pooled ordinary mob pays within 0.7-1.3 of the level curve: canonical `exp` / `level_curve.json` exp at the mob's own level (the engine rescales a kill's EXP by curve[exp_level] / curve[mob level], so a mob far off 1 levels the character too fast or slow; Leafre's hideName cave copies at 0.30x were the review finding). Pooled: Nightshadow 9400579 (Lv100, exp 3600) **1.21**, Firebrand's flying form 9400578 (Lv90, 2350) **1.24**, Elderwraith 9400580 (Lv95, 2480) **1.08**. Out of band and in no pool: Windraider 9400576 (Lv70, 800) 2.90, Stormbreaker 9400581 (Lv80, 1650) 1.91, the ground Firebrand 9400577 (Lv90, 910) 0.48. No map's life list holds `hideName` copies; these are the monsters' real v83 values. A first version pooled the natives (map 2's weighted mean was 1.56) and the diagnostic round cleared at Lv67 against about Lv52-64 for the comparable regions; with the gate it clears at Lv63 | A exp, C gate |
+| Map 1 pool | hand-written, two keyframes below 300 s: Nightshadow 9400579 4 : the flying Firebrand form 9400578 3 : Elderwraith 9400580 (flies) 2 at 0 s, 3 : 3 : 2 at 120 s. The Forgotten Path's own natives are Stormbreaker x5, Firebrand x3 and Elderwraith x2 (`original_life`), plus Leprechaun 9400584 x6 (Lv45 stand/die decoration), the timed Phantom Tree 9400588 x3 (Lv50, immobile, mobTime 1200 s) and the native Headless Horseman and Bigfoot (mobTime 21600 / 43200 s), all left out of the pool | C weights, A roster |
+| Map 2 pool | hand-written: the Cavern of Fortitude's life list is Firebrand x4, Nightshadow x3 and Windraider x4 (none timed or hidden), two of three off the EXP curve, so the pool is the flying Firebrand form 4, Nightshadow 3 and Elderwraith 2 (it lives in other Crimsonwood Mountain caves, e.g. the Path of Strength) | A life list, C rule |
+| Map 3 pool | hand-written (`pool` dictionary): Twisted Paths' own life list is Jr. Wraith x10 (Lv35 filler, most of it), Phantom Tree x4 (timed) and Bigfoot, so it takes Nightshadow 3, Elderwraith 2 and the flying Firebrand form 3 | C |
+| Firebrand's revive form | `info/revive` 9400578 (Lv90, 45000 HP, `fly`) is read for bosses' final forms only, so a dying ordinary Firebrand revives nothing; the form is pooled in its own right on every map and stands in for the ground Firebrand (an ordinary flying mob, as the ticket allows) | C |
+| `level_scale` | first draft of `level_scale_draft.gd --step=14 --stage=phantom_forest` (not tuned): `level` 36.15, 36.73, 37.8, 49.22, 63.44, 75.23, 83.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (14 - 5)) | C |
+| Bosses | Headless Horseman 9400549 (hp_mult 0.749, dmg_mult 0.913, attack_dmg_mult 1.096; `attack1`, `attack2`, both type 0 with the mob's PAD 600), Master Guardian 9400594 (0.083, 0.851, 0.916; `attack1` flagged magic so matched on MAD 500, `attack2` physical PAD 450), Bigfoot 9400575 (0.035, 0.728, 7.345; `attack1` has its own PADamage 160 against the mob's 1200, hence the high attack multiplier), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | The Horseman and Bigfoot have no MobSkill in v83 and cast nothing. Master Guardian lists only Seal 120/12, which is skipped permanently (not in `MobSkillRunner.SUPPORTED`), so it casts nothing and has no `skill_intervals` | A skills, C support |
+| Fights fought in these maps | the Horseman is native to the Forgotten Path (map 1) and Bigfoot to Twisted Paths (map 3); Master Guardian's own map is the Thief Mastery party-quest room (2430 x 1380, instance geometry), so it fights in the Cavern of Fortitude. Alternate map 2 Crimsonwood Keep 610020006 (1960 px, Crimson Guardians only): not needed | C |
+| Absent sounds | v83 gives Master Guardian no Damage sound and Elderwraith no attack sound (it never attacks): both stay silent under the inherited rule, and the round reports no `missing` | A |
+| `mobs.json` | names and `exp_item` (the MonsterBook lists no Masteria mob, so each is the Etc item named for it): Stormbreaker Badge 4032006 and Firebrand and its form Badge 4032008 (both natives in `original_life`; no Windraider entry, it is in no pool), Nightshadow Badge 4032009, Elder Ashes 4032010 (Elderwraith), Jack O'Lantern 4031903 (the Horseman's head), Crimson Heart 4032012 (Master Guardian), Bigfoot's Toe 4032013. Bigfoot's MobGage icon and hpTag 1/5 are canonical; the Horseman and Master Guardian have neither and borrow Zeno's icon 6220001 with the standard 1/5 tag | A ids/names, C association |
+| Meso ranges | ordinary mobs only: the centre extends the line through the Lv55 Malady (305) and Lv70 Tauromacis (420) ranges, +7.67 per level, to the mob's level (Stormbreaker Lv80 [398, 596], Firebrand and its form Lv90 [458, 688], Elderwraith Lv95 [490, 734], Nightshadow Lv100 [520, 780]), +-20% as Ludibrium's method (#463); bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the maps is read for its field flags (`FL=8` on the Masteria maps is not read) | C |
+
+### Ludibrium Clocktower (C10) constants (#472, spec #449; progression step 15)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/clocktower.json`: `region` Ludibrium Clocktower, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [100, 110] (#447 table), maps 220060400 Warped Passage / 220070400 Forgotten Passage / 220080000 Deep Inside the Clocktower (widths 2995 / 2995 / 4143 px, foothold spans of Map.wz, all flat), `original_life` of map 1 (the two Gatekeepers, 8160000 x2) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Why explicit pools | the passages' own life lists are only bosses (Gatekeeper x2, Thanatos x2, none), so no map takes `pool_from_life`; the Path of Time maps that hold the ordinary monsters are climbing towers 2265-2429 px high and are rejected | A (life), C (rule) |
+| Map 1 pool | hand-written, two keyframes below 300 s, from the lower Path of Time: Ghost Pirate 7140000 (Lv83, Path of Time<2>), Death Teddy 7130010 (Lv85, <3>) and Dual Ghost Pirate 7160000 (Lv87, <2> hidden branch 220060201). 0 s: 3 : 2 (the Ghost Pirate and Death Teddy); 120 s: 2 : 2 : 2, the Dual Ghost Pirate joining on equal weight | C weights, A mobs |
+| Map 2 pool | explicit `pool` {Master Death Teddy 7130300 (Lv89): 15, Spirit Viking 8141000 (Lv93): 14, Phantom Watch 8142000 (Lv95): 26}, the spawn-point counts of the Path of Time maps that hold them (220070201, 220060300, 220070300) | C weights, A mobs |
+| Map 3 pool | explicit `pool` {Gigantic Spirit Viking 8141100 (Lv98): 26, Grim Phantom Watch 8143000 (Lv99): 14}, the spawn-point counts of 220060301 and 220070301. Ghost Pirate is the weakest and Grim Phantom Watch the strongest of the eight, so levels rise 83 -> 99 along the region | C weights, A mobs |
+| EXP check | each pool mob pays 0.90-1.00 times `level_curve.json` exp at its own level (Ghost Pirate 0.92, Death Teddy 0.90, Dual Ghost Pirate 0.97, Master Death Teddy 0.97, Spirit Viking 0.99, Phantom Watch 1.00, Gigantic Spirit Viking 0.99, Grim Phantom Watch 1.00), none is `hideName` or boss-flagged; pinned in `test_region_clocktower` (0.7-1.3) | A |
+| `level_scale` | first draft of `level_scale_draft.gd --step=15 --stage=clocktower` (not tuned): `level` 39.15, 39.73, 40.8, 52.22, 66.44, 78.23, 86.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (15 - 5)). No level above 131, so the tool warned nothing | C |
+| Bosses | Gatekeeper 8160000 (hp_mult 43.427, dmg_mult 1.064, attack_dmg_mult 1.171; `attack1` physical PADamage 600 and `attack2` magic MADamage 600 tie, matched on PAD), Thanatos 8170000 (10.855, 0.822, 0.834; `attack1` type 3, magic, matched on MAD 620), Papulatus clock 8500001 into 8500002 (hp_mult 0.038, `final_form_hp_mult` 0.546, dmg_mult 1.594, attack_dmg_mult 2.784; the clock's attack1, attack2 and attack4, type-0 magic attacks matched on MAD 480; attack3 is not scheduled, see Skipped), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool with a `_tier` note; 8160000, 8170000, 8500001 and 8500002 are in `balance.mob_skills.enabled_ids`. The form is matched at the clock's arrival level, so its runtime HP lands above the tool's target | C |
+| Boss kits | Gatekeeper: Stun 123/1 (B1). Thanatos: Poison 125/1 (B4), Curse 124/1 and Darkness 121/1 (B3), and the type-3 area-warning attack1 (B5: nine columns, five struck per cast); Seal 120/1 is not a supported MobSkill and is skipped. Papulatus clock: Dispel 127/1 (B6, the 20 s `status_lockout["127"]` floor), Slow 126/1, heal 114/4, Stun 123/4 (interval 1, so the B1 default 4 s floor applies) and the High and Low Darkstar summons 200/39 and 200/40 (8500003 / 8500004, 10,000 HP, both present in v83, so `StageRoster.ABSENT_IN_V83` gets no entry), all as written in Skill.wz, with the casts' intervals set by the next row. The Darkstars' Mob.wz `selfDestruction` is not modelled: they stay until killed. The flying form 8500002 (B6, `fly`, no attack stance) fights by touch | A skills, C support |
+| Clock skill intervals | `skill_intervals` {"114": 15, "200": 8} on the clock's entry (Shade's #256 mechanism; the skill id keys both summon levels). Heal 114/4 restores a flat 30,000 every 1 s to every mob in an 800 x 600 box, about 12% of the clock's effective HP (238,429 in the diagnostic round) per second, against heals every 10-30 s on other bosses, so it is cast every 15 s. Darkstar summons 200/39 and 200/40 have WZ `interval` 1, four mobs a cast and limit 5000, and `selfDestruction` is not modelled, so they stay until killed: an 8 s cast bounds the crowd by time (at most 8 Darkstars per 8 s; 42 alive after 90 s in the diagnostic, against 400+ mobs before). Stun 123/4 (interval 1) and Dispel 127/1 keep their B1 and B6 lockout floors | C |
+| Skipped | the clock's attack3 is not scheduled. It has `attackAfter` 0 and a +-800 px box, and its `effect0` random secondary strikes (the optional extra area strikes of the ticket) are not modelled; as scheduled it would be an instant, unwarned strike across the arena at `attack_dmg_mult` 2.784. Also not modelled: attack1's `deadlyAttack` and `doFirst` flags. The attacks left are attack1, attack2 and attack4, all type 0 and magic | C |
+| Rooms | Papulatus's own Origin of Clocktower (220080001) is 1190 x 594 and empty, so the clock and its form fight in Deep Inside the Clocktower | C |
+| `mobs.json` | names and `exp_item`, each ordinary mob's first monster-drop Etc item (4000xxx) in the MonsterBook: Ghost Pirate Ghost Pirate Key 4000132, Dual Ghost Pirate Dual Pirate's Propeller 4000133, Spirit Viking Viking Sail 4000134, Gigantic Spirit Viking Gigantic Viking Hat 4000135, Death Teddy Sealed Teddy Bear 4000147, Master Death Teddy Binding Bridle 4000148, Phantom Watch Sealed Bottle 4000149, Grim Phantom Watch Ice Piece 4000150, Gatekeeper Gatekeeper Armband 4000151, Thanatos Tanathos Strap 4000152. The MonsterBook lists no Etc drop for Papulatus, so the clock, the form and both Darkstars take the Papulatus Certificate 4001084 (its description names Papulatus) as a tier C pickup association. Gatekeeper and Thanatos are not boss-flagged and have no MobGage art, so they borrow Zeno's icon with the standard 1/5 tag (`boss_ui`), as Rombot does; Papulatus's icon and tags are canonical. The clock and its form share the name Papulatus for the unique-boss test | A ids/names, C association |
+| Meso ranges | ordinary mobs only, Leafre's method: centre = round(420 + 16.8 x (level - 70)) from the Lv70 Tauromacis (420) / Lv75 Taurospear (504) slope, +-20% (Ghost Pirate Lv83 [510, 766], Death Teddy Lv85 [538, 806], Dual Ghost Pirate Lv87 [565, 847], Master Death Teddy Lv89 [591, 887], Spirit Viking Lv93 [645, 967], Phantom Watch Lv95 [672, 1008], Gigantic Spirit Viking Lv98 [712, 1068], Grim Phantom Watch Lv99 [726, 1088]); bosses and Darkstars use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag the sim reads (Deep Inside the Clocktower carries a `FL` forced-life bit, ignored) | A |
+| Alternates | the strict boss-native triple ends in 220080001 (1190 px, empty), so Deep Inside the Clocktower (4143 px) is the map-3 pick; no alternate for maps 1 and 2 was needed, the arena check kept all three picks (see the diagnostic record in 4.2) | C |
+
+
+### Temple of Time (C11) constants (#473, spec #449; progression step 16)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/temple_of_time.json`: `region` Temple of Time, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [108, 120] (C12 widened #447's [110, 120] because v83 has no Magician wand or overall between Lv109 and Lv130, 8.3), the bosses' own lane maps 270010500 Memory Lane5 / 270020500 Road of Regrets5 / 270030500 Road to Oblivion5 (all 2403 x 1096 px: two full floors plus ladder tiers), `original_life` of map 1 (Chief Memory Guardian 14), last key of `progression` | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s: Chief Memory Guardian 8200004 (Lv101, 14 spawn points) alone; the timed Dodo and the Lv80 Eye of Time filler 8200000 (four spawns) are left out | C weights, A roster |
+| Map 2 pool | `pool_from_life` with `exclude` [8220005, 8200000]: Chief Qualm Guardian 8200008 (Lv116) x14; Lilynouch (`mobTime` 3600) and the Eye of Time (three spawns) are left out | A life list, C rule |
+| Map 3 pool | `pool_from_life` with `exclude` [8220006]: Chief Oblivion Guardian 8200012 (Lv131) x15; Lyka (`mobTime` 3600) is left out. The lane has no Eye of Time | A life list, C rule |
+| EXP against the curve | the pool mobs are real ordinary monsters (no `hideName` instance or PQ copy): EXP 3100 / 4960 / 7060 against `level_curve.json` 3062 / 5256 / 7027 at Lv101 / 116 / 131 = **1.01 / 0.94 / 1.00**. `level_curve.json` holds its Lv131 values above 131, so a ratio above 131 would be measured against the held value; none of the pool mobs needs that (Lyka is Lv141 but is a boss). `test_region_temple_of_time` pins the 0.7-1.3 band | A mobs, C check |
+| `level_scale` | first draft of `level_scale_draft.gd --step=16 --stage=temple_of_time` (not tuned): `level` 42.15, 42.73, 43.8, 55.22, 69.44, 81.23, 89.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (16 - 5)). The highest level, 89.85, is below 131, so the tool raised no warning (C13 calibrates) | C |
+| Bosses | Dodo 8220004 (hp_mult 0.881, dmg_mult 1.063, attack_dmg_mult 0.781; `attack1` type 2 physical ball, `attack2` type 0 magic, matched on `attack2` by MAD 715), Lilynouch 8220005 (0.187, 0.768, 0.848; two type-0 magic attacks, ice and fire, MAD 735), Lyka 8220006 (0.21, 1.538, 1.823; `attack1` type 4 area warning, `attack2` type 0 magic fire, matched on `attack2` by MAD 755), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | Dodo: PDD Up 102/3 (B2, self, 20 s) and Banish 129/2; Lilynouch: Heal 114/23 and Reflect 145/1 (B6); Lyka: Attack Up 100/2, Seduce 128/7 (B3) and Heal 114/9; none casts MobSkill 200, so there are no summons and `StageRoster.ABSENT_IN_V83` gets no entry. Lyka's attack1 is the 15-column area warning (B5) | A skills, C support |
+| Banish | Dodo's Banish runs every 15 s (`skill_intervals` {"129": 15}, instead of MobSkill.img level 2's 50 s: the spec's Banish cadence, Shade's #256 rule); its v83 banMsg "You have been ousted by the force of Dodo." is `mobs.json` `banish_message` (its banMap, Time Lane 270010410, is dropped: a round stays on its own map) | C cadence, A message |
+| Spam audit (Clocktower review) | every kit skill's canonical interval: Banish 50 s, PDD Up 30 s, Heal 114/23 300 s, Reflect 60 s, Attack Up 40 s, Seduce 20 s, Heal 114/9 30 s: none is 1-3 s, so only Banish carries an override. Lilynouch's Heal restores a flat 500 HP below 80% HP (nothing against 7.6M). Lyka's Heal restores a flat 50000 HP below 90% HP to every mob in a 1600 x 850 px box (unscaled by `hp_mult`, about 2.6% of Lyka's draft HP per cast, a third of a guardian's base HP), a known C13 item rather than a spam at 30 s. Every attack winds up for at least 960 ms (`attackAfter`: 1050 / 960, 1250 / 1710, 1260 / 960) with boxes of at most 790 x 314 px (Lilynouch's attack2, Leviathan's box) or a warned column strip, so no attack is dropped from `attacks`. `test_region_temple_of_time` pins both (interval >= 20 s, `attackAfter` >= 900 ms) | C |
+| `mobs.json` | names and `exp_item`, each mob's first monster-drop Etc item (4000xxx) in the MonsterBook: Chief Memory Guardian Green Heart 4000448, Chief Qualm Guardian Blue Heart 4000453, Chief Oblivion Guardian Red Heart 4000458, Dodo Whale's Helmet 4000460, Lilynouch Knight's Mask 4000461, Lyka Guardian's Horn 4000462; all three bosses' MobGage icons and hpTags (1 / 5) are canonical (no `boss_ui`) | A ids/names, C association |
+| Meso ranges | ordinary mobs only: no v83 ordinary mob above Lv75 has a range, so the centre extrapolates the Lv70 Tauromacis (420) to Lv75 Taurospear (504) slope (16.8 per level), +-20% (Lv101 [753, 1129], Lv116 [954, 1431], Lv131 [1156, 1734]); the bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag the sim reads (`lvLimit` 20 is ignored, spec #449) | A |
+| Alternates | map 1 270020400 / 270020300, map 2 270030200 / 270030300: not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Region calibration (C13) constants (#475, spec #449; progression steps 6-16)
+
+All tier C (ours): first-pass numbers on training seeds 1-4 with the Hero (112), recorded in 4.2 "Region calibration".
+
+| Rule | Before (first draft, C0-C11) | After | Tier |
+|---|---|---|---|
+| Level-scale shape | `level(t) = E_sw(t) + 3 x (k - 5)` from t = 0 | `level(t) = lerp(1, E_sw(t) + above_k, min(1, t / 600))`: a start level of 1 (`--start`) reached at 600 s (`--warmup`); `exp_level(t) = E_sw(t)` unchanged | C |
+| Levels above Sleepywood (`above_k`) | 3 per step: 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33 | 0.75 per step to step 12, 0.25 per step after: step 6 0.75, 7 1.5, 8 2.25, 9 3.0, 10 3.75, 11 4.5, 12 5.25, 13 5.5, 14 5.75, 15 6.0, 16 6.25 (the +3 per step out-ran what a band's equipment adds; steps 13-16 taper) | C |
+| Keyframes written | e.g. Leafre 33.15, 33.73, 34.8, 46.22, 60.44, 72.23, 80.85 | e.g. Leafre 1.0, 3.85, 8.65, 22.38, 41.94, 53.73, 62.35 at t = 0, 120, 300, 480, 600, 780, 900 (the same shape for every region from `exp_level`) | C |
+| `level_curve.json` `mad` | 117.8 at every level below Lv28 | `mad(L) = mad(first) x pad(L) / pad(first)` below the first sampled level (Lv5: 118 -> 34.6; Lv9: 118 -> 60.3), `tools/level_curve/generate.mjs` step 6, regenerated with the same dump and date | C |
+| Boss `hp_mult` / `final_form_hp_mult`, map 1 / 2 / 3 | the first draft | x12 (`level_scale_draft.gd --boss-hp-scale=12`), table below; `dmg_mult` and `attack_dmg_mult` unchanged | C |
+| Not changed | `balance.mesos.fallback` 4 + 1.5L (not binding: ordinary mobs pay millions per round), band edges and drop bands, `skill_intervals`, Lyka's 114/9 heal and the clock's 114/4 (the fights end in 16-39 s), the pacing keyframes, steps 1-5 | | |
+
+| Step region | Boss hp_mult before (map 1 / 2 / 3) | After |
+|---|---|---|
+| 6 ludibrium | 11.107 / 0.361 / 3.967 | 133.281 / 4.338 / 47.604 |
+| 7 omega_sector | 17.916 / 3.271 / 3.631 | 214.987 / 39.254 / 43.569 |
+| 8 korean_folk_town | 52.672 / 6.69 / 2.562 | 632.068 / 80.277 / 30.75 |
+| 9 mu_lung | 11.647 / 1.798 / 2.434 | 139.77 / 21.58 / 29.211 |
+| 10 el_nath | 48.548 / 8.714 / 4.701 | 582.579 / 104.565 / 56.414 |
+| 11 magatia | 10.658 / 9.837 / 4.1 | 127.896 / 118.047 / 49.203 |
+| 12 zipangu | 27.065 / 0.019 / 0.038 | 324.78 / 0.225 / 0.451 |
+| 13 leafre | 0.828 / 0.186 / 0.115 | 9.935 / 2.228 / 1.384 |
+| 14 phantom_forest | 0.749 / 0.083 / 0.035 | 8.993 / 1 / 0.417 |
+| 15 clocktower | 43.427 / 10.855 / 0.038 (+form 0.546) | 521.119 / 130.256 / 0.453 (+form 6.554) |
+| 16 temple_of_time | 0.881 / 0.187 / 0.21 | 10.568 / 2.25 / 2.519 |
 
 ### Corsair constants (spec #384)
 
@@ -12894,6 +13495,27 @@ Mount art (GAME_DESIGN 7.120.11). The art numbers (canvases, origins, navels, de
 ### Buccaneer review corrections (#412)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
+### Zipangu (C7) constants (#469, spec #449; progression step 12)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/zipangu.json`: `region` Zipangu, `continent` Zipangu (String.wz group `jp`), `drop_band` [70, 80] (#447 table), maps 800020110 / 801030000 / 800020130 (widths 3228 / 3850 / 2868 px, foothold spans of Map.wz), `original_life` of map 1 (Paper Lantern Ghost 12, Big Cloud Fox 7) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Paper Lantern Ghost 9400011 (Lv40) 12 : Big Cloud Fox 9400004 (Lv45) 7 at 0 s (the spawn-point ratio), 1 : 1 at 120 s; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`. Showa Street 3 holds Extra A 9400100 x4, Extra B 9400101 x3, Extra C 9400102 x3, Leader A 9400110 x4 and Leader B 9400111 x4 and excludes (`exclude`) the timed, boss-flagged Male Boss 9400120 (Lv95, mobTime 10 s). The Buddha's clearing holds Dreamy Ghost 9400013 x15 and excludes the timed Black Crow 9400014 (Lv115, mobTime 82800 s). Map 1 holds no timed boss | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=12 --stage=zipangu` (not tuned): `level` 30.15, 30.73, 31.8, 43.22, 57.44, 69.23, 77.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (12 - 5)). Dreamy Ghost (Lv100) on map 3 is therefore scaled down from its canonical level to 77.85 by 15:00 | C |
+| Bosses | Male Boss 9400120 (hp_mult 27.065, dmg_mult 0.658, attack_dmg_mult 0.79; `attack1` and `attack2` both type 0 with no PADamage of their own, so the mob's 750), Female Boss 9400121 (0.019, 0.424, 0.367; `attack1` type 0, PADamage 1500, is the strongest; `attack2` is magic, the mob's MADamage 830) and Black Crow 9400014 (0.038, 0.909, 1.222; both attacks type 0, the mob's PADamage 1000), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids`. The two tiny multipliers are the 75,000,000 and 35,000,000 canonical HP matched to the level-scaled target | C |
+| Boss kits | Male Boss: only Summon 200, 19 levels (8-26), each one an `interval` 40 s cast at an HP threshold from 95% down to 5% (limit 1-4 alive) of Extra A/B/C and Leader A/B, canonical in Skill.wz/MobSkill.img with summonEffect 7 and run by `StageRoster`/`MobSkillRunner` as for Snowman. Female Boss and Black Crow have no skills (two type-0 area attacks each). Nothing here casts Banish (129), so no `skill_intervals` or `banish_message` | A skills, C support |
+| Summon effect | `Effect.wz/Summon.img/7` (the Male Boss's summonEffect) comes through the fragment's `imgs`, so a round reports nothing missing | A |
+| Male Boss copy | `9400122` is the same mob in the Armory (801040004) and the story map; it is never scheduled or loaded. `9400120` is the open-field one on Showa Street 3 | A |
+| Boss arenas | Male Boss on A Night in the Forest and Female Boss on Showa Street 3 (her own Parlor, 801040003, is 2450 px and holds Leader A/B and Extra D), Black Crow in his own map (the Buddha's clearing); the Male Boss's own Showa Street 3 is map 2, so his Summons come out of map 2's pool | C |
+| `mobs.json` | v83 String.wz/MonsterBook.img holds no row for these mobs, so each `exp_item` is a tier C association by name or theme to an Etc item that exists in v83: Paper Lantern Ghost Worn Paper Lantern 4000222, Big Cloud Fox Cloud Foxtail 4000066, Extra A Sabots 4000224, Extra B Cucumber 4000223, Extra C Blacklist 4000411, Leader A Proof of Training 4000412, Leader B Bamboo Nameplate 4000414, Dreamy Ghost and Female Boss Kimono Piece 4000225, Male Boss Someone's Hat 4000413 (Shade's, already imported), Black Crow Tengu Nose 4031902 (its text names Black Crow); the three bosses borrow Zeno's MobGage icon 6220001 with the standard 1/5 tag (v83 has none for any of them) | A ids/names, C association |
+| Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv35 Curse Eye / Jr. Boogie (97), Lv40 Cold Eye / Zombie Lupin (125), Lv50 Drake (250), Lv55 Malady (305), Lv64 Ice Drake (405) and Lv70 Tauromacis (420) ranges at the mob's level (Paper Lantern Ghost Lv40 [100, 150], Big Cloud Fox and Extra A Lv45 [150, 226], Extra B Lv47 [170, 256], Extra C Lv50 [200, 300], Leader A Lv62 [306, 460], Leader B Lv64 [324, 486]), +-20%. Dreamy Ghost (Lv100) is past the table, so its centre (924) extends the Lv70-75 slope (16.8 per level) to Lv100: [739, 1109]. Bosses use the `balance.mesos` level fallback | C |
+| EXP check | every ordinary pool mob's canonical EXP against `level_curve.json` `exp` at its own level (index = level - 1): Paper Lantern Ghost Lv40 93 / 94.3 = 0.99, Big Cloud Fox Lv45 110 / 109.5 = 1.00, Extra A Lv45 130 / 109.5 = 1.19, Extra B Lv47 139 / 117.8 = 1.18, Extra C Lv50 148 / 164.3 = 0.90, Leader A Lv62 310 / 251.6 = 1.23, Leader B Lv64 320 / 251.6 = 1.27, Dreamy Ghost Lv100 3200 / 2967 = 1.08. None is a `hideName` or PQ copy and all lie in 0.7-1.3, so the life lists need no explicit pool (`test_region_zipangu` pins it) | A numbers, C check |
+| Flags ignored | none of the three maps carries a field flag (map 1 carries `mobRate` 1.2, which the sim does not read) | A |
+| Alternates | map 1 800020100 / 801010000, map 2 801020000 / 800020300, map 3 801040001 / 800020400: not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+| No Ninja Castle | String.wz has no 80004xxxx maps, so v83 holds no Ninja Castle; the region is the Mushroom Shrine forest and Showa Town | A |
 
 ## 12. Later phases
 

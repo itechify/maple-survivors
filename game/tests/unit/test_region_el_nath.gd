@@ -3,6 +3,8 @@ extends TestCase
 ## scale, manifest and mobs.json entries; the cache-backed parts check the real v83 rosters (including the timed Snow
 ## Witch and Riche that no pool may hold) and that every skill of the three bosses resolves to a supported MobSkill.
 
+const CAL := preload("res://tests/calibrated_levels.gd")
+const RC := preload("res://tests/region_checks.gd")
 const KEY := "el_nath"
 const MAPS := [211010000, 211041100, 211042100]
 const BOSSES := [6090001, 6090000, 8220001]
@@ -42,7 +44,7 @@ func test_stage_names_its_region_maps_and_bosses() -> void:
 		assert_eq(Array(boss.attacks), ["attack1"], "boss %d" % int(boss.mob_id))
 		assert_eq(float(boss.attack_interval), 8.0)
 		assert_true(float(boss.attack_dmg_mult) > 0.0)
-	assert_true(data.stages.progression.find(KEY) > data.stages.progression.find("sleepywood"), "after Sleepywood")
+	assert_eq(RC.neighbours(data.stages.progression, KEY), ["mu_lung", "magatia"], "step 10 sits between mu_lung and magatia")
 
 
 func test_drop_band_and_level_scale_replace_the_opening_ramp() -> void:
@@ -57,9 +59,8 @@ func test_drop_band_and_level_scale_replace_the_opening_ramp() -> void:
 	assert_eq(keyframes.size(), stage.keyframes.size(), "one level per curve keyframe")
 	for i in keyframes.size():
 		assert_eq(float(keyframes[i].t), float(stage.keyframes[i].t))
-		assert_true(float(keyframes[i].level) > float(keyframes[i].exp_level), "harder than the character's pace")
-		# Step 10: fifteen effective levels above Sleepywood's pace (3 x (10 - 5)).
-		assert_near(float(keyframes[i].level) - float(keyframes[i].exp_level), 15.0, 0.011, "keyframe %d offset" % i)
+		assert_near(float(keyframes[i].level), CAL.level_at(float(keyframes[i].exp_level), float(keyframes[i].t), 10), 0.011,
+			"step 10: the calibrated level (C13): 1 at 0:00 rising to Sleepywood's pace + CAL.ABOVE at 10:00, keyframe %d" % i)
 	var errors := PackedStringArray()
 	DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_eq(Array(errors), [], "the data validates, level_scale included")

@@ -68,6 +68,13 @@ const ENGAGE_CHASE_RANGE := 300.0
 const ENGAGE_RETREAT_HP := 0.35
 ## tier C: closer than this (px) to the engaged mob the bot keeps its facing instead of turning back and forth.
 const ENGAGE_DEADZONE := 6.0
+## tier C (#509): the bot walks to a scheduled boss that has stood alive this long (s) farther than BOSS_HUNT_GAP away on its own
+## level, instead of keeping to the swarm around it. A boss that casts nearly all the time (the Timer holds a 3.1 s stance
+## continuously) hardly walks and, in a stance, is never relocated to the character, so without this the bot never met it (2 of
+## C13's 7 Ludibrium attempts ended TIMEOUT at 1800 s with the Timer alive 865 s). The gap is beyond a screen's half-width so a
+## boss that does come to the bot, or that a kiting build keeps its distance from, is left to the ordinary rules.
+const BOSS_HUNT_AFTER := 45.0
+const BOSS_HUNT_GAP := 700.0
 ## A mob nearer than this (px, on the drop's side and before it) keeps the bot from walking to a drop.
 const BLOCK_DIST := 250.0
 ## Climbing: drops above needed to go up; the highest rope bottom (px above the floor) reachable with a jump; a rope
@@ -243,8 +250,12 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		memo["last_x"] = p.x
 		return mi
 	memo.erase("portal_x")
-	var engaging := engage_target >= 0 and not _backing_off(w, engage)
-	if engaging:
+	var hunt := 0 if _backing_off(w, engage) else _boss_hunt_direction(w, bool(memo.get("hunting", false)), float(engage.chase_range))
+	memo["hunting"] = hunt != 0
+	var engaging := engage_target >= 0 and hunt == 0 and not _backing_off(w, engage)
+	if hunt != 0:
+		dir = hunt
+	elif engaging:
 		# tier C: walk to the engage distance of the nearest on-level mob, then stand facing it (one press turns).
 		var side := 1 if s.x[engage_target] > p.x else -1
 		if engage_gap > float(profile.y) * float(engage.reach_fraction):
@@ -336,6 +347,22 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		mi.up = true
 	mi.jump_held = mi.jump_pressed
 	return mi
+
+
+## -1 / 1 toward a scheduled boss of the entered map that has been alive BOSS_HUNT_AFTER s and stands on the bot's level farther
+## than BOSS_HUNT_GAP away, and (`hunting`, the previous tick's answer) on until it is within `chase_range`; 0 when there is none.
+static func _boss_hunt_direction(w: RunWorld, hunting: bool, chase_range: float) -> int:
+	for record: Dictionary in w.bosses.records:
+		var slot := int(record.slot)
+		if slot < 0 or bool(record.dead) or not w.swarm.is_live(slot) or float(record.spawn_time) < 0.0 \
+				or w.time - float(record.spawn_time) < BOSS_HUNT_AFTER:
+			continue
+		if w.map_sequence_enabled() and int(record.get("map_index", -1)) != w.map_index:
+			continue
+		var dx := w.swarm.x[slot] - w.player.pos.x
+		if absf(w.swarm.y[slot] - w.player.pos.y) <= DUEL_DY and absf(dx) > (chase_range if hunting else BOSS_HUNT_GAP):
+			return 1 if dx > 0.0 else -1
+	return 0
 
 
 ## The engage-mode constants: balance.json bot.engage over the tier C defaults above.

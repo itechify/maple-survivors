@@ -104,8 +104,10 @@ cache: point it at your own v83 folder or zip (nothing is uploaded). Serve the e
 `node --test web/dev/test/*.test.mjs`. The game's debug scenes (`flow_driver.tscn`) cannot run on web; `?arg=<value>`
 query parameters become game user args (`?arg=--run=henesys&arg=--autoplay`).
 
-Stage keys are the `stages.json` `progression`, in order: `henesys`, `ellinia`, `perion`, `kerning`, `sleepywood`.
-Each round plays the region's three maps in order, with one boss 300 s after each entry; intermediate clears transfer
+Stage keys are the `stages.json` `progression`, in order (ADR 0007, 16 regions): `henesys`, `ellinia`, `perion`, `kerning`,
+`sleepywood` (Victoria Island, steps 1-5), then `ludibrium`, `omega_sector`, `korean_folk_town`, `mu_lung`, `el_nath`, `magatia`,
+`zipangu`, `leafre`, `phantom_forest`, `clocktower`, `temple_of_time` (steps 6-16). A new character has only Henesys open;
+clearing a region opens the next. Each round plays the region's three maps in order, with one boss 300 s after each entry; intermediate clears transfer
 automatically.
 `--stage=` and `--run=` also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. A round is never
 saved (no resume, including after quitting on a later map); map transfers never save either ("Normal play" below).
@@ -183,13 +185,13 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
 
 - `redesign` (#294, the slice's QA; about 6 minutes; `--job=<id>`, default 212, `--job=112` for Hero, `--job=132` for Dark Knight, `--job=122` for the Paladin, `--job=222` for the I/L Arch Mage, `--job=232` for Bishop, `--job=312` for the Bowmaster, `--job=322` for the Marksman, `--job=512` for the Buccaneer, `--job=522` for the Corsair, `--job=422` for the Shadower: its Job page row is
   clicked, the checks name its start skills and its fallback item is a sword (Hero/Paladin) a staff (I/L, #330) or a Lv40 knuckle or gun (Buccaneer #423, Corsair #398, `hub_kit.fallback_item`)): title -> create the chosen job (name, look, Job page) -> Free Market ->
-  map select with Sleepywood locked and its Start refused -> an invulnerable Henesys round (`--seed`, default 1; the bot
+  map select with Ellinia locked and its Start refused -> an invulnerable Henesys round (`--seed`, default 1; the bot
   steers, the first level-up, the first offer with every active slot filled, the first Mastery offer and the first boss
   bonus draw open the real window and are answered with a number key; the real CLEAR, fade and arrival presentation) ->
-  results -> Free Market with Sleepywood unlocked and the loot kept -> the round's highest-`reqLevel` drop worn at Lv1 by a
+  results -> Free Market with Ellinia unlocked and the loot kept -> the round's highest-`reqLevel` drop worn at Lv1 by a
   double-click in the Item window (a diagnostic Lv45 staff is added when none dropped; `summary.json` names which) ->
-  Sleepywood round (mesos on the ground picked up, then a diagnostic lethal boss hit) -> results -> Free Market with the
-  mesos, the worn item and Sleepywood kept -> Save & quit -> delete the character -> history (cleared, died, deleted). The
+  Ellinia round (mesos on the ground picked up, then a diagnostic lethal boss hit) -> results -> Free Market with the
+  mesos, the worn item and Ellinia kept -> Save & quit -> delete the character -> history (cleared, died, deleted). The
   scenario plays its own card policy once the slots are full (it ranks the highest-ranked owned active so a Mastery card
   appears; the bot rarely gets there, GAME_DESIGN section 0); `summary.json` holds the offers, picks, rarities and the
   showcased windows. This is flow evidence, not survival or balance evidence.
@@ -198,8 +200,13 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
   Henesys clear (fixed-tick bot warp, boss hits after each timer) -> map select: Henesys CLEAR, Ellinia NEW and selected by
   default -> the same for Ellinia, Perion unlocked, Kerning still locked -> Save & quit, character select, Continue: the
   cleared set survives -> a Perion round and a lethal hit: the set is unchanged -> the slot swapped for a `HubTestKit`
-  all-cleared character: "Regions cleared 5/5", nothing locked. Shots `NN_progression_*.png`, `summary.json`; diagnostic flow
-  evidence, not survival evidence.
+  all-cleared character: "Regions cleared 16/16", nothing locked. Shots `NN_progression_*.png`, `summary.json`; diagnostic flow
+  evidence, not survival evidence. `--through=<n>` (#476, C14; `--through=16` is the whole list; about an hour) runs the climb
+  instead: a fresh character clears the first n regions in order (diagnostic invulnerable warp, a lethal boss hit after each
+  timer). At every step map select must show exactly the cleared, frontier (selected) and locked states, the header "Regions
+  cleared k/16" and only the next region newly unlocked; Save & quit, character select and Continue halfway keep the cleared set.
+  Shots `NN_<step>_<region>_*` (start, each map's boss arrival and clear, results), `NN_select_step{01,06,11,16}` and
+  `NN_select_final_<n>_of_16`; `summary.json`.
 - `creation` (#305, #330: the Job page and creation of every playable job, or of `--jobs=<id,id>` such as `--jobs=212,232`, in separate slots (**three slots only: with more than three playable jobs the default stalls on the fourth, so pass three or fewer**, e.g. `--jobs=212,522`): the page lists
   them in canonical order, the chosen row is highlighted, each slot holds its job with its creation weapon; about 30 s).
   There are three slots, so with four playable jobs (Hero, Paladin, F/P, I/L) the default stalls on the fourth: pass three or fewer
@@ -392,6 +399,14 @@ Chain files use `<stage>_chain<N>_<policy>_<seed>.json`, retaining `rounds[]` (e
 Per-step summaries include clears, attempts per clear, death times and end levels (every round starts at Lv1) and Lv70
 reach; unstarted rounds contribute no death/boss observations. See the `scripts/balance.sh` header for the seed formula and
 record/report contract.
+
+A fresh F/P bot dies in Henesys, so a late region cannot be reached by `--chain` from a fresh character. Calibrate per step instead
+(#475, C13): `--chain=1 --stage=<key> --retries=<K> --character=<abs path>` starts the chain from a CharacterSnapshot (the later
+rounds carry it as usual), and `game/tools/character_fixture.gd --band-of=<previous region key> --job=<id> --cleared=<n>` writes the
+kit a character arrives with from that region's `drop_band` (`game/tests/fixtures/characters/README.md`). Diagnostics of
+`balance_run.gd`, never evidence for survival: `--god` (invulnerable, the record gets `"god": true`) and `--hit-log=N` (the last
+N landed hits in `last_hits`). `game/tools/level_scale_draft.gd` takes `--above`, `--start`, `--warmup` and `--boss-hp-scale`
+for the calibrated numbers (GAME_DESIGN 4.1 "Level scale").
 
 Older tickets and docs still say "the four tier-1 stages", "tier 2" and `--tiers=2`: they mean the first four progression
 regions, the fifth (Sleepywood) and `--cleared=4`, and `--tiers=2` still works as that alias (`--cleared=<n>` clears the

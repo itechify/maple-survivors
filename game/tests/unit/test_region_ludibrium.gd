@@ -4,6 +4,8 @@ extends TestCase
 ## level scale and the three bosses. Parts that read canonical data (pools from the maps' life lists, the bosses' skills)
 ## are cache-backed and SKIP without the asset cache.
 
+const CAL := preload("res://tests/calibrated_levels.gd")
+const RC := preload("res://tests/region_checks.gd")
 const KEY := "ludibrium"
 const MAPS := [220011000, 220030400, 220030000]
 const BOSSES := [4130103, 9300012, 5220003]
@@ -23,7 +25,7 @@ func before_each() -> void:
 
 
 func test_the_stage_is_step_six_of_the_progression() -> void:
-	assert_eq(data.stages.progression.find(KEY), 5, "position 6, after Sleepywood")
+	assert_eq(RC.neighbours(data.stages.progression, KEY), ["sleepywood", "omega_sector"], "step 6 sits between sleepywood and omega_sector")
 	assert_eq(String(stage.get("region", "")), "Ludibrium")
 	assert_eq(String(stage.get("continent", "")), "Ossyria", "String.wz group ossyria")
 	assert_eq(stage.get("drop_band"), [35.0, 45.0], "#447's drop band")
@@ -82,7 +84,8 @@ func test_level_scale_is_present_valid_and_three_levels_above_sleepywoods_pace()
 	assert_eq(kfs.size(), stage.keyframes.size(), "one level per pacing keyframe")
 	for i in kfs.size():
 		assert_eq(float(kfs[i].t), float(stage.keyframes[i].t), "keyframe %d at the pacing time" % i)
-		assert_near(float(kfs[i].level) - float(kfs[i].exp_level), 3.0, 0.011, "step 6 is 3 levels above Sleepywood")
+		assert_near(float(kfs[i].level), CAL.level_at(float(kfs[i].exp_level), float(kfs[i].t), 6), 0.011,
+			"step 6: the calibrated level (C13): 1 at 0:00 rising to Sleepywood's pace + CAL.ABOVE at 10:00, keyframe %d" % i)
 	assert_true(String(stage.get("_level_scale", "")).contains("Tier C"), "a _tier note")
 
 
@@ -215,3 +218,4 @@ func test_alishar_has_no_skill_sound_in_v83() -> void:
 	assert_true(lib.find("Sound.wz/Mob.img/9300012/Skill1") == null, "tier A: v83 gives Alishar no Skill1 sound")
 	assert_true(lib.find("Sound.wz/Mob.img/5220003/Skill1") != null, "Timer's Skill1 sound is imported")
 	lib.free()
+

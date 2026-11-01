@@ -3,6 +3,8 @@ extends TestCase
 ## level scale, manifest and mobs.json entries; the cache-backed parts check the real v83 rosters and that every
 ## skill of the three bosses resolves to a supported MobSkill.
 
+const CAL := preload("res://tests/calibrated_levels.gd")
+const RC := preload("res://tests/region_checks.gd")
 const KEY := "omega_sector"
 const MAPS := [221040000, 221030200, 221030500]
 const BOSSES := [4240000, 5120100, 6220001]
@@ -34,7 +36,7 @@ func test_stage_names_its_region_maps_and_bosses() -> void:
 		assert_true(String(entry.boss.get("_tier", "")).begins_with("tier C"), "tier note on the boss numbers")
 		for field: String in ["hp_mult", "dmg_mult", "attack_dmg_mult"]:
 			assert_true(float(entry.boss[field]) > 0.0, "%d %s" % [int(entry.boss.mob_id), field])
-	assert_true(data.stages.progression.find(KEY) > data.stages.progression.find("sleepywood"), "after Sleepywood")
+	assert_eq(RC.neighbours(data.stages.progression, KEY), ["ludibrium", "korean_folk_town"], "step 7 sits between ludibrium and korean_folk_town")
 
 
 func test_drop_band_and_level_scale_replace_the_opening_ramp() -> void:
@@ -49,7 +51,8 @@ func test_drop_band_and_level_scale_replace_the_opening_ramp() -> void:
 	assert_eq(keyframes.size(), stage.keyframes.size(), "one level per curve keyframe")
 	for i in keyframes.size():
 		assert_eq(float(keyframes[i].t), float(stage.keyframes[i].t))
-		assert_true(float(keyframes[i].level) > float(keyframes[i].exp_level), "harder than the character's pace")
+		assert_near(float(keyframes[i].level), CAL.level_at(float(keyframes[i].exp_level), float(keyframes[i].t), 7), 0.011,
+			"step 7: the calibrated level (C13), keyframe %d" % i)
 	var errors := PackedStringArray()
 	DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_eq(Array(errors), [], "the data validates, level_scale included")

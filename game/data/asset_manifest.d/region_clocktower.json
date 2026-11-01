@@ -1,0 +1,7 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Ludibrium Clocktower region (spec #449 C10, ticket #472, progression step 15). maps: Warped Passage 220060400, Forgotten Passage 220070400 and Deep Inside the Clocktower 220080000 (each map entry also imports its life mobs, backs, tiles, objs, BGM and map mark). mobs: the Path of Time's ordinary monsters of the three explicit pools, Ghost Pirate 7140000, Death Teddy 7130010 and Dual Ghost Pirate 7160000 (map 1), Master Death Teddy 7130300, Spirit Viking 8141000 and Phantom Watch 8142000 (map 2), Gigantic Spirit Viking 8141100 and Grim Phantom Watch 8143000 (map 3); the bosses Gatekeeper 8160000, Thanatos 8170000 and Papulatus, the clock 8500001 with its flying final form 8500002; and the clock's MobSkill 200 summons High Darkstar 8500003 and Low Darkstar 8500004. items: the Etc drops their mobs.json entries use as the EXP pickup. No Mob skill-effect art beyond the mobs' own imgs is imported.",
+	"maps": [220060400, 220070400, 220080000],
+	"mobs": [7140000, 7130010, 7160000, 7130300, 8141000, 8142000, 8141100, 8143000, 8160000, 8170000, 8500001, 8500002, 8500003, 8500004],
+	"items": [4000132, 4000147, 4000133, 4000148, 4000134, 4000149, 4000135, 4000150, 4000151, 4000152, 4001084]
+}

@@ -112,12 +112,11 @@ files come from `tools/character_fixture.gd --cleared=4` (`--tiers=2` is the com
 `late_progression.json` is the late-progression Hero (112) fixture (spec #449 C12, #474): a kit fixture like `fp_arch_mage.json`, a
 fresh Lv1 character wearing band-15 ([100, 110]) Warrior-line equipment, unscrolled, with 15 regions cleared. The gear is
 the Blue Dragon set (hat 1002551, overall 1052075, gloves 1082168, shoes 1072273, shield 1092060, all reqLevel 110) and a
-Dragon Carabella (1302059, a one-handed sword, reqLevel 110). `cleared_regions` holds the first fifteen progression keys; ten
-of them (`ludibrium` ... `clocktower`) do not exist until #449's regions ship, so `_doc.extra_cleared` lists them and
-`CharacterSnapshot.unlocked_keys` ignores them for now. Reproduce with
-`tools/character_fixture.gd --job=112 --cleared=15 --extra-cleared=ludibrium,omega_sector,korean_folk_town,mu_lung,el_nath,magatia,zipangu,leafre,phantom_forest,clocktower
---kit=1302059,1092060,1002551,1052075,1072273,1082168 --label=spec449/ticket-474 --revision=<SHA> --out=<absolute path>
---note=<text>` (once all fifteen regions ship, `--cleared=15` alone writes the same set and `--extra-cleared` is dropped). Use it for
+Dragon Carabella (1302059, a one-handed sword, reqLevel 110). `cleared_regions` holds the first fifteen progression keys. It was
+made before the eleven new regions existed, so `_doc.extra_cleared` lists the ten that were not yet in `progression` (a record of
+how it was made: all sixteen regions ship now, and `--cleared=15` alone writes the same set). Reproduce with
+`tools/character_fixture.gd --job=112 --cleared=15 --kit=1302059,1092060,1002551,1052075,1072273,1082168 --label=spec449/ticket-474
+--revision=<SHA> --out=<absolute path> --note=<text>`. Use it for
 `--stage=<key> --job=112 --character=<absolute late_progression.json>` and `--hub --job=112 --late` (the Hero `hub_kit`'s `late_fixture`).
 
 ## Fixtures by cleared count
@@ -128,3 +127,9 @@ open). n=4 is the old "tier 2": Henesys, Ellinia, Perion and Kerning cleared, Sl
 what the file had. `HubTestKit` (`--hub`) clears every region on top of any fixture. To test a
 character further along the progression, write a fixture with a larger `--cleared` and pass it to `--character`; a
 `balance.sh --chain` run needs a fresh character instead (no `--character`).
+
+`tools/character_fixture.gd --band-of=<stage key> [--band-pick=best|median] --job=<id> --cleared=<n>` (calibration, #475 C13) builds a
+kit from that stage's `drop_band`: per slot the eligible item (job class, weapon family, reqLevel in the band) that the bot's equipment
+weights score highest (or the median one), with an overall when it scores more than a top and bottom and no shield under a two-handed
+weapon. It is how a round's character gets the previous region's gear (`--band-of=leafre` before `--stage=phantom_forest`); the files it
+writes are scratch (`_scratch/`), not committed fixtures.

@@ -185,6 +185,19 @@ export function buildStat(byLevel, stat) {
   return runningMax(smooth(monotone(fillGaps(medians), weights))).map(round2);
 }
 
+/**
+ * Magic attack below the first level that has a magic-attack sample (#475, tier C). No mainline monster under about Lv28
+ * has one, so "the nearest value holds" would give a Lv5 monster the magic damage of a Lv28 one (118 against a physical
+ * attack of 29) and a level-scaled magic attacker would hit a low-level character far harder than its physical twin.
+ * Below the first sampled level `mad` follows `pad`: mad(L) = mad(first) * pad(L) / pad(first), the same shape the weapon
+ * attack has there. `first` is the zero-based index of the first level with a sample; the curve stays non-decreasing
+ * because `pad` is. Returns a new array.
+ */
+export function madBelowSamples(mad, pad, first) {
+  if (!(first > 0)) return [...mad];
+  return mad.map((v, i) => (i < first ? round2(mad[first] * pad[i] / pad[first]) : v));
+}
+
 /** The whole file object. */
 export function buildCurve(mobs, date) {
   const { byLevel, excluded } = selectSamples(mobs);
@@ -210,6 +223,8 @@ export function buildCurve(mobs, date) {
       "5. Made monotone non-decreasing by weighted isotonic regression on the log values (pool adjacent violators; a "
       + "level weighs its sample count, an interpolated level 0.25), smoothed with the weights 1-2-1 over neighbouring "
       + "levels on the log values (edges repeat; smoothing keeps a monotone curve monotone), rounded to two decimals.",
+      "6. Magic attack below its first sampled level (no mainline monster under about Lv28 has one) follows the weapon "
+      + "attack instead of holding the first value: mad(L) = mad(first) * pad(L) / pad(first) (#475, tier C).",
     ],
     samples: {
       mob_imgs_read: mobs.length,
@@ -221,6 +236,8 @@ export function buildCurve(mobs, date) {
   };
   const out = { _doc: doc };
   for (const stat of STATS) out[stat] = buildStat(byLevel, stat);
+  const firstMad = levelMedians(byLevel, "mad").counts.findIndex((n) => n > 0);
+  out.mad = madBelowSamples(out.mad, out.pad, firstMad);
   return out;
 }
 

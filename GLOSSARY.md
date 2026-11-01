@@ -40,9 +40,10 @@ The automatic move after a map clear to the next map of the same round, carrying
 _Avoid_: Round boundary (a transfer stays inside the round), checkpoint
 
 **Progression**:
-The one ordered list of regions of the game (stages.json `progression`), in the order a v83 character levelled: Henesys,
-Ellinia, Perion, Kerning City, Sleepywood, and the regions added after them. Each region is one stage of three maps. A
-character has only the first region open at the start and works down the list.
+The one ordered list of the sixteen regions of the game (stages.json `progression`), in the order a v83 character levelled:
+Henesys, Ellinia, Perion, Kerning City, Sleepywood, Ludibrium, Omega Sector, Korean Folk Town, Mu Lung, El Nath, Magatia,
+Zipangu, Leafre, the Phantom Forest, the Ludibrium Clocktower and the Temple of Time. Each region is one stage of three maps
+and three bosses, none repeated. A character has only the first region open at the start and works down the list.
 _Avoid_: Tier (the old two-step grouping of ADR 0006, superseded by ADR 0007), act, world, chapter; not to be confused
 with a job tier or a card's rarity
 
@@ -61,9 +62,17 @@ round, and goes up at its exit to map select.
 _Avoid_: Town, lobby, shop (shops live inside it)
 
 **Map select**:
-The screen where a character picks the region of its next round. It lists the whole progression in order; a region the
-character has not unlocked is shown greyed.
+The screen where a character picks the region of its next round. It lists the whole progression in order with each region's
+v83 level range; a cleared region is marked, the **frontier** (the first unlocked region the character has not cleared) is
+selected when the screen opens, and a region the character has not unlocked is greyed and names the boss that opens it.
 _Avoid_: Stage select (the old single-stage screen)
+
+**Level scale**:
+How the regions from Ludibrium on keep Lv40-160 monsters fightable in a Lv1-55 round (ADR 0007): a monster's HP, damage,
+defence and EXP are rescaled from its own v83 level to the region's **effective level** at that point of the round, by
+reference curves of ordinary v83 monsters (`level_curve.json`). The canonical stats in the cache are untouched; the scale is
+a survivor multiplier.
+_Avoid_: difficulty slider, monster level (the canonical `info/level` stays what v83 says)
 
 **Round history**:
 One entry per round (character, job, stage, level reached, how it ended: cleared, died or quit), plus one when a
@@ -313,7 +322,7 @@ _Avoid_: Tier unlock (ADR 0006), level gate, progress
 
 **Drop band**:
 The `reqLevel` range of equipment a region's monsters drop (its `drop_band` in stages.json: Henesys 0-15 rising to
-Sleepywood 30-40), with bosses rolling from its top third. It replaces the character's level in the drop rule; `reqLevel` is no longer a requirement to wear the item.
+Sleepywood 30-40 and on to the Temple of Time 108-120), with bosses rolling from its top third. It replaces the character's level in the drop rule; `reqLevel` is no longer a requirement to wear the item.
 _Avoid_: loot table, item level
 
 ## Monsters
