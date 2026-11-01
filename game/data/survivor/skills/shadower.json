@@ -1,4 +1,129 @@
 {
 	"_doc": "Shadower skill definitions (spec #425). Empty until the skill tickets land; each appends inside its own region, and a key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). SH6 #431 moves Double Stab, Steal and Savage Blow here from skills/thief.json (ported, no explicit ranks); SH7 #432 Assaulter (mobility); SH8 #433 Boomerang Step and Band of Thieves; SH9 #434 Ninja Ambush (key ninja_ambush_shadower); SH10 #435 Meso Explosion; SH11 #436 Dark Sight (moved from skills/thief.json and rewritten as a hidden Form) and Assassinate (form_sub); SH12 #437 Smokescreen (safe_zone). The pool is in jobs/shadower.json.",
-	"skills": {}
+	"skills": {
+		"meso_explosion": {
+			"skill_id": 4211006,
+			"book": "421",
+			"job": 421,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Meso Explosion",
+			"desc": "Detonates your whole meso charge on the monsters in front of you: many bags burst at once. The fuller the charge, the harder the blow. It costs no mesos.",
+			"text": {
+				"desc": "Needs at least 4 charge pips and 3 monsters in front of you. Spends the whole meso charge (nothing is taken from your mesos) on up to 6 monsters in a burst of bags; each pip spent adds 8% damage.",
+				"h": "{damage_percent}% per bag, {attack_count} bags each on up to {mob_count|monster|monsters}"
+			},
+			"icon": "Skill.wz/421.img/skill/4211006/icon",
+			"damage": "physical",
+			"damage_basis": {
+				"field": "x",
+				"scale": 0.1
+			},
+			"_tier": "Tier A: the WZ has no damage for 4211006, only x 500 -> 1000 (the String's 'Mastery 50% -> 100%'), attackCount 10 -> 20 ('Explode up to'), mobCount 6, the forward box lt/rb (-200,-100)..(0,50) at levels 1-10, (-250,-110)..(0,50) at 11-20, (-300,-120)..(0,50) at 21-30, mpCon (not modelled), the prone2 action, effect (13 frames), hit/0..8 (nine four-frame bursts) and the Use and Hit sounds. Tier C (spec #425 SH-9, SH-10, SH10 #435, GAME_DESIGN 7.134): damage_basis {x, 0.1} so the per-line percent is x / 10 (56 / 78 / 100% at ranks 1 / 4 / 8), a finisher on the Shadower meso charge (min 4 pips, spends all, +8% damage per pip spent), the box cast rule needing 3 monsters, a 6.0 s cooldown (above the 1.0 s meter floor), a 1.0 s prone2 hold (the stance's two frames, 700 + 300 ms), hit art cycling hit/(line mod 9) per line, rarity bonuses. Nothing is ever spent from the mesos (ruling D7). Untuned.",
+			"cast": {
+				"rule": "box",
+				"min_targets": 3
+			},
+			"cooldown": 6.0,
+			"meter": {
+				"role": "finisher",
+				"min": 4,
+				"spend": "all",
+				"damage_per_unit": 0.08,
+				"unit": "pips"
+			},
+			"action": "prone2",
+			"action_time": 1.0,
+			"ball": "",
+			"hit": "Skill.wz/421.img/skill/4211006/hit/0",
+			"hit_lines": [
+				"Skill.wz/421.img/skill/4211006/hit/0",
+				"Skill.wz/421.img/skill/4211006/hit/1",
+				"Skill.wz/421.img/skill/4211006/hit/2",
+				"Skill.wz/421.img/skill/4211006/hit/3",
+				"Skill.wz/421.img/skill/4211006/hit/4",
+				"Skill.wz/421.img/skill/4211006/hit/5",
+				"Skill.wz/421.img/skill/4211006/hit/6",
+				"Skill.wz/421.img/skill/4211006/hit/7",
+				"Skill.wz/421.img/skill/4211006/hit/8",
+				"Skill.wz/421.img/skill/4211006/hit/0",
+				"Skill.wz/421.img/skill/4211006/hit/1",
+				"Skill.wz/421.img/skill/4211006/hit/2",
+				"Skill.wz/421.img/skill/4211006/hit/3",
+				"Skill.wz/421.img/skill/4211006/hit/4",
+				"Skill.wz/421.img/skill/4211006/hit/5",
+				"Skill.wz/421.img/skill/4211006/hit/6",
+				"Skill.wz/421.img/skill/4211006/hit/7",
+				"Skill.wz/421.img/skill/4211006/hit/8",
+				"Skill.wz/421.img/skill/4211006/hit/0",
+				"Skill.wz/421.img/skill/4211006/hit/1"
+			],
+			"effect": "Skill.wz/421.img/skill/4211006/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4211006/Use",
+				"hit": "Sound.wz/Skill.img/4211006/Hit"
+			},
+			"_rarity": "Tier C: first-pass SH10 #435 bonuses (spec #425): Rare Meso Up damage x1.2, Epic Wide Explosion area x1.2, Unique Pickpocket keeps 2 pips (meter_keep +2), Legendary Pickpocket plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. GAME_DESIGN 7.134 and 8.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "meso_up",
+						"text": "Meso Up",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_explosion",
+						"text": "Wide Explosion",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "pickpocket",
+						"text": "Pickpocket",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "pickpocket",
+						"text": "Pickpocket",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		}
+	}
 }

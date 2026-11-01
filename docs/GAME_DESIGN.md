@@ -9824,6 +9824,61 @@ cast its own critical chance and bonus, read from the skill's canonical level fi
   `bonus_field`; `FinishingStrike.level_errors(book)` checks that both name numeric canonical fields on every level of every rank
   (the cache-dependent unit test for the shipped skills belongs to SH11, which adds Assassinate).
 
+### 7.134 Meso Explosion and the Shadower meso charge (spec #425 SH-9, SH-10; SH10 #435)
+
+Constants: "Shadower SH10 constants (#435)". No code: the ticket is data (`skills/shadower.json`) on four existing seams, the meso
+charge (7.94.1, NL4), `damage_basis` (7.94.4, NL9), Hero's finisher and `meter_keep` (7.34, H3) and the `box` cast rule.
+
+**The charge.** Shadower's `meter` block (`jobs/shadower.json`, SH2) is Night Lord's `meso_charge` on its own config: one pip per
+**600** mesos picked up (Night Lord: 1000; the remainder is carried), a cap of **10**, **no decay** (SH-10: the finisher spends the
+charge, so a clock the player cannot see would be a race), and **+2% damage per held pip on every pool cast** (`per_unit`; Hero's
+Combo is +5%). It is a counter fed by pickups and never a currency (ruling D7): the wallet, the drops and the saved character are the
+pickup system's and are the same with or without the charge. A Shadower gains pips from ordinary pickups whether or not it has Steal
+(Steal's extra loot, when it finds no item, is one more meso bundle through the same event). `meter_changed` is emitted only on an
+actual change; `summary.json` records `meter.mean` and `meter.peak`.
+
+**Meso Explosion** (4211006, book 421, job 421) is the Shadower's slow nuke, a **finisher** on that charge:
+
+- *Admission.* `meter {role finisher, min 4, spend all, damage_per_unit 0.08}` and `cast {rule box, min_targets 3}`: at least four
+  pips **and** three monsters in the forward box. Either missing refuses the cast and spends and starts nothing. The box is the WZ
+  `lt` / `rb` at the rank's level, facing the way the Shadower faces: (-200,-100)..(0,50) at ranks 1-2, (-250,-110)..(0,50) at
+  ranks 3-5, (-300,-120)..(0,50) at ranks 6-8 (the node changes at levels 11 and 21; `area` scales it).
+- *Lines and percent.* The WZ node has **no `damage`**. `attack_count` is the node's `attackCount` (rank 1..8: 10 12 14 14 16 18
+  20 20, tier A, the String's "Explode up to") and the per-line percent is `damage_basis {field x, scale 0.1}`, `x` being the String's
+  "Mastery 50% -> 100%" (rank 1..8: 56 64 72 78 86 93 97 100%, tier C reading, SH-9). Up to `mobCount` **6** monsters, every one takes
+  every line (rank 8: 20 lines x 6 monsters = 120 hits in one tick). The hit art cycles the nine `hit/0..8` bursts line by line
+  (`hit_lines`, line mod 9); `effect` (13 frames) draws at the caster.
+- *Spending.* `begin_cast` multiplies the cast by `(1 + held x 0.02)` (the pool bonus, which Meso Explosion gets too) and by
+  `(1 + spent x 0.08)` (a full charge is x1.8, so x2.16 in all), where `spent` is every pip above the skill's `meter_keep`. The
+  rarity bonus **Pickpocket** is `meter_keep` +2 (the explosion keeps two pips); a keep beyond the held pips spends nothing and creates
+  none. A finisher's own hits earn no pip (the Shadower meter gains from mesos only).
+- *Rhythm.* 6.0 s cooldown (the meter's 1.0 s floor does not bind), a 1.0 s `prone2` stance. It is limited by the charge, not by the
+  clock: at 600 mesos a pip a full explosion is 6000 mesos of pickups.
+- *Arbitration.* Shadower has no other finisher today. `PlayerMeter.preferred` (7.34) decides among ready finishers that could pay:
+  a single-target finisher with a scheduled boss in reach wins, otherwise the one that would strike the most monsters (capped by its own
+  `mobCount`), then the cooldown / learned order. Only one finisher casts per tick and it spends the charge, so a second cannot pay.
+  Tested with a synthetic second finisher.
+- *Rarity bonuses (tier C, first pass).* Rare **Meso Up** damage x1.2, Epic **Wide Explosion** `area` x1.2, Unique **Pickpocket**
+  `meter_keep` +2, Legendary Pickpocket plus damage x1.2 (the Unique's id, so one repeat counter; the keep stacks to 4 on a second
+  application). Rare+ adds a rank plus the bonus, a Mastery card (past the rank cap) repeats at x0.8.
+
+**Performance (measured on the dev machine, quiet synthetic map, rank 8, full charge, six monsters).** The 120-hit tick costs
+about 4-5 ms of `RunWorld.step` against the 16.7 ms frame, and the next idle tick under 0.5 ms; the damage number pool
+(`DamageNumbers`) and the hit-art pool (`FxRenderer`) grow on demand and have no cap to overflow. The real-map figure (summary
+`sim_us_per_tick` max, `counters.numbers`) comes from the diagnostic `--job=422` playtest recorded in the ticket report. Not tuned.
+
+Tests: `test_meso_explosion` (the definition, lines / percent / box by rank, admission, the whole charge spent and the keep, the
+damage factors, no mesos change, the pips (600, carry, cap, no decay, event on change), arbitration, the rarity bonuses, the 120-hit
+tick, and the real-cache numbers for all eight ranks); `test_shadow_meso` (the basis list), every baseline unchanged.
+
+### 7.135 Shadower skill entries (spec #425)
+
+One paragraph per ticket, appended as each lands.
+
+- **Meso Explosion (SH10 #435).** `skills/shadower.json` `meso_explosion`: book 421, `box` forward, `min_targets` 3, `mobCount` 6,
+  `attack_count` from the node, `damage_basis {x, 0.1}`, `meter {finisher, min 4, spend all, 0.08 per pip, unit "pips"}`, 6.0 s,
+  action `prone2` held 1.0 s, `effect`, `hit_lines` over `hit/0..8`, `Use` + `Hit` sounds. See 7.134.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -12328,3 +12383,21 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | `balance.status_bonuses.venomous_stab` | poison; chance 14 16 18 20 24 26 28 30; time 2 2 3 3 3 4 4 4; level 4 8 12 15 19 23 27 30; element `s` | tier A: Venomous Stab 4220005 `prop`, `time` and the rank -> poison level map, equal level for level to 4120005 |
 | `repeat_chance` of `venomous_stab` | 3 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #425 SH-13 |
 | `test_late_equipment_bands` Shadower row | job 422, `["dagger"]`, shield check off (the shipped Thief shield list has no piece in bands 1, 2, 14, 15; SH2 changes no equipment data) | tier C: test table, spec #425 |
+
+### Shadower SH10 constants (#435)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Meso Explosion lines | the node's `attackCount` (rank 1..8: 10 12 14 14 16 18 20 20) | tier A: Skill.wz 4211006 ("Explode up to") |
+| Meso Explosion per-line percent | `x` / 10 through `damage_basis {x, 0.1}` (rank 1..8: 56 64 72 78 86 93 97 100%) | tier C: SH-9 reading of the String's "Mastery" (the WZ has no `damage`) |
+| Monsters struck | `mobCount` 6 | tier A: Skill.wz 4211006 |
+| Box | `lt` / `rb` of the level: (-200,-100)..(0,50), (-250,-110)..(0,50), (-300,-120)..(0,50) | tier A: Skill.wz 4211006 (changes at levels 11 and 21) |
+| Admission | `cast.min_targets` 3 in the box and `meter.min` 4 pips | tier C: SH-9 |
+| Spend | `spend all` above `meter_keep`; `damage_per_unit` 0.08 per pip spent (x1.8 at ten) | tier C: SH-9 (the Hero finisher shape) |
+| Held-pip bonus on Meso Explosion | the meter's +2% per held pip applies before the spend | tier C: SH-10 / H3 (`begin_cast`) |
+| Cooldown | 6.0 s | tier C: spec #425 (the meter's 1.0 s floor does not bind) |
+| Stance | `prone2`, held 1.0 s (its two frames, 700 + 300 ms) | tier A action name; hold tier C |
+| Hit art | `hit/(line mod 9)` over the nine four-frame bursts; `effect` (13 frames) at the caster | tier A nodes; the cycle is tier C (SH1 contact sheet) |
+| Rarity bonuses | Meso Up damage x1.2; Wide Explosion `area` x1.2; Pickpocket `meter_keep` +2; Legendary Pickpocket + damage x1.2; repeats x0.8 | tier C: spec #425 (names are the lineage's) |
+| Mesos | never spent, taken or created by the cast | ruling D7 |
+| Unit word | "pips" in the card and Skill window text | tier C (presentation) |
