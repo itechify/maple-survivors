@@ -1,4 +1,200 @@
 {
 	"_doc": "Shadower skill definitions (spec #425). Empty until the skill tickets land; each appends inside its own region, and a key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). SH6 #431 moves Double Stab, Steal and Savage Blow here from skills/thief.json (ported, no explicit ranks); SH7 #432 Assaulter (mobility); SH8 #433 Boomerang Step and Band of Thieves; SH9 #434 Ninja Ambush (key ninja_ambush_shadower); SH10 #435 Meso Explosion; SH11 #436 Dark Sight (moved from skills/thief.json and rewritten as a hidden Form) and Assassinate (form_sub); SH12 #437 Smokescreen (safe_zone). The pool is in jobs/shadower.json.",
-	"skills": {}
+	"skills": {
+		"boomerang_step": {
+			"skill_id": 4221007,
+			"book": "422",
+			"job": 422,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Boomerang Step",
+			"desc": "Throws a stab down the line in front of you and back again, stunning the monsters it catches.",
+			"text": {
+				"desc": "Stab the nearest monsters in the line in front of you twice each; each may be stunned. Needs a monster in the line.",
+				"h": "Damage {damage}% x {attack_count}, up to {mob_count|monster|monsters}; {prop}% chance each to stun for {time} sec."
+			},
+			"icon": "Skill.wz/422.img/skill/4221007/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 3.0,
+			"action": "alert5",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/422.img/skill/4221007/hit/0",
+			"effect": "Skill.wz/422.img/skill/4221007/effect",
+			"rotate": false,
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop",
+				"duration_field": "time"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4221007/Use",
+				"hit": "Sound.wz/Skill.img/4221007/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "dagger_mastery",
+						"text": "Dagger Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "dagger_booster",
+						"text": "Dagger Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_pass",
+						"text": "Second Pass",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_pass",
+						"text": "Second Pass",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass SH8 #433 bonuses (spec #425): Dagger Mastery and Dagger Booster are the 420 passives' names, Second Pass adds one monster to the line; Legendary shares the Unique's id (and its repeat counter) plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.135.",
+			"_provenance": "Tier A: Skill.wz 4221007 damage 290 to 500 % (rank 1 = level 4: 290 %), attackCount 2, mobCount 2 to 4, prop (stun chance 38 to 90 %), time (stun seconds 2 to 4), the forward box lt (-300,-110) rb (0,0), the alert5 action, effect (15 frames), hit/0 (hit/1 is identical), the Use and Hit sounds; the stray masterLevel 10 is ignored. Tier C: the 3.0 s cooldown, min_targets 1, the 0.6 s action hold (the body's three 300 ms frames are not all played), the default 30-level rank table, no weapon gate, the stun stars are the generic cue (the `mob` node is not wired). GAME_DESIGN 7.135."
+		},
+		"band_of_thieves": {
+			"skill_id": 4211004,
+			"book": "421",
+			"job": 421,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Band of Thieves",
+			"desc": "Calls your other selves out of the shadows; each one strikes every monster around you.",
+			"text": {
+				"desc": "Your other selves strike the nearest monsters around you, one line each. Needs a monster in the band's box.",
+				"h": "Damage {damage}% x {attack_count} (one per other self), up to {mob_count|monster|monsters}."
+			},
+			"icon": "Skill.wz/421.img/skill/4211004/icon",
+			"damage": "physical",
+			"attack_count_field": "x",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 8.0,
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/421.img/skill/4211004/hit/0",
+			"hit_lines": [
+				"Skill.wz/421.img/skill/4211004/hit/1",
+				"Skill.wz/421.img/skill/4211004/hit/2",
+				"Skill.wz/421.img/skill/4211004/hit/3",
+				"Skill.wz/421.img/skill/4211004/hit/4",
+				"Skill.wz/421.img/skill/4211004/hit/5"
+			],
+			"effect": "Skill.wz/421.img/skill/4211004/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4211004/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "band_mastery",
+						"text": "Band Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_band",
+						"text": "Wide Band",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "bigger_band",
+						"text": "Bigger Band",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "bigger_band",
+						"text": "Bigger Band",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass SH8 #433 bonuses (spec #425): Band Mastery, Wide Band and Bigger Band are flavour names; Bigger Band adds one more thief (a line on every struck monster); Legendary shares the Unique's id (and its repeat counter) plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.135.",
+			"_provenance": "Tier A: Skill.wz 4211004 damage 110 to 210 % per line (rank 1 = level 4: 140 %; it DROPS at levels 7, 13, 19 and 25 where `x` steps up, the totals never fall), x 1 to 5 (\"N other selves will attack\"), mobCount 2 to 6, the symmetric box +-130 to +-150 by +-50, the effect (5 frames) and hit/0..5 art (hit/1..5 are the thief figures, 5 of the 6 nodes carry hitAfter), the Use sound; the node has no action. Tier C: `attack_count_field x` (each other self lands one line on every struck monster, SH-8), the 8.0 s cooldown, min_targets 1, action `weapon` (the held dagger's first stance, the swingO1 fallback of the asset notes) held 0.6 s, hit/1..5 by line (hit/0, the common strike, is the fallback), hitAfter is not modelled (every line lands on the cast tick), no weapon gate, no status. GAME_DESIGN 7.135."
+		}
+	}
 }

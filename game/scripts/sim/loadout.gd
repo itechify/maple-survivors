@@ -289,6 +289,12 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 	version += 1
 
 
+## The damage lines per target before `attack_count` modifiers: the level node's `attackCount`, or, with the opt-in
+## `attack_count_field`, the named canonical field (Band of Thieves' `x`, one line per "other self", spec #425 SH-8).
+func _base_attack_count(key: String, lv: int, d: Dictionary) -> float:
+	return book.canonical(key, lv, String(d.get("attack_count_field", "attackCount")), 1.0)
+
+
 ## The extra cast art of a definition's `cast_visuals`: [{path, x, follow}] (`follow` anchors it to the caster and mirrors it
 ## with the facing). An entry with `min_attack_count` K only plays when the cast has at least K damage lines (Spear
 ## Crusher's K-th dragon thrust, tier B reading of the D1 contact sheet); paths take the held weapon's art twin.
@@ -424,7 +430,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"damage_max": hi,
 		"magic": dtype == "magic",
 		"element": String(d.get("element", book.skill_node(key).get("elemAttr", ""))),
-		"attack_count": maxi(1, roundi(skill_stat(key, "attack_count", book.canonical(key, lv, "attackCount", 1.0)))),
+		"attack_count": maxi(1, roundi(skill_stat(key, "attack_count", _base_attack_count(key, lv, d)))),
 		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance + acc * crit_per_acc + crit_bonus),
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
@@ -456,7 +462,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"ball": book.visual(key, "ball", lv, char_level),
 		"hit": book.art_path(key, book.visual(key, "hit", lv, char_level), weapon_family),
 		"effect": effect,
-		"cast_visuals": _cast_visuals(d, roundi(skill_stat(key, "attack_count", book.canonical(key, lv, "attackCount", 1.0))), key),
+		"cast_visuals": _cast_visuals(d, roundi(skill_stat(key, "attack_count", _base_attack_count(key, lv, d))), key),
 		"action": action,
 		"action_time": float(d.get("action_times", {}).get(action, d.get("action_time", 0.0))) * speed_factor,
 		"rotate": bool(d.get("rotate", false)),
