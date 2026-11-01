@@ -31,11 +31,11 @@ const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_fal
 ## value]. tier C: wording from spec #372 story 11 ("Greater Heal: recovery x1.2", "Holy Shield: guard +1.5 s").
 const CARD_STAT_TEXT := {"heal_power": ["recovery", 1.0, ""], "heal_threshold": ["heals below", 100.0, "% HP"],
 	"revive_hp": ["revive HP", 100.0, "%"], "revive_guard": ["guard", 1.0, " s"]}
-const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "hp_cost", "self_damage", "low_hp_damage", "support_heal", "support_rate", "form_time", "form_power", "mark_power", "mark_time", "hull", "heal_power", "heal_threshold", "revive_hp", "revive_guard"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "hp_cost", "self_damage", "low_hp_damage", "support_heal", "support_rate", "form_time", "form_power", "mark_power", "mark_time", "hull", "heal_power", "heal_threshold", "revive_hp", "revive_guard", "zone_time"]
 ## Modifier previews: label, unit and base multiplier. Add another multiplier here only (tier C: UI wording).
 const MODIFIER_PREVIEW := {"burn_damage": ["Burn", "%", 1.0]}
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
-const STAT_LABELS := {"form_time": "Form duration", "form_power": "Form power", "attack_count": "Hits"}
+const STAT_LABELS := {"form_time": "Form duration", "form_power": "Form power", "zone_time": "Cloud duration", "attack_count": "Hits"}
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
 var cards: Array = []
@@ -444,6 +444,8 @@ static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: Str
 			return snappedf(float(st.get("duration", 0.0)), 0.01)
 		"form_power":
 			return snappedf(lo.skill_stat(skill, "form_power", 0.0) * 100.0, 0.01)
+		"zone_time":
+			return snappedf(float(st.get("safe_zone_duration", 0.0)), 0.01) # seconds of cloud (6 -> 9)
 		"mark_power":
 			return roundi(lo.mark_multipliers(skill).x * 100.0) # the non-boss multiplier, as a percent (150% -> 175%)
 		"mark_time":

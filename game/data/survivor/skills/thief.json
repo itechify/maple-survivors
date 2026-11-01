@@ -1,5 +1,5 @@
 {
-	"_doc": "Thief first job (#167/#207). Rank equals canonical Skill.wz level; canonical requirements, counts, costs, damage and art are tier A. Survivor casting choices are labelled per entry. Canonical prerequisites are ignored (tier C owner choice #31). Binding skill keys: nimble_body, double_stab, lucky_seven; later tickets append their own entries.",
+	"_doc": "Thief first job (#167/#207). Rank equals canonical Skill.wz level; canonical requirements, counts, costs, damage and art are tier A. Survivor casting choices are labelled per entry. Canonical prerequisites are ignored (tier C owner choice #31). Binding skill keys: nimble_body, keen_eyes, disorder and the passives; later tickets append their own entries. Moved out: Double Stab, Steal and Savage Blow to skills/shadower.json with SH6 #431, Lucky Seven and Drain to night_lord.json with NL7, Dark Sight (rewritten as a hidden Form) to skills/shadower.json with SH11 #436.",
 	"skills": {
 		"nimble_body": {
 			"skill_id": 4000000, "book": "400", "job": 400, "kind": "passive", "slot": "passive",
@@ -10,18 +10,6 @@
 			"action": "", "action_time": 0, "ball": "",
 			"hit": "", "effect": "",
 			"rotate": false, "sounds": {"use":"","hit":""}
-		},
-		"double_stab": {
-			"skill_id": 4001334, "book": "400", "job": 400, "kind": "instant", "slot": "active",
-			"name": "Double Stab", "desc": "Stabs one monster twice within your dagger's reach.",
-			"icon": "Skill.wz/400.img/skill/4001334/icon", "damage": "physical",
-			"_tier": "Tier A: WZ weapon 33, damage, attackCount 2, mpCon, stabO1 action and CharLevel hit art. Tier C: weapon_reach auto-cast, one base target, cooldown 1.2s, action hold 0.6s; untuned.",
-			"cast": {"rule":"weapon_reach"}, "cooldown": 1.2,
-			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
-			"action": "stabO1", "action_time": 0.6, "ball": "",
-			"hit": "Skill.wz/400.img/skill/4001334/hit/0", "effect": "",
-			"char_level": {"thresholds":[10,15,20,25],"hit":"Skill.wz/400.img/skill/4001334/CharLevel/{cl}/hit/0"},
-			"rotate": false, "sounds": {"use":"Sound.wz/Skill.img/4001334/Use","hit":""}
 		},
 		"keen_eyes": {
 			"skill_id": 4000001, "book": "400", "job": 400, "kind": "passive", "slot": "passive",
@@ -45,19 +33,6 @@
 			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
 			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "Skill.wz/400.img/skill/4001002/mob", "effect": "",
 			"rotate": false, "sounds": {"use":"Sound.wz/Skill.img/4001002/Use","hit":""}
-		},
-		"dark_sight": {
-			"skill_id": 4001003, "book": "400", "job": 400, "kind": "buff", "slot": "passive",
-			"name": "Dark Sight", "desc": "Hides you from monsters in a pinch. You cannot attack while Hidden.",
-			"text": {"desc": "Become Hidden below 30% HP with a monster nearby. You cannot attack. Ends when you recover above 60% HP or the duration runs out.", "h": "Hidden for {duration} sec.; Speed {buff_value}; {buff_cooldown} sec. between uses"},
-			"icon": "Skill.wz/400.img/skill/4001003/icon", "damage": "none",
-			"_tier": "Tier A: canonical mpCon, time, speed, darksight action, effect and Use sound; any weapon, no failure. Tier C: auto-cast below 30% HP with a mob within 250px (Oak Barrel reach), ends above 60% HP, fixed 30s cooldown from cast, action hold 0.6s; untuned.",
-			"cast": {"rule":"nearest","mob_within":250},
-			"buff": {"hidden":true,"stat":"speed","field":"speed","duration_field":"time","hp_threshold":0.3,"end_hp_above":0.6,"cooldown_from_cast":true,"cooldown":30},
-			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
-			"action": "darksight", "action_time": 0.6, "ball": "", "hit": "",
-			"effect": "Skill.wz/400.img/skill/4001003/effect", "rotate": false,
-			"sounds": {"use":"Sound.wz/Skill.img/4001003/Use","hit":""}
 		},
 		"claw_mastery": {
 			"skill_id": 4100000, "book": "410", "job": 410, "kind": "passive", "slot": "passive",
@@ -162,53 +137,6 @@
 			"action": "", "action_time": 0, "ball": "",
 			"hit": "", "effect": "", "rotate": false,
 			"sounds": {"use":"","hit":""}
-		},
-		"savage_blow": {
-			"skill_id": 4201005,
-			"book": "420",
-			"job": 420,
-			"kind": "instant",
-			"slot": "active",
-			"name": "Savage Blow",
-			"desc": "Strikes a monster up to six times with a dagger.",
-			"icon": "Skill.wz/420.img/skill/4201005/icon",
-			"damage": "physical",
-			"_tier": "Tier A: canonical weapon 33, attackCount, damage, mpCon, savage action, effect, hit art and sounds. Tier C: weapon_reach auto-cast, one base target, cooldown 1.2s, action hold 1.0s; untuned.",
-			"cast": {"rule":"weapon_reach"},
-			"cooldown": 1.2,
-			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30],
-			"action": "savage",
-			"action_time": 1,
-			"ball": "",
-			"hit": "Skill.wz/420.img/skill/4201005/hit/0",
-			"effect": "Skill.wz/420.img/skill/4201005/effect",
-			"rotate": false,
-			"sounds": {"use":"Sound.wz/Skill.img/4201005/Use","hit":"Sound.wz/Skill.img/4201005/Hit"}
-		},
-		"steal": {
-			"skill_id": 4201004,
-			"book": "420",
-			"job": 420,
-			"kind": "instant",
-			"slot": "active",
-			"name": "Steal",
-			"desc": "A melee strike that can take one extra item from each monster, including bosses.",
-			"icon": "Skill.wz/420.img/skill/4201004/icon",
-			"damage": "physical",
-			"_tier": "Tier A: canonical damage, mpCon, prop, swingO2 action, effect and sound; no weapon gate. Owner #167: retry until success, one extra loot per logical mob, bosses included. Tier C: range_around auto-cast within 100px, one base target, cooldown 1.2s, action hold 0.6s; extra loot uses ordinary equipment chance/pool, else a normal meso bundle; untuned.",
-			"text": {"desc":"Strikes nearby monsters and tries to take an extra item. Each monster, including a boss, can be stolen from once; failed attempts can be retried.","h":"{damage}% damage, {prop}% chance to steal one extra item."},
-			"steal": {"chance_field":"prop"},
-			"cast": {"rule":"range_around"},
-			"range": 100,
-			"cooldown": 1.2,
-			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30],
-			"action": "swingO2",
-			"action_time": 0.6,
-			"ball": "",
-			"hit": "",
-			"effect": "Skill.wz/420.img/skill/4201004/effect",
-			"rotate": false,
-			"sounds": {"use":"Sound.wz/Skill.img/4201004/Use","hit":""}
 		}
 	}
 }

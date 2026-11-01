@@ -123,8 +123,9 @@ func test_a_level_with_a_wz_damage_field_keeps_it_and_other_skills_are_untouched
 	assert_false(st.has("damage_percent"))
 	assert_false(other.book.def("energy_bolt").has("damage_basis"))
 	for key: String in other.book.defs:
-		if key != KEY:
-			assert_false(other.book.def(key).has("damage_basis"), "only Shadow Meso carries a basis (%s)" % key)
+		# Meso Explosion (Shadower SH10 #435) is the second skill with a basis, on `x`.
+		if key != KEY and key != "meso_explosion":
+			assert_false(other.book.def(key).has("damage_basis"), "only Shadow Meso and Meso Explosion carry a basis (%s)" % key)
 
 
 func test_a_magic_or_fixed_skill_ignores_a_basis() -> void:

@@ -292,6 +292,12 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 	version += 1
 
 
+## The damage lines per target before `attack_count` modifiers: the level node's `attackCount`, or, with the opt-in
+## `attack_count_field`, the named canonical field (Band of Thieves' `x`, one line per "other self", spec #425 SH-8).
+func _base_attack_count(key: String, lv: int, d: Dictionary) -> float:
+	return book.canonical(key, lv, String(d.get("attack_count_field", "attackCount")), 1.0)
+
+
 ## The extra cast art of a definition's `cast_visuals`: [{path, x, follow}] (`follow` anchors it to the caster and mirrors it
 ## with the facing). An entry with `min_attack_count` K only plays when the cast has at least K damage lines (Spear
 ## Crusher's K-th dragon thrust, tier B reading of the D1 contact sheet); paths take the held weapon's art twin.
@@ -429,7 +435,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"damage_max": hi,
 		"magic": dtype == "magic",
 		"element": String(d.get("element", book.skill_node(key).get("elemAttr", ""))),
-		"attack_count": maxi(1, roundi(skill_stat(key, "attack_count", book.canonical(key, lv, "attackCount", 1.0)))),
+		"attack_count": maxi(1, roundi(skill_stat(key, "attack_count", _base_attack_count(key, lv, d)))),
 		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance + acc * crit_per_acc + crit_bonus),
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
@@ -462,7 +468,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"ball": book.visual(key, "ball", lv, char_level),
 		"hit": book.art_path(key, book.visual(key, "hit", lv, char_level), weapon_family),
 		"effect": effect,
-		"cast_visuals": _cast_visuals(d, roundi(skill_stat(key, "attack_count", book.canonical(key, lv, "attackCount", 1.0))), key),
+		"cast_visuals": _cast_visuals(d, roundi(skill_stat(key, "attack_count", _base_attack_count(key, lv, d))), key),
 		"action": action,
 		"action_time": float(d.get("action_times", {}).get(action, d.get("action_time", 0.0))) * speed_factor,
 		"rotate": bool(d.get("rotate", false)),
@@ -520,7 +526,18 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		# tier C (#405): the flash's reach at this rank, for the Skill window (RunWorld.flash_jump_distance reads the same).
 		resolved["flash_distance"] = FlashJump.distance(d.flash_jump.distance, r, book.max_rank(key))
 	_add_status_grants(resolved, key, r)
+	_add_finish_strike(resolved, d, lv)
+	_add_safe_zone(resolved, key, d)
 	return resolved
+
+
+## Adds `safe_zone_duration` (the block's life times the `zone_time` modifier) and `zone_time` to a skill with a `safe_zone`
+## block (SafeZone places the zone with that life). Other skills gain no key, so their stats are unchanged.
+func _add_safe_zone(resolved: Dictionary, key: String, d: Dictionary) -> void:
+	var block: Variant = d.get("safe_zone")
+	if block is Dictionary:
+		resolved["zone_time"] = skill_stat(key, "zone_time", 1.0)
+		resolved["safe_zone_duration"] = float(block.get("duration", 0.0)) * float(resolved.zone_time)
 
 
 ## Adds `hull_share` to a Form with a `hull` effect: the share of max HP its hull will have (the canonical field at this level over
@@ -767,3 +784,11 @@ func _add_status_grants(resolved: Dictionary, key: String, r: int) -> void:
 	if grants.get(key, []).is_empty():
 		return
 	resolved["status_grants"] = StatusBonus.resolve(status_bonuses, grants[key], r, grant_chances[key])
+
+
+## Adds `finish_chance` / `finish_bonus` to a skill with a `finish_strike` block (spec #425 SH5, FinishingStrike); other skills gain
+## no key, so their stats are unchanged.
+func _add_finish_strike(resolved: Dictionary, d: Dictionary, lv: int) -> void:
+	if not FinishingStrike.has_block(d):
+		return # no level-node lookup for the many skills without the block
+	resolved.merge(FinishingStrike.resolve(d, book.level_node(String(resolved.skill), lv)))

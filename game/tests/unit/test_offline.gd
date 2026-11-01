@@ -29,7 +29,7 @@ const SELF_TEST_FILES := [
 	"res://tests/unit/test_marksman_selection.gd",
 	"res://tests/unit/test_warrior2_fixtures.gd",
 	"res://tests/unit/test_il_selection.gd", "res://tests/unit/test_buccaneer_selection.gd",
-	"res://tests/unit/test_paladin_selection.gd",
+	"res://tests/unit/test_paladin_selection.gd", "res://tests/unit/test_shadower_selection.gd",
 	"res://tests/unit/test_bishop_selection.gd", "res://tests/unit/test_night_lord_selection.gd",
 ]
 

@@ -187,6 +187,11 @@ const EVENT_FIELDS := {
 	"summon_strike": ["skill", "slot", "mob", "pos", "effect"],
 	"burst_start": ["skill", "wind_up", "span", "facing"],
 	"burst_end": ["skill"], # optional: released (an arrow left; a skill whose burst_art sets end_on_drop, Piercing Arrow)
+	# Spec #425 M18 (SafeZone): a zone was placed (`pos` its top-left corner, `size` its box, `duration` its life in seconds), ended
+	# (`reason`: expired, replaced, transferred or died) or negated a hit (`source` the hit's source_kind).
+	"safe_zone_started": ["skill", "skill_id", "pos", "size", "duration"],
+	"safe_zone_ended": ["skill", "reason"],
+	"hit_negated": ["skill", "source"],
 	# #323 (chain cast rule): the bolt's polyline, caster hand then each struck link's body centre; the hits are mob_hit events.
 	"skill_chain": ["skill", "skill_id", "points"],
 
@@ -308,6 +313,8 @@ var upkeep: PlayerUpkeep
 var book: SkillBook
 var loadout: Loadout
 var meter := PlayerMeter.new()
+## The placed safe zones (M18, SafeZone): the boxes in which every hit the character takes is negated.
+var safe_zones := SafeZone.new()
 ## Second life (#375): the guard timer and the plan of a reaction skill's revive, a HitHook at PlayerRevive.HIT_ORDER.
 var revive := PlayerRevive.new()
 ## One {t, level, rank, source_kind, hp} per second life taken this round (the run summary and balance record carry it).
@@ -676,6 +683,7 @@ func advance_map() -> void:
 		pickups.despawn(slot)
 	_final_queue.clear()
 	runner.clear_pending(self)
+	safe_zones.clear(self, "transferred") # positional: a zone stays on the map it was placed on
 	hazards.clear()
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
@@ -901,6 +909,7 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	if _settle_clear():
 		return
 	time += dt
+	safe_zones.step(dt, self)
 	for hook: HitHook in _hit_hooks:
 		hook.step(dt)
 	potions.tick(dt)
@@ -2115,7 +2124,8 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 
 
 ## One instant damage line with live defence; hv = hit visual index. Optional hit_rng replaces stream 1 (Final Attack's 12).
-func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = null) -> void:
+## `line` is the 0-based damage line of a multi-line cast on this target (only an `on_hit.once_per_target` status reads it).
+func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = null, line := 0) -> void:
 	if _map_clearing or swarm.active[m] == 0:
 		return
 	var dtype := CombatMath.damage_type_of(String(st.get("damage_type", "")), bool(st.get("magic", false)))
@@ -2155,6 +2165,8 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 			hit["status_grants"] = st.status_grants
 		if bool(st.get("echo", false)):
 			hit["echo"] = true
+		if line > 0:
+			hit["line"] = line
 		_on_player_hit(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
@@ -2299,7 +2311,8 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 	var key := String(hit.skill)
 	var level := int(hit.level)
 	var status: Dictionary = book.def(key).get("on_hit", {})
-	if not status.is_empty():
+	# tier C (D18): `once_per_target` rolls the status on a target's first damage line only (Boomerang Step's WZ `prop` is a per-target chance).
+	if not status.is_empty() and not (bool(status.get("once_per_target", false)) and int(hit.get("line", 0)) > 0):
 		var chance_field := String(status.get("chance_field", ""))
 		var chance := book.canonical(key, level, chance_field) if chance_field != "" else 100.0
 		if chance > 0.0 and (chance >= 100.0 or rng.randf() * 100.0 < chance):
@@ -2891,12 +2904,21 @@ func _window_blocks(bypass: bool) -> bool:
 	return upkeep.invincible_t > 0.0 and not bypass
 
 
+## Whether a live safe zone covers the character's body centre now, i.e. take_hit would negate a hit (after its own guards). Balls and
+## pending attacks ask this before take_hit so a negated hit draws no hit art (SafeZone, GAME_DESIGN 7.132).
+func safe_zone_covers_player() -> bool:
+	return not safe_zones.is_empty() and not (_dead or _map_clearing or god) and safe_zones.negates(player_body_center())
+
+
 ## Applies one monster hit through avoid, defense and hit reaction; returns whole damage (0 on miss).
 ## Source fields: accuracy (canonical acc), elite, dmg_mult, mob, mob_id, boss. Events snapshot max_hp at hit time.
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
 	var bypass := PlayerUpkeep.bypasses_window(source)
 	# Hidden (#194): nothing from a monster lands, whatever its source (the callers also skip the attack itself).
 	if _dead or _map_clearing or god or _window_blocks(bypass) or is_hidden() or _hit_guarded():
+		return 0
+	# Safe zone (M18): a hit aimed at a character standing in a live zone does nothing at all (no avoid roll, no RNG draw).
+	if not safe_zones.is_empty() and safe_zones.negate(self, player_body_center(), source):
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
 	if CombatMath.roll_miss(player_avoid + buffs.effect_total("avoid"), float(source.get("accuracy", 0.0)), rng):
@@ -2930,6 +2952,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		state = DEAD
 		runner.clear_pending(self)
 		runner.forms.clear(self)
+		safe_zones.clear(self, "died")
 		hazards.clear()
 		emit("player_died", {"pos": player.pos})
 	elif bypass or upkeep.may_knock_back():
@@ -3031,6 +3054,8 @@ func _hurt_by_reflect(m: int, amount: int) -> bool:
 		"source_kind": "reflect"}
 	if _dead or _map_clearing or god or is_hidden() or hit_window_blocks(source):
 		return false
+	if not safe_zones.is_empty() and safe_zones.negate(self, player_body_center(), source):
+		return false # a safe zone (M18) negates a boss reflect like any hit; the boss keeps its rate slot
 	_hp -= amount
 	_emit_player_hit(amount, false, 1 if player.pos.x >= swarm.x[m] else -1, source)
 	if _hp <= 0.0 and _hit_hook_saves(source):
@@ -3041,6 +3066,7 @@ func _hurt_by_reflect(m: int, amount: int) -> bool:
 		state = DEAD
 		runner.clear_pending(self)
 		runner.forms.clear(self)
+		safe_zones.clear(self, "died")
 		hazards.clear()
 		emit("player_died", {"pos": player.pos})
 	_write_player_state(0.0)

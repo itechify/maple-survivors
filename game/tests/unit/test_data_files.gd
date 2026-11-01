@@ -109,6 +109,10 @@ func _in_any_job_pool(key: String, playable_only := true) -> bool:
 	return false
 
 
+## The damaging manual dashes on the shared mobility rank rule: Hero's, Dark Knight's, Paladin's and Shadower's Assaulter (#432).
+const RUSHES := ["rush_hero", "rush_dark_knight", "rush_paladin", "assaulter"]
+
+
 ## `fixtures`: the synthetic books lack some skills (the I/L 221 book, #325); those are checked by the real-cache run only.
 func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) -> void:
 	for key: String in book.defs:
@@ -119,7 +123,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) ->
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
 			assert_eq(book.canonical_level(key, 5), 5)
 			continue
-		if key in ["rush_hero", "rush_dark_knight", "rush_paladin"] and book.skill_node(key).is_empty():
+		if key in RUSHES and book.skill_node(key).is_empty():
 			continue # the synthetic fixtures carry no Rush node; the real-cache run covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
@@ -131,7 +135,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) ->
 			assert_eq(book.max_rank(key), 8, "%s: ranks with its parent" % key)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
-		if key in ["rush_hero", "rush_dark_knight", "rush_paladin"] or String(book.def(key).get("slot", "")) == "form_sub" or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key, false):
+		if key in RUSHES or String(book.def(key).get("slot", "")) == "form_sub" or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key, false):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
@@ -463,11 +467,26 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 		"AvatarRenderer.DEFAULT_LOOK.equips is the default creation outfit without its weapon")
 	var no_drops := data.duplicate()
 	no_drops.erase("equipment_drops")
-	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array(Equipment.DEFAULT_OUTFIT),
-		"without MakeCharInfo the setup loads the default outfit only (no job grants a weapon since #284)")
+	# SH14 #439: the setup also loads the creation weapon of every playable job (a bare tool round wields it; the Razor of a Shadower
+	# is in no other list). Without MakeCharInfo and drops that is the default outfit plus those weapons, each once.
+	var creation_weapons := {}
+	var job_tree := DataRepo.jobs(data)
+	for job: int in job_tree.playable_jobs():
+		creation_weapons[job_tree.creation_weapon(job)] = true
+	var no_drops_expected := {}
+	for id: Variant in Equipment.DEFAULT_OUTFIT:
+		no_drops_expected[int(id)] = true
+	for id: Variant in creation_weapons:
+		no_drops_expected[int(id)] = true
+	var no_drops_ids := DataRepo.starter_equipment_ids(no_drops)
+	assert_eq(no_drops_ids.size(), no_drops_expected.size(), "without MakeCharInfo: the default outfit and the creation weapons, once each")
+	for id: int in Equipment.DEFAULT_OUTFIT:
+		assert_true(id in no_drops_ids, "the default outfit item %d is loaded" % id)
+	for id: Variant in creation_weapons:
+		assert_true(int(id) in no_drops_ids, "the creation weapon %d is loaded" % int(id))
 	var with_drops := DataRepo.starter_equipment_ids(data)
 	var expected := {}
-	for id: Variant in Equipment.DEFAULT_OUTFIT + data.equipment_drops.items:
+	for id: Variant in Equipment.DEFAULT_OUTFIT + data.equipment_drops.items + creation_weapons.keys():
 		expected[int(id)] = true
 	for id: Variant in data.equipment_drops.items:
 		assert_true(int(id) in with_drops, "the drop list item %d has its info loaded" % int(id))

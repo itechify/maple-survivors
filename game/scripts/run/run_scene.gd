@@ -184,6 +184,8 @@ var flash_trail: FlashTrail
 var clone_renderer: EchoCloneRenderer
 ## The boss ground hazards' mist (#459), drawn on the player's layer behind its mobs and the player.
 var hazard_view: HazardRenderer
+## The safe zones' cloud (SafeZone, spec #425), drawn on the player's layer behind its mobs; its "Guard" words go in the top container.
+var safe_zone_view: SafeZoneView
 var numbers: DamageNumbers
 var tags: NameTags
 var hud: Hud
@@ -721,6 +723,8 @@ func _build_actors() -> void:
 	hazard_view = HazardRenderer.new()
 	hazard_view.name = "Hazards"
 	hazard_view.library = library
+	safe_zone_view = SafeZoneView.new()
+	safe_zone_view.name = "SafeZones"
 	# The character is drawn through a CanvasGroup so the invincibility blink fades it as one image (a plain modulate
 	# would fade every part separately and show the body through the arm).
 	player_group = CanvasGroup.new()
@@ -763,6 +767,7 @@ func _build_top_layer() -> void:
 	numbers = DamageNumbers.new()
 	numbers.library = library
 	_top.add_child(numbers)
+	safe_zone_view.attach_labels(_top)
 	tags = NameTags.new()
 	_top.add_child(tags)
 	player_tag = NameTags.new()
@@ -989,6 +994,8 @@ func _warm_ui() -> void:
 			library.find_anim(path)
 		for path: String in ChainCast.ball_paths(world.book.def(key)):
 			library.find_anim(path)
+		if String(world.book.def(key).get("tile", "")) != "":
+			SafeZoneView.load_art(library, String(world.book.def(key).tile))
 		for rank in range(1, world.book.max_rank(key) + 1):
 			var level := world.book.canonical_level(key, rank)
 			for field: String in ["ball", "hit", "effect"]:
@@ -1241,6 +1248,13 @@ func handle_events(events: Array) -> void:
 				_first_event_shot("mist", "mist.png", 1.2) # tier C: playtest evidence of the first mist, after it has faded in.
 			"hazard_status":
 				_on_hazard_status(e)
+			"safe_zone_started":
+				_on_safe_zone_started(e)
+			"safe_zone_ended":
+				safe_zone_view.finish(String(e.skill), String(e.reason) != "expired")
+			"hit_negated":
+				safe_zone_view.guard(world.player.pos + Vector2(0.0, world.body.position.y))
+				_first_event_shot("hit_negated", "hit_negated.png", 0.12) # tier C: playtest evidence of the first "Guard" word.
 			"mob_projectile_spawned":
 				# tier C: capture the first ball clearly separated from its caster; swarms must not encode a PNG per ball.
 				_first_event_shot("mob_projectile", "mob_projectile.png", 0.55)
@@ -1627,6 +1641,20 @@ func _on_skill_thrown(e: Dictionary) -> void:
 	var slot := fx.play_repeating(String(e.ball), e.from, INF)
 	_throws.append({"slot": slot, "from": e.from, "to": e.to, "seconds": seconds, "t": 0.0,
 		"skill": String(e.skill), "cast_time": world.time})
+
+
+## A safe zone was placed (SafeZone): the cloud box, its life and the skill's `tile` animation (the definition's `tile` path
+## at the cast's level; a skill without one draws the box alone) loop over the floor under the character. The cast's own
+## `effect` plays through the `cast` event. A `tile` node of numbered puff variants (Smokescreen's eleven) draws as a row of
+## different puffs (SafeZoneView.load_art). tier C: the reading of the nodes is SH1's contact sheet, confirmed by SH12.
+func _on_safe_zone_started(e: Dictionary) -> void:
+	var key := String(e.skill)
+	var path := world.book.visual(key, "tile", int(world.runner.stats_of(world, key).level), world.progression.level)
+	var art := SafeZoneView.load_art(library, path)
+	if art.is_empty() and path != "":
+		library.anim(path) # record the missing art in `missing`
+	safe_zone_view.begin(key, Rect2(e.pos, e.size), float(e.duration), world.player.pos.y, art)
+	_first_event_shot("safe_zone", "safe_zone.png", 0.6)
 
 
 ## A chain cast (ChainCast): the skill's ball art (its `chain.ball` paths, one variant per segment in turn) stretched along
@@ -2092,6 +2120,7 @@ func _present(delta: float) -> void:
 	turret_shots.update_from(world.runner.summons.turret, world.visual_paths, delta)
 	mob_shots.update_from(world.mob_projectiles, world.visual_paths, delta)
 	hazard_view.update_from(world.hazards, world.time)
+	safe_zone_view.advance(delta)
 	drops.update_from(world.pickups, delta)
 	tags.update_from(world.swarm, world.mob_elite, _kind_names)
 	_update_hud()
@@ -2242,7 +2271,7 @@ func _update_pet(delta: float) -> void:
 func _place_player_layer(layer: int) -> void:
 	_player_layer = layer
 	var c := map.actor_layer(layer)
-	for n: Node in [fx_back, hazard_view, flash_trail, clone_renderer, player_group, drops]:
+	for n: Node in [fx_back, hazard_view, safe_zone_view, flash_trail, clone_renderer, player_group, drops]:
 		if n.get_parent() != c:
 			if n.get_parent() != null:
 				n.get_parent().remove_child(n)
@@ -2253,6 +2282,7 @@ func _place_player_layer(layer: int) -> void:
 	c.move_child(drops, -1)
 	if _top.get_parent() == c:
 		c.move_child(_top, -1)
+	c.move_child(safe_zone_view, 0)
 	c.move_child(hazard_view, 0)
 	c.move_child(fx_back, 0)
 

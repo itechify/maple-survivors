@@ -188,6 +188,8 @@ static func validation_errors(defs: Dictionary) -> PackedStringArray:
 	var errors := PackedStringArray()
 	for key: String in defs:
 		var d: Dictionary = defs[key]
+		if d.has("ignores_hidden"):
+			errors.append("%s.ignores_hidden belongs on the parent form's subs entry" % key)
 		if String(d.get("slot", "")) == "form_sub":
 			var parents: Variant = d.get("form_sub_of", [])
 			if parents is String:
@@ -204,6 +206,8 @@ static func validation_errors(defs: Dictionary) -> PackedStringArray:
 		if not block is Dictionary:
 			errors.append("%s.form needs an object" % key)
 			continue
+		if block.has("ignores_hidden"):
+			errors.append("%s.form.ignores_hidden belongs on a subs entry" % key)
 		if _seconds(block.get("duration")) <= 0:
 			errors.append("%s.form.duration must be positive seconds" % key)
 		if not block.get("exclusive_group") is String or String(block.get("exclusive_group", "")).strip_edges().is_empty():
@@ -213,6 +217,8 @@ static func validation_errors(defs: Dictionary) -> PackedStringArray:
 			errors.append("%s.cast needs rule form and positive mob_within" % key)
 		if String(d.get("damage", "")) != "none" or String(d.get("slot", "")) != "active":
 			errors.append("%s: form needs damage none and slot active" % key)
+		if cast is Dictionary and cast.has("sub_target") and not cast.sub_target is bool:
+			errors.append("%s.cast.sub_target must be boolean" % key)
 		var effects: Variant = block.get("effects")
 		if not effects is Dictionary:
 			errors.append("%s.form.effects needs an object" % key)

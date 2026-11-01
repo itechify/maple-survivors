@@ -114,6 +114,8 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		var seconds := number(float(stats.get("duration", form.duration)))
 		if effects.has("hull"):
 			mechanics.append(_ship_line(seconds, effects, stats, form))
+		elif bool(stats.get("hidden", false)):
+			mechanics.append(_hidden_line(seconds, form))
 		elif element.is_empty():
 			mechanics.append(_transform_line(seconds, power - 1.0, effects.has("damage"), stats.get("buff_effects", {})))
 		else:
@@ -161,6 +163,10 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		var struck := int(stats.get("mob_count", 1))
 		mechanics.append("Strikes up to %d %s every %s s for %s s" % [struck, "monster" if struck == 1 else "monsters",
 			number(float(cadence.interval)), number(book.canonical(key, level, "time"))])
+	if FinishingStrike.is_active(stats):
+		# tier C (ours, SH5): the last line's crit chance and bonus, the numbers FinishingStrike.line_stats applies.
+		mechanics.append("The last strike has a %s%% chance of +%s%% on top of a critical hit" % [
+			number(float(stats[FinishingStrike.CHANCE_KEY])), number(float(stats.get(FinishingStrike.BONUS_KEY, 0.0)))])
 	if def.has("pierce_field"):
 		var through := int(stats.get("pierce", 0))
 		mechanics.append("Pierces up to %d more %s" % [through, "monster" if through == 1 else "monsters"])
@@ -175,6 +181,13 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		var links := int(stats.get("mob_count", 1))
 		mechanics.append("Jumps to up to %d %s within %s px" % [links, "monster" if links == 1 else "monsters",
 			number(ChainCast.hop_of(stats))])
+	if String(stats.get("cast_rule", "")) == "safe_zone":
+		# tier C (ours, SH4): the cloud's resolved life (zone_time cards included) and its admission.
+		var need := int(stats.cast_params.get("min_mobs", 1))
+		var noun := String(def.get("safe_zone", {}).get("noun", "zone")) # the block names what the player sees (Smokescreen: "smoke cloud")
+		mechanics.append("Sets off a %s for %s s: hits that land while you stand inside it are negated. Needs %d %s within %s px." % [
+			noun, number(float(stats.get("safe_zone_duration", 0.0))), need, "monster" if need == 1 else "monsters",
+			number(float(stats.cast_params.get("mob_within", 0.0)))])
 	if String(stats.get("cast_rule", "")) == "hp_or_undead":
 		# Heal (#376): the resolved threshold, so a Mending Touch card shows in the window.
 		mechanics.append("Restores HP below %s%% health; strikes undead in the area" % number(float(stats.get("heal_threshold", 0.0)) * 100.0))
@@ -239,6 +252,18 @@ static func _join_names(names: PackedStringArray) -> String:
 	if names.size() <= 1:
 		return "".join(names)
 	return ", ".join(names.slice(0, names.size() - 1)) + " and " + names[names.size() - 1]
+
+
+## The line of a Hidden form (a `buff.hidden` form, spec #425 SH3, tier C wording): the window, what Hidden does, and the
+## sub-skills that still attack (those flagged `ignores_hidden`). The subs' own lines follow.
+func _hidden_line(seconds: String, form: Dictionary) -> String:
+	var names := PackedStringArray()
+	for sub: Dictionary in form.get("subs", []):
+		if bool(sub.get("ignores_hidden", false)):
+			var sub_key := String(sub.skill)
+			names.append(String(book.def(sub_key).get("name", sub_key.replace("_", " ").capitalize())))
+	return "Hidden for %s s: monsters ignore you and you cannot attack%s." % [seconds,
+		" except with " + _join_names(names) if not names.is_empty() else ""]
 
 
 ## The line of a form with no element (a morph such as Buccaneer's Transformation, spec #412 BU-9): its duration, the attack
@@ -411,6 +436,9 @@ func _vars(key: String, level: int, stats: Dictionary) -> Dictionary:
 		vars["mastery_pct"] = roundf(CombatMath.mastery_fraction(int(vars.mastery)) * 100.0)
 	if stats.has("passive_value"):
 		vars["passive_pct"] = snappedf(float(stats.passive_value) * 100.0, 0.01)
+	var per_unit := float(book.meter_rule(key).get("damage_per_unit", 0.0))
+	if per_unit > 0.0:
+		vars["unit_damage_pct"] = snappedf(per_unit * 100.0, 0.01) # a meter finisher's damage per spent unit (Meso Explosion's h)
 	return vars
 
 

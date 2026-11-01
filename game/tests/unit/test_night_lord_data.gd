@@ -281,7 +281,8 @@ func test_the_shadow_partner_card_scores_come_from_the_line_file() -> void:
 
 func test_the_status_catalogue_is_stored_in_the_line_with_the_spec_numbers() -> void:
 	var cat: Dictionary = _data().balance.status_bonuses
-	assert_eq(cat.keys().size(), 2)
+	var line: Dictionary = DataRepo.load_json(DataRepo.fragment_path("jobs_survivor", "night_lord"))
+	assert_eq(line.balance.status_bonuses.keys(), ["venomous_star", "stunning_avenger"], "the line file holds its own two entries (other lines add theirs)")
 	var v: Dictionary = cat.venomous_star
 	assert_eq(String(v.kind), "poison")
 	assert_eq(String(v.element), "s")

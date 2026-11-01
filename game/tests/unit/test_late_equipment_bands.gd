@@ -14,7 +14,8 @@ const BANDS := [
 ]
 ## Job classes (one representative job id each) and the weapon families they list. The playable jobs' lists are checked
 ## against jobs/*.json below; Marksman (322) is a planned class whose families the line files already carry. Night Lord (412) drops claws only
-## (daggers belong to Shadower, `jobs/night_lord.json` `_weapon_families`).
+## (daggers belong to Shadower, `jobs/night_lord.json` `_weapon_families`). Shadower (422, SH2 #427, not playable yet) drops daggers; the shield check is off because the shipped
+## Thief shield list has no piece in bands 1, 2, 14 and 15 (no equipment data change in SH2; SH13/SH14 may fill it).
 const CLASSES := {
 	"Hero": {"job": 112, "families": ["sword", "axe"], "shield": true},
 	"Paladin": {"job": 122, "families": ["sword", "blunt"], "shield": true},
@@ -23,6 +24,7 @@ const CLASSES := {
 	"Bowmaster": {"job": 312, "families": ["bow"], "shield": false},
 	"Marksman": {"job": 322, "families": ["crossbow"], "shield": false},
 	"Night Lord": {"job": 412, "families": ["claw"], "shield": false},
+	"Shadower": {"job": 422, "families": ["dagger"], "shield": false}, # Thief shields drop too, but bands 1, 2, 14 and 15 hold none
 	"Buccaneer": {"job": 512, "families": ["knuckle"], "shield": false},
 	"Corsair": {"job": 522, "families": ["gun"], "shield": false},
 }
