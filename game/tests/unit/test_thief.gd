@@ -154,12 +154,13 @@ func test_lucky_seven_fires_two_stars_at_nearest_with_luk_formula_and_any_weapon
 
 func test_double_stab_hits_twice_in_the_dagger_reach() -> void:
 	for path: String in ["dagger"]:
-		for rank_value in [1, 20]:
+		# SH6 #431: the ported skill has the default 20-level table; rank 1 reads level 3 (the fixture's 1.02), rank 8 level 20.
+		for rank_value in [1, 8]:
 			var w := _combat(path, "double_stab", rank_value)
 			var st := w.loadout.stats("double_stab")
 			assert_eq(st.cast_rule, "weapon_reach")
 			assert_eq(st.attack_count, 2)
-			assert_near(st.damage_pct, 0.98 if rank_value == 1 else 1.40)
+			assert_near(st.damage_pct, 1.02 if rank_value == 1 else 1.40)
 			var events := _cast(w, [35.0, 45.0, 300.0])
 			var hits := events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "double_stab")
 			assert_eq(hits.size(), 2)
@@ -183,28 +184,22 @@ func test_cards_are_on_offer_whatever_weapon_is_held_and_on_both_branches() -> v
 			assert_true(w.upgrades.card(id).is_empty(), id + " is gone")
 		for id in ["lucky_seven_new", "lucky_seven_rank"]:
 			assert_eq(String(w.upgrades.card(id).get("desc", "")), "+1 rank", id + " is the pool-generated card of the playable Night Lord")
-		for key: String in ["nimble_body", "double_stab"]:
-			assert_false(key + "_new" in eligible, "#287: unported skills have no pool offers")
-			w.learn_skill(key)
+		# SH6 #431: Double Stab's standalone cards were deleted with its port into the Shadower line (a playable Shadower gets the
+		# pool's plain new / rank cards; the Thief line is unplayable, so it has none).
+		for id in ["double_stab_new", "double_stab_rank", "double_stab_targets", "double_stab_hits", "double_stab_damage",
+				"double_stab_cooldown", "double_stab_reach"]:
+			assert_true(w.upgrades.card(id).is_empty(), id + " is gone")
+		assert_false("nimble_body_new" in eligible, "#287: unported skills have no pool offers")
+		w.learn_skill("nimble_body")
 		eligible = w.upgrades.eligible(w)
-		for key: String in ["nimble_body", "double_stab"]:
-			assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
-			assert_eq(int(w.upgrades.card(key + "_rank").get("max_rank", 0)), 20)
-			if key == "nimble_body":
-				continue
-			var id := key + "_targets"
-			assert_false(id in eligible, "#287: unported skills have no pool offers")
-			var before := w.loadout.stats(key)
-			RF.add_modifier_effects(w, w.upgrades.card(id))
-			var after := w.loadout.stats(key)
-			assert_eq(after.mob_count, before.mob_count + 1)
+		assert_false("nimble_body_rank" in eligible, "#287: unported skills have no pool offers")
+		assert_eq(int(w.upgrades.card("nimble_body_rank").get("max_rank", 0)), 20)
 		for branch in [410, 420]:
 			RF.as_job(w, branch)
 			eligible = w.upgrades.eligible(w)
 			# A first-job card is on the line of both branches (UpgradePool.on_line, #284).
-			for key: String in ["nimble_body", "double_stab"]:
-				assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
-				assert_false(w.upgrades.card(key + "_new").requires.has("carry_jobs"))
+			assert_false("nimble_body_rank" in eligible, "#287: unported skills have no pool offers")
+			assert_false(w.upgrades.card("nimble_body_new").requires.has("carry_jobs"))
 
 func test_lucky_seven_uses_the_current_star_sprite_when_the_ammo_tier_changes() -> void:
 	for branch in [400, 412]:
@@ -254,9 +249,9 @@ func test_original_thief_values_art_sounds_and_equipment_resolve_in_the_private_
 	var loadout := Loadout.new(book)
 	for key: String in ["lucky_seven", "double_stab"]:
 		assert_eq(book.max_level(key), 20)
-		for rank_value in ([1, 8] if key == "lucky_seven" else [1, 20]):
+		for rank_value in [1, 8]: # SH6 #431: Double Stab has the default table too (ranks 1 / 8 read levels 3 / 20)
 			var st := loadout.stats(key, rank_value)
-			assert_near(st.damage_pct, (0.66 if rank_value == 1 else 1.50) if key == "lucky_seven" else (0.98 if rank_value == 1 else 1.40))
+			assert_near(st.damage_pct, (0.66 if rank_value == 1 else 1.50) if key == "lucky_seven" else (1.02 if rank_value == 1 else 1.40))
 			assert_eq(st.count if key == "lucky_seven" else st.attack_count, 2)
 		for level in [1, 10, 15, 20, 25]:
 			for field: String in ["effect", "hit"]:

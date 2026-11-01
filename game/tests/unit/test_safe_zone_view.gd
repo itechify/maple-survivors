@@ -15,9 +15,9 @@ func _anim() -> SpriteAnim:
 func test_puffs_stand_on_the_floor_line_across_the_box() -> void:
 	var rect := Rect2(250, 277, 300, 226)
 	var puffs := SafeZoneView.puff_positions(rect, 420.0)
-	assert_eq(puffs.size(), 5, "300 px / 64 px")
-	assert_near(puffs[0].x, 280.0, 1e-6)
-	assert_near(puffs[4].x, 520.0, 1e-6)
+	assert_eq(puffs.size(), 6, "300 px / 48 px")
+	assert_near(puffs[0].x, 275.0, 1e-6)
+	assert_near(puffs[5].x, 525.0, 1e-6)
 	assert_eq(puffs[0].y, 420.0)
 	assert_eq(puffs[1].y, 420.0 - SafeZoneView.PUFF_LIFT, "every second puff is lifted")
 	for p in puffs:
@@ -45,7 +45,7 @@ func test_a_zone_lives_its_life_and_a_replacement_drops_the_old_one() -> void:
 	view.begin("cloud", Rect2(0, 0, 200, 100), 1.0, 90.0, _anim())
 	assert_eq(view.zone_count(), 1)
 	view.advance(0.5)
-	assert_eq(view.puff_count(), 3, "200 px / 64 px of puffs drawn")
+	assert_eq(view.puff_count(), 4, "200 px / 48 px of puffs drawn")
 	view.begin("cloud", Rect2(0, 0, 200, 100), 1.0, 90.0, null)
 	assert_eq(view.zone_count(), 1, "one zone per skill")
 	view.advance(0.5)

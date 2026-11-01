@@ -1,8 +1,9 @@
 extends Node2D
 ## Debug probe for the safe zone's look (spec #425 SH4): a synthetic arrangement (a floor, the character as a disc, three
 ## monsters as discs) with a SafeZoneView cloud over it, drawn from synthetic smoke puffs (a looping 8-frame animation), its
-## outline, and a "Guard" word over the character. Evidence only; no WZ art. The real Smokescreen nodes are confirmed by SH12.
-##   bash scripts/godot.sh --path game res://scenes/debug/safe_zone_probe.tscn -- --shots=C:/abs/dir
+## outline, and a "Guard" word over the character. Evidence only. `--real` (needs the asset cache) draws Smokescreen's real
+## `tile` puffs instead (SH12 #437: eleven two-frame variants) at `--zoom=<k>` (default 2), and saves `safe_zone_real.png`.
+##   bash scripts/godot.sh --path game res://scenes/debug/safe_zone_probe.tscn -- --shots=C:/abs/dir [--real] [--zoom=2]
 const FLOOR_Y := 420.0
 const PLAYER := Vector2(400, 420)
 const MOBS := [Vector2(270, 420), Vector2(560, 420), Vector2(640, 420)]
@@ -62,13 +63,23 @@ func _ready() -> void:
 	_view = SafeZoneView.new()
 	add_child(_view)
 	_view.attach_labels(self)
-	_view.begin("probe_cloud", ZONE, 6.0, FLOOR_Y, _anim())
+	var art: Variant = _anim()
+	var file := "safe_zone.png"
+	if args.has("real"):
+		var lib := AssetLibrary.new()
+		if lib.open():
+			art = SafeZoneView.load_art(lib, "Skill.wz/422.img/skill/4221006/tile")
+			file = "safe_zone_real.png"
+			var zoom := float(args.get("zoom", 2.0))
+			scale = Vector2(zoom, zoom)
+			position = Vector2(400.0, 380.0) - PLAYER * zoom
+	_view.begin("probe_cloud", ZONE, 6.0, FLOOR_Y, art)
 	for i in 30:
 		_view.advance(1.0 / 60.0) # the cloud has faded in
 	_view.guard(PLAYER + Vector2(0, -78))
 	_view.advance(0.25)
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(shots.path_join("safe_zone.png"))
+	get_viewport().get_texture().get_image().save_png(shots.path_join(file))
 	print("zones: %d puffs: %d guard words: %d" % [_view.zone_count(), _view.puff_count(), _view.guard_count()])
 	get_tree().quit()

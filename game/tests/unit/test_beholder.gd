@@ -208,7 +208,8 @@ func test_no_other_shipped_skill_defines_a_literal_buff_duration() -> void:
 	for key: String in skills:
 		if (skills[key] as Dictionary).get("buff", {}).has("duration"):
 			found.append(key)
-	assert_eq(found, [KEY], "the Beholder is the only user of the lever")
+	# Dark Sight (SH11 #436) states its 5 s window as a literal too, beside `form.duration` (a Form's window is the form block's).
+	assert_eq(found, [KEY, "dark_sight"], "the Beholder and Dark Sight's Form are the only users of the lever")
 
 
 func test_the_summon_expires_after_sixty_seconds_and_the_cooldown_counts_from_the_cast() -> void:

@@ -615,7 +615,7 @@ func test_only_these_skills_use_the_new_blocks_and_poison_mist_is_untouched() ->
 	for key: String in skills:
 		var d: Dictionary = skills[key]
 		if d.has("ground") and d.ground.has("strike"):
-			assert_true(key in [AMBUSH], "%s: only Ninja Ambush (and later Shadower's copy) strikes" % key)
+			assert_true(key in [AMBUSH, "ninja_ambush_shadower"], "%s: only Ninja Ambush (and Shadower's copy) strikes" % key)
 		if d.has("knockback") and d.knockback.has("distance_by_rank"):
 			assert_eq(key, STORM)
 	var mist: Dictionary = skills.poison_mist.ground

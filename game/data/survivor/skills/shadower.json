@@ -1,6 +1,245 @@
 {
 	"_doc": "Shadower skill definitions (spec #425). Empty until the skill tickets land; each appends inside its own region, and a key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). SH6 #431 moves Double Stab, Steal and Savage Blow here from skills/thief.json (ported, no explicit ranks); SH7 #432 Assaulter (mobility); SH8 #433 Boomerang Step and Band of Thieves; SH9 #434 Ninja Ambush (key ninja_ambush_shadower); SH10 #435 Meso Explosion; SH11 #436 Dark Sight (moved from skills/thief.json and rewritten as a hidden Form) and Assassinate (form_sub); SH12 #437 Smokescreen (safe_zone). The pool is in jobs/shadower.json.",
 	"skills": {
+		"assaulter": {
+			"skill_id": 4211002,
+			"book": "421",
+			"job": 421,
+			"kind": "instant",
+			"slot": "mobility",
+			"name": "Assaulter",
+			"desc": "Press the skill key with an arrow key to dash that way, striking the first monster in your path and maybe stunning it. Hold to repeat.",
+			"text": {
+				"desc": "Press the Assaulter key with an arrow key to dash that way, striking the first monster in your path; it may be stunned. Bosses are hit but never stunned. Hold the key to keep dashing.",
+				"h": "Damage {damage}%, {mob_count|monster|monsters}; {prop}% chance to stun for {time} sec, dashes forward."
+			},
+			"icon": "Skill.wz/421.img/skill/4211002/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "manual"
+			},
+			"skill_key": "rush",
+			"cooldown": 2.0,
+			"displacement": {
+				"direction": "input",
+				"when": "during",
+				"field": "lt.x"
+			},
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop",
+				"duration_field": "time"
+			},
+			"rush": {
+				"bot_threat_distance": 60.0
+			},
+			"action": "assaulter",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/421.img/skill/4211002/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4211002/Use",
+				"hit": ""
+			},
+			"_provenance": "Tier A: Skill.wz 4211002 (book 421; rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16 by the shared balance.mobility_rank_levels rule, the same rank as Hero's Rush at every level): damage 240 / 350 / 450 % at ranks 1 / 4 / 8, prop (the stun chance) 28 / 50 / 80 %, time (the stun seconds) 2 / 3 / 4, mobCount 1, the box lt (-200,-120) rb (0,0) at every level, whose reach is also the dash distance (field lt.x, 200 px), the assaulter action, the hit/0 art and the Use sound; the node has no effect. Tier C: the 2.0 s cooldown (the balance lever, Rush's), the stun replaces Rush's always-on knock-back (no knockback block), the first monster along the path (bosses first, then nearest to where the dash began, the charge's ordering), hold-to-repeat, no start while climbing, no meter gain or bonus, never a card (no rarity bonuses), the bot dashes away from a mob within 60 px at most every 3 s (BotInput.RUSH_MIN_INTERVAL), the 0.6 s action hold (the body's two 600 ms frames are not both played), the `mob` stun stars are the generic stun cue (the node is not wired). GAME_DESIGN 7.135 (SH7 #432)."
+		},
+		"boomerang_step": {
+			"skill_id": 4221007,
+			"book": "422",
+			"job": 422,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Boomerang Step",
+			"desc": "Throws a stab down the line in front of you and back again, stunning the monsters it catches.",
+			"text": {
+				"desc": "Stab the nearest monsters in the line in front of you twice each; each may be stunned. Needs a monster in the line.",
+				"h": "Damage {damage}% x {attack_count}, up to {mob_count|monster|monsters}; {prop}% chance each to stun for {time} sec."
+			},
+			"icon": "Skill.wz/422.img/skill/4221007/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 3.0,
+			"action": "alert5",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/422.img/skill/4221007/hit/0",
+			"effect": "Skill.wz/422.img/skill/4221007/effect",
+			"rotate": false,
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop",
+				"duration_field": "time"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4221007/Use",
+				"hit": "Sound.wz/Skill.img/4221007/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "dagger_mastery",
+						"text": "Dagger Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "dagger_booster",
+						"text": "Dagger Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_pass",
+						"text": "Second Pass",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_pass",
+						"text": "Second Pass",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass SH8 #433 bonuses (spec #425): Dagger Mastery and Dagger Booster are the 420 passives' names, Second Pass adds one monster to the line; Legendary shares the Unique's id (and its repeat counter) plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.135.",
+			"_provenance": "Tier A: Skill.wz 4221007 damage 290 to 500 % (rank 1 = level 4: 290 %), attackCount 2, mobCount 2 to 4, prop (stun chance 38 to 90 %), time (stun seconds 2 to 4), the forward box lt (-300,-110) rb (0,0), the alert5 action, effect (15 frames), hit/0 (hit/1 is identical), the Use and Hit sounds; the stray masterLevel 10 is ignored. Tier C: the 3.0 s cooldown, min_targets 1, the 0.6 s action hold (the body's three 300 ms frames are not all played), the default 30-level rank table, no weapon gate, the stun stars are the generic cue (the `mob` node is not wired). GAME_DESIGN 7.135."
+		},
+		"band_of_thieves": {
+			"skill_id": 4211004,
+			"book": "421",
+			"job": 421,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Band of Thieves",
+			"desc": "Calls your other selves out of the shadows; each one strikes every monster around you.",
+			"text": {
+				"desc": "Your other selves strike the nearest monsters around you, one line each. Needs a monster in the band's box.",
+				"h": "Damage {damage}% x {attack_count} (one per other self), up to {mob_count|monster|monsters}."
+			},
+			"icon": "Skill.wz/421.img/skill/4211004/icon",
+			"damage": "physical",
+			"attack_count_field": "x",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 8.0,
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/421.img/skill/4211004/hit/0",
+			"hit_lines": [
+				"Skill.wz/421.img/skill/4211004/hit/1",
+				"Skill.wz/421.img/skill/4211004/hit/2",
+				"Skill.wz/421.img/skill/4211004/hit/3",
+				"Skill.wz/421.img/skill/4211004/hit/4",
+				"Skill.wz/421.img/skill/4211004/hit/5"
+			],
+			"effect": "Skill.wz/421.img/skill/4211004/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4211004/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "band_mastery",
+						"text": "Band Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_band",
+						"text": "Wide Band",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "bigger_band",
+						"text": "Bigger Band",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "bigger_band",
+						"text": "Bigger Band",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass SH8 #433 bonuses (spec #425): Band Mastery, Wide Band and Bigger Band are flavour names; Bigger Band adds one more thief (a line on every struck monster); Legendary shares the Unique's id (and its repeat counter) plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.135.",
+			"_provenance": "Tier A: Skill.wz 4211004 damage 110 to 210 % per line (rank 1 = level 4: 140 %; it DROPS at levels 7, 13, 19 and 25 where `x` steps up, the totals never fall), x 1 to 5 (\"N other selves will attack\"), mobCount 2 to 6, the symmetric box +-130 to +-150 by +-50, the effect (5 frames) and hit/0..5 art (hit/1..5 are the thief figures, 5 of the 6 nodes carry hitAfter), the Use sound; the node has no action. Tier C: `attack_count_field x` (each other self lands one line on every struck monster, SH-8), the 8.0 s cooldown, min_targets 1, action `weapon` (the held dagger's first stance, the swingO1 fallback of the asset notes) held 0.6 s, hit/1..5 by line (hit/0, the common strike, is the fallback), hitAfter is not modelled (every line lands on the cast tick), no weapon gate, no status. GAME_DESIGN 7.135."
+		},
 		"meso_explosion": {
 			"skill_id": 4211006,
 			"book": "421",
@@ -124,6 +363,623 @@
 					}
 				]
 			}
+		},
+		"double_stab": {
+			"skill_id": 4001334,
+			"book": "400",
+			"job": 400,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Double Stab",
+			"desc": "Stabs one monster twice within your dagger's reach.",
+			"icon": "Skill.wz/400.img/skill/4001334/icon",
+			"damage": "physical",
+			"_tier": "Tier A: WZ weapon 33, damage, attackCount 2, mpCon, stabO1 action and CharLevel hit art. Tier C: weapon_reach auto-cast, one base target, cooldown 1.2s, action hold 0.6s; untuned. SH6 #431 (GAME_DESIGN 7.135): ported from thief.json with the default rank table (no explicit `ranks`: 20 levels, ranks 1..8 read levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20), same numbers, cast rule, 1.2 s cooldown, art and sounds; rarity bonuses (tier C, spec #425). Untuned.",
+			"cast": {
+				"rule": "weapon_reach"
+			},
+			"cooldown": 1.2,
+			"action": "stabO1",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/400.img/skill/4001334/hit/0",
+			"effect": "",
+			"char_level": {
+				"thresholds": [
+					10,
+					15,
+					20,
+					25
+				],
+				"hit": "Skill.wz/400.img/skill/4001334/CharLevel/{cl}/hit/0"
+			},
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4001334/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "dagger_mastery",
+						"text": "Dagger Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "venomous_stab",
+						"text": "Venomous Stab",
+						"effects": [
+							{
+								"stat": "status",
+								"op": "grant",
+								"status": "venomous_stab"
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "triple_stab",
+						"text": "Triple Stab",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "triple_stab",
+						"text": "Triple Stab",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"steal": {
+			"skill_id": 4201004,
+			"book": "420",
+			"job": 420,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Steal",
+			"desc": "A melee strike that can take one extra item from each monster, including bosses.",
+			"icon": "Skill.wz/420.img/skill/4201004/icon",
+			"damage": "physical",
+			"_tier": "Tier A: canonical damage, mpCon, prop, swingO2 action, effect and sound; no weapon gate. Owner #167: retry until success, one extra loot per logical mob, bosses included. Tier C: range_around auto-cast within 100px, one base target, cooldown 1.2s, action hold 0.6s; extra loot uses ordinary equipment chance/pool, else a normal meso bundle; untuned. SH6 #431 (GAME_DESIGN 7.135): ported from thief.json with the default rank table (no explicit `ranks`: 30 levels, ranks 1..8 read levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30), same numbers, cast rule, 1.2 s cooldown, art and sounds; rarity bonuses (tier C, spec #425). Untuned.",
+			"text": {
+				"desc": "Strikes nearby monsters and tries to take an extra item. Each monster, including a boss, can be stolen from once; failed attempts can be retried.",
+				"h": "{damage}% damage, {prop}% chance to steal one extra item."
+			},
+			"steal": {
+				"chance_field": "prop"
+			},
+			"cast": {
+				"rule": "range_around"
+			},
+			"range": 100,
+			"cooldown": 1.2,
+			"action": "swingO2",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/420.img/skill/4201004/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4201004/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "dagger_mastery",
+						"text": "Dagger Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "dagger_booster",
+						"text": "Dagger Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "pickpocket",
+						"text": "Pickpocket",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "pickpocket",
+						"text": "Pickpocket",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"savage_blow": {
+			"skill_id": 4201005,
+			"book": "420",
+			"job": 420,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Savage Blow",
+			"desc": "Strikes a monster up to six times with a dagger.",
+			"icon": "Skill.wz/420.img/skill/4201005/icon",
+			"damage": "physical",
+			"_tier": "Tier A: canonical weapon 33, attackCount, damage, mpCon, savage action, effect, hit art and sounds. Tier C: weapon_reach auto-cast, one base target, cooldown 1.2s, action hold 1.0s; untuned. SH6 #431 (GAME_DESIGN 7.135): ported from thief.json with the default rank table (no explicit `ranks`: 30 levels, ranks 1..8 read levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30), same numbers, cast rule, 1.2 s cooldown, art and sounds; rarity bonuses (tier C, spec #425). Untuned.",
+			"cast": {
+				"rule": "weapon_reach"
+			},
+			"cooldown": 1.2,
+			"action": "savage",
+			"action_time": 1,
+			"ball": "",
+			"hit": "Skill.wz/420.img/skill/4201005/hit/0",
+			"effect": "Skill.wz/420.img/skill/4201005/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4201005/Use",
+				"hit": "Sound.wz/Skill.img/4201005/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "dagger_mastery",
+						"text": "Dagger Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "venomous_stab",
+						"text": "Venomous Stab",
+						"effects": [
+							{
+								"stat": "status",
+								"op": "grant",
+								"status": "venomous_stab"
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "savage_flurry",
+						"text": "Savage Flurry",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "savage_flurry",
+						"text": "Savage Flurry",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"smokescreen": {
+			"skill_id": 4221006,
+			"book": "422",
+			"job": 422,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Smokescreen",
+			"desc": "Sets off a smoke cloud at your feet; hits that land while you stand inside it are negated.",
+			"text": {
+				"desc": "Throw down a smoke shell: for a few seconds every hit that lands on you while you stand inside the cloud is negated. The cloud stays where it was set off. Needs three monsters close by.",
+				"h": ""
+			},
+			"icon": "Skill.wz/422.img/skill/4221006/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "safe_zone",
+				"min_mobs": 3,
+				"mob_within": 250.0
+			},
+			"safe_zone": {
+				"duration": 6.0
+			},
+			"cooldown": 24.0,
+			"action": "smokeshell",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/422.img/skill/4221006/effect",
+			"tile": "Skill.wz/422.img/skill/4221006/tile",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4221006/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "wide_smoke",
+						"text": "Wide Smoke",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "haste",
+						"text": "Haste",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "thick_smoke",
+						"text": "Thick Smoke",
+						"effects": [
+							{
+								"stat": "zone_time",
+								"op": "mul",
+								"value": 1.5
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "thick_smoke",
+						"text": "Thick Smoke",
+						"effects": [
+							{
+								"stat": "zone_time",
+								"op": "mul",
+								"value": 1.5
+							},
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass SH12 #437 bonuses (spec #425): Wide Smoke and Thick Smoke are flavour names and Haste is the 420 passive's; Wide Smoke widens the box (`area`, the cloud has no damage), Haste shortens the cooldown, Thick Smoke lengthens the cloud (`zone_time`, a 9 s cloud); Legendary shares the Unique's id (and its repeat counter) plus `area` x1.2; Mastery repeats shrink x0.8, and Normal Mastery on this `damage: none` skill is cooldown x0.95 (#346). GAME_DESIGN 7.136.",
+			"_provenance": "Tier A: Skill.wz 4221006 (30 levels; rank 1 = level 4) lt / rb box +-120 x +-90 at rank 1, (-150,-112)..(150,113) at rank 4 and +-200 x +-150 at rank 8, read as given (the y edges are not symmetric at some levels), the smokeshell action, the 11-frame `effect` (the cast: a dust ring and the green shell) and the `tile` (eleven two-frame puffs, each fading in and out) as the cloud, the Use sound. Tier C: the 6.0 s life (WZ `time` 34 to 60 s is session scale and is not read), the 24 s cooldown (WZ `cooltime` 600 is a session value and is not read), admission at three monsters within 250 px, the 0.6 s action hold, the default 30-level rank table, the cloud's look (SafeZoneView). Docs: GAME_DESIGN 7.136."
+		},
+		"ninja_ambush_shadower": {
+			"skill_id": 4221004,
+			"book": "422",
+			"job": 422,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Ninja Ambush",
+			"desc": "Hides ninjas where you stand; they strike the monsters in the zone every second.",
+			"text": {
+				"desc": "Leave an ambush at your feet. Its ninjas strike up to 6 monsters in the zone every second. Needs a monster in the zone's box.",
+				"h": "Damage {damage}% per strike, up to {mob_count|monster|monsters}, for {time} sec."
+			},
+			"icon": "Skill.wz/422.img/skill/4221004/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 14.0,
+			"action": "alert3",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/422.img/skill/4221004/mob0",
+			"effect": "Skill.wz/422.img/skill/4221004/effect",
+			"rotate": false,
+			"ground": {
+				"strike": {
+					"interval": 1.0,
+					"first_delay": 0.3
+				}
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4221004/Use"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "shadow_shifter",
+						"text": "Shadow Shifter",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_ambush",
+						"text": "Wide Ambush",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "ambush_squad",
+						"text": "Ambush Squad",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "ambush_squad",
+						"text": "Ambush Squad",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass SH9 #434 bonuses (spec #425): Shadow Shifter (the lineage passive 4220002) and Wide Ambush; Ambush Squad adds two monsters to every strike (`count` raises mobCount); Legendary shares the Unique's id plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.135 (SH9).",
+			"_provenance": "Tier A: Skill.wz 4221004 equals 4121004 in every field of all 30 levels (SH1 scan, re-checked by test_shadower_ninja_ambush): damage 62 to 100 % per strike (rank 1 = level 4: 68 %), mobCount 6, time 4 / 8 / 12 s, the symmetric box +-110 -> +-200 by (-130, 70) (rank 1 +-120), the alert3 action, the 19-frame effect, the mob0 strike art on each struck monster; the Use sound is a UOL into 4121004. Tier C (a data copy of Night Lord's, spec SH-16): the 14 s cooldown, min_targets 1, `ground.strike` {interval 1.0, first_delay 0.3} anchored at the cast, the 0.6 s action hold, no tile art, the default 30-level rank table, no weapon gate; Shadow Shifter level 5 (the WZ req) is ignored. GAME_DESIGN 7.135 (SH9)."
+		},
+		"dark_sight": {
+			"skill_id": 4001003,
+			"book": "400",
+			"job": 400,
+			"kind": "form",
+			"slot": "active",
+			"name": "Dark Sight",
+			"desc": "Vanish from sight for a few seconds, then strike from the shadows.",
+			"text": {
+				"desc": "Vanish for a few seconds: monsters ignore you, nothing can hit you and every attack except Assassinate is silenced. Assassinate ambushes one monster at a time.",
+				"h": "Speed {buff_value}; {cooldown} sec. between uses"
+			},
+			"icon": "Skill.wz/400.img/skill/4001003/icon",
+			"damage": "none",
+			"_provenance": "Tier A: Skill.wz 4001003 speed (-30 to 0 over 20 levels; the eight mapped levels 3/5/8/10/13/15/18/20 read -26 -22 -16 -12 -7 -5 -2 0, so rank 1 / 4 / 8 is -26 / -12 / 0), the darksight action, the 4-frame effect and the Use sound; mpCon and the session-scale WZ time (30 to 200 s) are not read. Tier C (spec #425 SH-4, SH-6, SH11 #436): rewritten from the passive-slot buff that auto-cast below 30% HP into a pool Form of the exclusive group shadower_stance, a 5 s Hidden window (the literal buff.duration), admitted when a living mob is within 150 px, 20 s cooldown (25% uptime), carrying Assassinate (first cast 0.8 s in, then every 2.0 s); the 50% avatar alpha of 7.23 stays; the rarity bonuses. Docs: GAME_DESIGN 7.131 and 7.135.",
+			"cast": {
+				"rule": "form",
+				"mob_within": 150
+			},
+			"cooldown": 20.0,
+			"buff": {
+				"hidden": true,
+				"stat": "speed",
+				"field": "speed",
+				"duration": 5.0
+			},
+			"form": {
+				"duration": 5.0,
+				"exclusive_group": "shadower_stance",
+				"effects": {},
+				"subs": [
+					{
+						"skill": "assassinate",
+						"first_after": 0.8,
+						"interval": 2.0,
+						"ignores_hidden": true
+					}
+				]
+			},
+			"action": "darksight",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/400.img/skill/4001003/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4001003/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "assassinate",
+						"text": "Assassinate",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "haste",
+						"text": "Haste",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "deep_shadow",
+						"text": "Deep Shadow",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.5
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "deep_shadow",
+						"text": "Deep Shadow",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.5
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"assassinate": {
+			"skill_id": 4221001,
+			"book": "422",
+			"job": 422,
+			"kind": "instant",
+			"slot": "form_sub",
+			"form_sub_of": [
+				"dark_sight"
+			],
+			"name": "Assassinate",
+			"desc": "Strike a monster three times from the shadows; the last strike may be a lethal critical.",
+			"text": {
+				"desc": "While Dark Sight hides you, you strike the nearest monster three times; the last strike may be a lethal critical.",
+				"h": "Damage {damage}%, {attack_count} hits, up to {mob_count|monster|monsters}"
+			},
+			"icon": "Skill.wz/422.img/skill/4221001/icon",
+			"damage": "physical",
+			"_provenance": "Tier A: Skill.wz 4221001 damage 230 / 425 / 600 % at WZ levels 4 / 15 / 30 (= 5 x the String percent), attackCount 3 (the String says 4; the node is used), mobCount 1, prop 38 / 60 / 90 and criticalDamage 120 / 175 / 250 (read through finish_strike), the canonical box lt (-100,-120) rb (-10,0), the assassination action (top-level action/0 and effect/action), the 25-frame effect, the 10-frame special, and the Use and Use2 sounds (UOLs into 4121001). The WZ time and accumulative damage are not modelled. Tier C (spec #425 SH-5, SH-7, SH11 #436): a Form sub of Dark Sight with no slot and no card, ranking with its parent through its own 30-level table (Dark Sight rank 8 casts level 30), one box cast on at least one target (a scheduled boss first, then the nearest), the last line a critical on prop with criticalDamage points (FinishingStrike), the full 1.9 s assassination stance held (under the 2.0 s interval), the special art drawn as the hit on each line, Use and Use2 alternating per cast. Docs: GAME_DESIGN 7.133 and 7.135.",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 2.0,
+			"finish_strike": {
+				"chance_field": "prop",
+				"bonus_field": "criticalDamage"
+			},
+			"action": "assassination",
+			"action_time": 1.9,
+			"ball": "",
+			"hit": "Skill.wz/422.img/skill/4221001/special",
+			"effect": "Skill.wz/422.img/skill/4221001/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4221001/Use",
+				"use_cycle": [
+					"Sound.wz/Skill.img/4221001/Use",
+					"Sound.wz/Skill.img/4221001/Use2"
+				],
+				"hit": ""
+			}
 		}
-	}
+	},
+	"_sh9_region": "SH9 #434: ninja_ambush_shadower is the last key of the SH9 region (a data copy of Night Lord's ninja_ambush, owner data and Shadower bonuses only).",
+	"_sh11_region": "SH11 #436 owns dark_sight and assassinate (the last two keys); other tickets append their own entries above them."
 }
