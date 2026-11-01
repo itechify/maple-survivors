@@ -9745,7 +9745,7 @@ and gave it Hero's melee HP baseline (7.137). `JobTree.default_job()` stays 212;
 | Job entry | `jobs/shadower.json` | `422`: `starting_skill double_stab`, `mobility_skill assaulter`, `weapon_families ["dagger"]`, `creation_weapon 1332005` (the Razor, reqJob 0, reqLevel 5, PAD 20, a dagger), `playable true` (SH14 #439) |
 | Skill pool (9) | `skill_pool` | `double_stab`, `steal`, `savage_blow`, `boomerang_step`, `band_of_thieves`, `meso_explosion`, `ninja_ambush_shadower`, `dark_sight`, `smokescreen` (inert until defined: an undefined key is never offered or learned) |
 | Not in the pool | | `assaulter` (the mobility skill, SH7), `assassinate` (the Dark Sight sub-skill, SH11), Meso Guard (SH-15), Night Lord's `ninja_ambush` (SH-16) |
-| Skill file | `skills/shadower.json` | `{"skills": {}}` with a `_doc` naming the ticket that appends each region: SH6 #431 moves Double Stab, Steal and Savage Blow here from `thief.json`; SH7 Assaulter; SH8 Boomerang Step and Band of Thieves; SH9 Ninja Ambush; SH10 Meso Explosion; SH11 Dark Sight (moved and rewritten) and Assassinate; SH12 Smokescreen (a repeated key is a load error) |
+| Skill file | `skills/shadower.json` | empty when SH2 shipped it; SH6-SH12 appended the eleven definitions (SH6 #431 moved Double Stab, Steal and Savage Blow here from `thief.json`; SH7 Assaulter; SH8 Boomerang Step and Band of Thieves; SH9 Ninja Ambush; SH10 Meso Explosion; SH11 Dark Sight (moved and rewritten) and Assassinate; SH12 Smokescreen); the `_doc` states the final file and a repeated key is a load error. The merge-marker keys (`_sh9_region`, `_sh11_region`) were removed by the #425 review fixes |
 | Meter | `jobs/shadower.json` `meter` | meso charge: max 10, `gain {event meso_picked, amount 1, per_mesos 600}`, **no `decay`**, `per_unit {damage, 0.02}`, art `Item.wz/Special/0900.img/09000002/iconRaw`; read by `PlayerMeter` (7.94.1) |
 | AP row | `balance.player.ap["422"]` | LUK primary, DEX secondary, the `400` Thief keyframes copied verbatim (Lv1 25, Lv25 25, Lv200 200); no `hp` (the HP baseline, SH-14, is the QA ticket's) |
 | Bot scores | `balance.bot.card_scores` | `dark_sight_new` / `smokescreen_new` / `meso_explosion_new` 100 and the three `_rank` 74 (`BotInput._base_score` only treats projectile / instant / box skills as attacks; a Form, a safe zone and a meter finisher are not; the other six score as attacks by default) |
@@ -9770,7 +9770,7 @@ well placed, the meter block and a world gaining per 600 mesos without decay and
 from the line file, dagger-only drops synthetic / shipped / seeded / real cache per region band, `requirement_error`, the Razor),
 `test_data_repo_lines` (placement of the 400/420/421/422 books).
 
-**Selection (SH13 #438; `playable` flipped by SH14 #439).** Making Shadower selectable needed no engine change, only data, a fixture and tests; SH14 #439 flipped `playable`.
+**Selection (SH13 #438; `playable` flipped by SH14 #439).** Making Shadower selectable needed one engine fix, in `character_create.gd` (the Job-page row size, below), and otherwise only data, a fixture and tests; SH14 #439 flipped `playable`.
 - *Registration.* Shadower stays out of `DataRepo.CLASS_LINES` (ruling D15) and still loads: `DataRepo.lines()` discovers its files, so `--job=422` starts a real Shadower
   with no `CLASS_LINES` entry and no patch (SH13 verified this while the flag was off: the tracked entry then had no `playable` key, so a `sed` on `"playable": false` matched nothing).
 - *Tools.* `--job=422` flows through `JobTree.job_error` in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, `character_fixture.gd` and `HubTestKit`; with `playable` off it is refused
@@ -9782,15 +9782,16 @@ from the line file, dagger-only drops synthetic / shipped / seeded / real cache 
   and the weapon box (the Razor) are tested on the shipped list, the eleven-row list and a two-row list the patch seam makes.
 - *Job-page row size fix (found on the eleven-row screenshot).* The row Buttons were given their size before they had a theme and joined the tree, so each took the default font's
   31 px height and kept it: the chosen row's plate was twice the pitch tall and a click at a row's centre (the flow driver's) landed on the row below once the pitch fell to 15 px.
-  `character_create.gd` now sets the row size (190 x pitch - 2) after the row is in the tree; the creation tests pass unchanged (they assert positions and widths, a headless Button measures
-  differently), and `flow_driver creation --jobs=212,422` selects 212 and 422 correctly.
+  `character_create.gd` now sets the row size (190 x pitch - 2) after the row is in the tree. The original creation tests passed unchanged (they assert positions and widths), so the #425 review
+  fixes added `test_job_rows_are_pitch_tall_and_never_overlap` (every row at most pitch - 2 tall, no row overlapping the next, the centre of Shadower's row inside no other row; verified to fail with the
+  line moved back before `add_child`; the headless Button does reproduce the 31 px clamp), and `flow_driver creation --jobs=212,422` selects 212 and 422 correctly.
 - *Skill window.* Tabs Common / Thief / Bandit / Chief Bandit / Shadower (400 / 420 / 421 / 422): `dark_sight` and `double_stab` on 400, `steal` and `savage_blow` on 420, `assaulter`,
   `band_of_thieves` and `meso_explosion` on 421, `ninja_ambush_shadower`, `smokescreen` and `boomerang_step` on 422; Assassinate is Dark Sight's sub-skill and has no row. Assaulter has one
   Key Config row on the `rush` action labelled "Assaulter" and the quick-slot cell.
 - *Bot.* All nine pool skills are taken when offered (100 learn, 74 rank; `dark_sight`, `smokescreen` and `meso_explosion` carry explicit entries, the other six the pool default). Reaches
   (recorded, not tuned): Double Stab and Savage Blow 88 px (the Razor's swing), Steal 100, Band of Thieves 130, Ninja Ambush 120, Boomerang Step 300 (the only one past the 220 px kite
   reach, so a Shadower with Step ready kites like an archer), and 0 for the finisher, the form, the zone and Assaulter. `has_target` reads the finisher and Smokescreen through their rules
-  (the meter refuses under 4 pips); Dark Sight admits with a monster within 150 px. The only key the bot presses is Assaulter's (a monster within 60 px, 3 s apart).
+  (the meter refuses under 4 pips); Dark Sight admits with a monster within 150 px that is also in Assassinate's box on either side (D17, below). The only key the bot presses is Assaulter's (a monster within 60 px, 3 s apart).
 - *Oracle.* `test_shadower_baseline`: seed 1, 21,600 ticks, bot, god, synthetic assets, the shipped data (since SH14 no flip in the test copy). The shipped pool is learned in the order Double Stab,
   Assaulter, Steal, Band of Thieves, Ninja Ambush, Meso Explosion, Dark Sight (six actives full: Boomerang Step, Savage Blow and Smokescreen are not offered in time); the second golden freezes
   the pool to those three so their casts, the stun and the safe zone are pinned. SH14's HP baseline changed the Shadower's player stats and so moved both goldens: SH14 recaptured them with the
@@ -9833,6 +9834,13 @@ spec corrected its `morph` row (BU-9, 7.92). A schema that lists `effects.hidden
   usual line per sub as for the Paladin's Charges. The speed penalty is not named.
 - **Tests.** `test_hidden_form` proves all of it on a synthetic form (job 999, skill 9991001+): no Shadower data and no asset cache.
   Dark Sight and Assassinate (SH11) copy it.
+- **`cast.sub_target` (owner ruling D17, #425 review fix; tier C).** An opt-in boolean in a form's `cast` block. The spec's radial `mob_within` gate
+  let a monster behind or above the caster open a 5 s window in which Assassinate (a 10-100 px forward box) never fired. With the key the Form is
+  admitted only when, besides the radial gate, a sub-skill's box (`Loadout.sub_stats`, the parent's `form_sub_area` included, `min_targets` living
+  bodies) holds a target on either side (`SkillRunner.form_sub_side`: the current facing first); the admission plan carries the side and `resolve_cast`
+  turns the caster to it, so the sub's first cast (which reads the facing) lands. Paladin's, Corsair's and Buccaneer's forms do not carry the key and
+  take the old path unchanged. `PlayerForms.validation_errors` checks it is boolean. Dark Sight carries it. Later casts of the window are not
+  guaranteed a target (a struck monster may flinch out of the box); that stays the balance pass's flag.
 
 ### 7.132 Safe zone (M18, spec #425 SH4, #429)
 
@@ -9854,7 +9862,10 @@ places a zone behaves byte-identically (the `safe_zones.is_empty()` guards cost 
   inside) returns 0 **before the avoid roll**, so no random number is drawn, no HP is lost, no hit window or knock-back guard starts,
   no `player_hit` is appended and the hooks, hull and Power Guard never see the hit. One `hit_negated {skill, source}` is appended per
   negated hit, `source` being the hit's `source_kind`. Contact, monster attacks (including area columns), balls and boss attacks
-  all reach `take_hit` and are negated; a ball that meets the body is used up. Because no hit window starts, a monster touching the
+  all reach `take_hit` and are negated; a ball that meets the body is used up. A negated hit also draws **no hit art** (review #425 S3, tier C: the hit-window
+  convention of `MobAttacks` and `MobProjectileSystem`): the pending attack's `hit` phase and the ball's `mob_projectile_hit` are skipped, found through
+  `RunWorld.safe_zone_covers_player()` (`SafeZone.negates`, the one "is the point in a live zone" rule `negate` also uses); the ball is still consumed.
+  Because no hit window starts, a monster touching the
   character is negated every tick (60 `hit_negated` events a second; the screen rate-limits its "Guard" word). The monsters keep
   attacking (it is Hidden that makes them stop). Statuses applied by monster skills (Slow, the poison mist) and the Poison tick are
   not hits and are not negated.
@@ -9876,9 +9887,9 @@ places a zone behaves byte-identically (the `safe_zones.is_empty()` guards cost 
   cloud is a reading (tier C): SH12 (7.136) confirmed it against Smokescreen's real node and corrected the shape: `tile` is
   eleven two-frame puff variants, not one loop.** The probe (`scenes/debug/safe_zone_probe.tscn`) shows the look on synthetic art, or
   with `--real` on the real puffs.
-- **Text.** The card and the Skill window: "Sets off a smoke cloud for {duration} s: hits that land while you stand inside it are
+- **Text.** The card and the Skill window: "Sets off a {noun} for {duration} s: hits that land while you stand inside it are
   negated. Needs {min_mobs} monsters within {mob_within} px." with the resolved life (a `zone_time` card shows 6 -> 9 s: label
-  "Cloud duration").
+  "Cloud duration"); `{noun}` is the `safe_zone.noun` of the definition ("smoke cloud" for Smokescreen, "zone" without one).
 - **Bot.** It does not steer for the cloud (recorded, not tuned): the melee kite keeps the character mostly inside it.
 
 Tests: `test_safe_zone` (box by rank and `area`, anchoring, admission with the cooldown left at 0, every hit source, the tick after
@@ -9897,9 +9908,14 @@ cast its own critical chance and bonus, read from the skill's canonical level fi
 - `SkillRunner._resolve_target` hands each line `FinishingStrike.line_stats(st, line, lines)`. Lines before the last (and every line
   of a skill without the block) get `st` itself, no copy. The last line gets a shallow copy whose `crit` is `min(1, crit +
   finish_chance / 100)` (`crit` is a 0..1 chance everywhere in the sim; the spec's "min(100, ...)" is the same cap in percent) and
-  whose `crit_damage_bonus` is `crit_damage_bonus + finish_bonus`.
+  whose `crit_damage_bonus` is `(ordinary crit multiplier - damage_pct) x 100 + finish_bonus`, the ordinary multiplier being `damage_pct x crit_mult`
+  (or `damage_pct + crit_damage_bonus / 100` for a skill that already crits by points). This is owner ruling D19 (#425 review fix; tier C): the
+  spec's literal Critical Throw convention (`damage_pct + bonus / 100`) made the "lethal" last line weaker than an ordinary line crit from rank 2
+  up (rank 8: 8.5x against 6.0 x 1.5 = 9.0x). A finishing crit now multiplies `damage x (pct x crit_mult + bonus / 100)` (rank 8: 11.5x). Only a
+  skill with the `finish_strike` block takes this; Night Lord's Critical Throw and `roll_damage` are untouched.
 - The existing `ProjectileSystem.roll_damage` does the rest: one crit roll per line, in line order, then the Critical Throw
-  convention (a crit with a bonus above 0 multiplies the skill percent by `damage_pct + bonus / 100` instead of `crit_mult`). **No
+  convention (a crit with a bonus above 0 multiplies the skill percent by `damage_pct + bonus / 100` instead of `crit_mult`; the stored bonus above
+  is chosen so that this equals D19's `pct x crit_mult + finish_bonus / 100`). **No
   RNG draw is added or reordered.** The one caveat is the existing rule that a chance of 0 draws nothing
   (`CombatMath.roll_crit`): a character whose base crit is 0 draws one value on the last line that it did not draw before, because that
   line now has a chance to roll.
@@ -9908,7 +9924,7 @@ cast its own critical chance and bonus, read from the skill's canonical level fi
   `_resolve_target`, a forced test cast too. It does not change projectile, burst or ground-strike skills (their lines are not
   `attack_count` lines of an instant cast).
 - Presentation: the existing crit number (`mob_hit.crit`). The Skill window adds "The last strike has a {chance}% chance of
-  +{bonus}% critical damage" (`SkillText.level_line`, tier C wording).
+  +{bonus}% on top of a critical hit" (`SkillText.level_line`, tier C wording; D19).
 - Data checks: `FinishingStrike.errors` (called by `DataRepo._load_all`) needs an object naming a non-empty `chance_field` and
   `bonus_field`; `FinishingStrike.level_errors(book)` checks that both name numeric canonical fields on every level of every rank
   (`test_dark_sight` runs it on the real Assassinate book, cache-gated, SH11 #436).
@@ -10030,7 +10046,8 @@ with at least one monster in the box, both on the default 30-level rank table (r
 27 / 30), no weapon gate (`skills/shadower.json`).
 - **Boomerang Step** (4221007, book 422): the WZ forward line (-300, -110)..(0, 0), mirrored with the facing like every box, stabs
   the nearest `mobCount` (2 / 3 / 4) monsters `attackCount` 2 lines each at 290 / 400 / 500% per line, and each struck monster
-  rolls the Shout-style `on_hit` stun on `prop` (38 / 60 / 90%) for `time` seconds (2 / 3 / 4). Bosses take the damage and
+  rolls the Shout-style `on_hit` stun **once** (owner ruling D18, #425 review fix: `on_hit.once_per_target`, the roll on the target's first line; the generic
+  roll is per damage line, which gave two rolls per target and 62 / 84 / 99%) on `prop` (38 / 60 / 90%) for `time` seconds (2 / 3 / 4). Bosses take the damage and
   never the stun (`MobSwarm.accepts_status`). 3.0 s cooldown, action `alert5`, `effect`, `hit/0`, `Use` and `Hit` sounds.
 - **Band of Thieves** (4211004, book 421): the symmetric WZ box (+-130 / +-140 / +-150 by +-50) hits the nearest `mobCount`
   (2 / 4 / 6) monsters, and the node's `x` is the number of lines: each "other self" lands one line on every struck monster
@@ -10077,8 +10094,8 @@ action `prone2` held 1.0 s, `effect`, `hit_lines` over `hit/0..8`, `Use` + `Hit`
 #### 7.135 (SH11 #436): Dark Sight and Assassinate
 
 **Dark Sight and Assassinate (SH11 #436).** `dark_sight` (4001003, book 400, 20 levels, ranks read WZ levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20) moves from
-`thief.json` to `shadower.json` and is rewritten as the Shadower's Form slot: `kind form`, `damage none`, `cast {rule form, mob_within 150}` (a living monster
-within 150 px, so a window is not burned walking between spawns), `form {duration 5.0, exclusive_group shadower_stance, effects {}, subs [assassinate]}`,
+`thief.json` to `shadower.json` and is rewritten as the Shadower's Form slot: `kind form`, `damage none`, `cast {rule form, mob_within 150, sub_target true}` (a living monster
+within 150 px that is also in Assassinate's box on either side, so a window is not burned walking between spawns or opened by a monster the ambush cannot reach; `sub_target` is owner ruling D17, 7.131), `form {duration 5.0, exclusive_group shadower_stance, effects {}, subs [assassinate]}`,
 `buff {hidden, stat speed, field speed, duration 5.0}`, a 20 s cooldown from the cast (25% uptime). While the window runs the character is Hidden (7.131):
 monsters ignore it, nothing lands, and every other attack skill is silenced (cooldowns keep running); the speed penalty is the WZ column (-26 / -12 / 0 at ranks
 1 / 4 / 8) and ends with the window; the avatar is drawn at 50% alpha (7.23). The old passive-slot buff (auto-cast below 30% HP, 250 px, ends above 60%, 30 s cooldown),
@@ -10092,7 +10109,7 @@ chance) for +120 / +175 / +250 points. It ranks with its parent through its own 
 each line, `Use` and `Use2` alternating per cast. Rarity bonuses (the form is `damage: none`, so the Rare damage x1.2 multiplies the sub through `form_sub_damage`):
 Rare Assassinate (damage x1.2), Epic Haste (cooldown x0.88), Unique Deep Shadow (`form_time` x1.5, a 7.5 s window with a fourth Assassinate at 6.8 s), Legendary
 Deep Shadow plus damage x1.2; the Legendary shares the Unique's repeat counter and a Normal Mastery repeat cuts the cooldown x0.95 (no damage to raise). Tests:
-`test_dark_sight` (definitions, admission at 150 px, the 5 s window and `form_ended`, the cooldown, the speed by rank, the Assassinate timeline, one monster and
+`test_dark_sight` (definitions, admission by Assassinate's box on either side with the turn at the cast, the 5 s window and `form_ended`, the cooldown, the speed by rank, the Assassinate timeline, one monster and
 three lines, nearest and boss-first targeting, waiting with an empty box, rank 8 at level 30, the finisher over 300 casts, silenced attacks, mob and boss attacks
 on a Hidden caster, every rarity bonus, the pool cards and Mastery, the real-cache numbers at all eight ranks and `FinishingStrike.level_errors` on the real
 book), `test_dark_sight_render` (the faded avatar for the window), `test_map_transfer` (a running Dark Sight Form survives the transfer).
@@ -12692,11 +12709,11 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Constant / rule | Value | Provenance |
 |---|---|---|
 | Last-line crit chance | `min(1, crit + finish_chance / 100)`, `finish_chance` the level's `prop` (percent) | tier C: SH-7 reading of `prop` as the last line's chance (Assassinate 38 / 60 / 90) |
-| Last-line crit bonus | `crit_damage_bonus + finish_bonus` skill-percent points, `finish_bonus` the level's `criticalDamage` (+120 / +175 / +250) | tier C: SH-7, with the Critical Throw convention it rides on (tier B, SouthPerry) |
+| Last-line crit bonus | `damage x (damage_pct x crit_mult + finish_bonus / 100)`, `finish_bonus` the level's `criticalDamage` (+120 / +175 / +250); stored as `crit_damage_bonus = (damage_pct x crit_mult - damage_pct) x 100 + finish_bonus` for `roll_damage`'s bonus branch | tier C: SH-7 first read it as the Critical Throw convention (`damage_pct + bonus / 100`, tier B, SouthPerry); **owner ruling D19 changed it** (#425 review fixes, "Shadower #425 review-fix constants") |
 | Which line | the last of each target's `attack_count` lines; a one-line cast's only line | tier C: SH-7 |
 | Sources | any hit resolved by `_resolve_target` (form sub, forced cast); not projectiles, bursts or ground strikes | tier C (ours) |
 | RNG | no draw added or reordered (the existing per-line crit roll, higher chance on the last) | tier C (ours) |
-| Skill-window sentence | "The last strike has a {chance}% chance of +{bonus}% critical damage" | tier C (presentation) |
+| Skill-window sentence | "The last strike has a {chance}% chance of +{bonus}% on top of a critical hit" (was "+{bonus}% critical damage" until D19) | tier C (presentation) |
 
 ### Shadower SH6 constants (#431)
 
@@ -12734,7 +12751,7 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 |---|---|---|
 | Boomerang Step cooldown / action hold | 3.0 s / 0.6 s (the `alert5` body has three 300 ms frames; the stance is cut short) | tier C: spec #425 |
 | Boomerang Step admission | `min_targets` 1 (a monster in the forward line) | tier C: ours (SH8) |
-| Boomerang Step stun | `on_hit stun {chance_field prop, duration_field time}`: one stream-1 draw per struck non-boss at `prop` < 100 | tier A fields (`prop` 38 / 60 / 90, `time` 2 / 3 / 4); the stun reading is tier C (Shout's), spec #425 |
+| Boomerang Step stun | `on_hit stun {chance_field prop, duration_field time, once_per_target true}`: one stream-1 draw per struck non-boss at `prop` < 100, on the target's first line only (D18; before it every line drew, two rolls per target) | tier A fields (`prop` 38 / 60 / 90, `time` 2 / 3 / 4); the stun reading is tier C (Shout's), spec #425 |
 | Boomerang Step `mob` stun-star node | not wired: the generic stun cue draws the stars | tier C: ours (SH8) |
 | Band of Thieves lines | `attack_count_field x`: lines = `x` (1 / 3 / 5), one per "other self" on each struck monster | tier C reading of the String "N other selves will attack", spec #425 SH-8 |
 | Band of Thieves cooldown / action hold / admission | 8.0 s / 0.6 s / `min_targets` 1 | tier C: spec #425 / ours (SH8) |
@@ -12775,7 +12792,7 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 |---|---|---|
 | Dark Sight window | 5.0 s (`form.duration` and the literal `buff.duration`); the WZ `time` (30 to 200 s) is session-scale and unused | tier C: spec #425 SH-4 (the WZ field is tier A, unused) |
 | Dark Sight speed penalty | the WZ `speed` column, -26 / -12 / 0 at ranks 1 / 4 / 8 (levels 3 / 10 / 20) | tier A: Skill.wz 4001003 |
-| Dark Sight admission | `cast {rule form, mob_within 150}` | tier C: spec #425 SH-6 (Assassinate's reach) |
+| Dark Sight admission | `cast {rule form, mob_within 150, sub_target true}` (D17: also Assassinate's box holds a target on either side; the caster turns to it) | tier C: spec #425 SH-6 (Assassinate's reach) |
 | Dark Sight cooldown | 20 s from the cast (25% uptime) | tier C: spec #425 SH-6 |
 | Dark Sight exclusive group | `shadower_stance` (Smokescreen is a zone, not a form) | tier C: spec #425 |
 | Dark Sight stance hold | `darksight` 0.6 s (the old value) | tier C: ours |
@@ -12830,3 +12847,18 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Card scores of the six dagger / line skills | `double_stab`, `steal`, `savage_blow`, `boomerang_step`, `band_of_thieves`, `ninja_ambush_shadower`: `_new` 100, `_rank` 74 in `jobs/shadower.json` | tier C: the pool default's own numbers written out (the guard `test_every_pool_skill_of_every_playable_job_has_new_100_and_rank_74_scores` needs every playable job explicit); no behaviour change, no golden moved |
 | Tool setup equipment list | adds the creation weapon of every playable job (the Razor 1332005 for 422) | tier C (ours): tooling fix, no sim change |
 | Everything else | no new constant; the QA record is in 4.2 and 7.137 | n/a |
+
+### Shadower #425 review-fix constants
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `cast.sub_target` (Dark Sight) | boolean opt-in in a Form's cast block: admitted only when a sub-skill's box (`min_targets` living bodies) holds a target on either side, current facing first; the caster turns to that side at the cast | tier C: owner ruling D17 (ROSTER_PLAN) for review S1 |
+| `on_hit.once_per_target` (Boomerang Step) | the status rolls on the target's first damage line only; any other skill rolls per line as before | tier C: owner ruling D18; the chance itself (`prop` 38 / 60 / 90) is tier A |
+| Finishing-strike crit | `damage x (damage_pct x crit_mult + finish_bonus / 100)` (rank 8 Assassinate 11.5x against 8.5x; an ordinary line crit 9.0x) | tier C: owner ruling D19; Night Lord's Critical Throw unchanged |
+| Finishing-strike text | "+{bonus}% on top of a critical hit" | tier C (presentation), D19 |
+| Negated hit art | a hit a safe zone negates draws no hit art: no pending `hit` phase, no `mob_projectile_hit` (the ball is consumed); `RunWorld.safe_zone_covers_player()` | tier C: ours, the hit-window convention (review S3) |
+| `safe_zone.noun` | the word the Skill window uses for the zone ("smoke cloud" for Smokescreen; "zone" when absent) | tier C (presentation) |
+| `unit_damage_pct` | a SkillText variable: the meter finisher's `damage_per_unit` x 100, used by Meso Explosion's `h` ("every pip spent adds 8% damage") instead of a hand-written number | tier C (presentation) |
+| Band of Thieves `hit_lines` | a sixth entry (`hit/0`) so the sixth line (rank 8 + Bigger Band) has hit art | tier C: ours (review N3) |
+| `GOLDEN` (shipped pool) | `0982c822e98be110b9a7a156fcfbe76b93a60a967a256e81b0386fca2a01a164` (was `1d6313f3...`; D17 moved it to `fc2fa787...`, D19 to this) | tier C: recaptured with the cause (D18 does not move it) |
+| `GOLDEN_OUTSIDERS` | `7743804555d0a8699205fe01fb56bfc6e959fe1fe24187f11eadf7588301f977` (was `9405eac0...`) | tier C: recaptured, D18 only (one stun draw per target) |
