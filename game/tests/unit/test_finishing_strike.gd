@@ -131,7 +131,9 @@ func test_a_skill_without_the_block_has_byte_identical_stats() -> void:
 	stripped.erase("finish_bonus")
 	assert_eq(var_to_str(a), var_to_str(stripped), "the block adds exactly its two keys")
 	for key: String in without.book.defs:
-		assert_false(without.loadout.stats(key).has("finish_chance"), "%s: no block, no key" % key)
+		# Assassinate (SH11 #436) is the one shipped skill with the block: it carries the keys, every other skill none.
+		assert_eq(without.loadout.stats(key).has("finish_chance"), FinishingStrike.has_block(without.book.defs[key]),
+			"%s: the key exists exactly when the skill has the block" % key)
 
 
 # --- Behaviour on a cast -----------------------------------------------------------------------------------------------
@@ -341,13 +343,23 @@ func test_the_shipped_data_passes_the_structural_check() -> void:
 	assert_eq(FinishingStrike.errors(data.skills), PackedStringArray())
 
 
+## The level errors of the synthetic skill only: the shipped Assassinate has no table in these synthetic books (test_dark_sight checks it
+## on the real one).
+func _own_level_errors(book: SkillBook) -> PackedStringArray:
+	var out := PackedStringArray()
+	for error in FinishingStrike.level_errors(book):
+		if error.begins_with("skill 'finisher'"):
+			out.append(error)
+	return out
+
+
 func test_the_named_fields_must_exist_on_every_level_of_the_skill() -> void:
 	var good := _world({"finish_strike": BLOCK})
-	assert_eq(FinishingStrike.level_errors(good.book), PackedStringArray())
+	assert_eq(_own_level_errors(good.book), PackedStringArray())
 	var typo := _world({"finish_strike": {"chance_field": "prop", "bonus_field": "critDamage"}})
-	var errors := FinishingStrike.level_errors(typo.book)
+	var errors := _own_level_errors(typo.book)
 	assert_eq(errors.size(), 2, "one per rank of the skill")
 	assert_true(errors[0].contains("finisher") and errors[0].contains("critDamage"), errors[0])
 	var thin := _world({"finish_strike": BLOCK})
 	thin.book.level_node("finisher", 1).erase("prop")
-	assert_eq(FinishingStrike.level_errors(thin.book).size(), 1, "a level missing the field is named")
+	assert_eq(_own_level_errors(thin.book).size(), 1, "a level missing the field is named")

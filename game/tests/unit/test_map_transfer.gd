@@ -187,7 +187,8 @@ func test_transfer_keeps_character_timers_and_pools_clears_statuses_and_rehomes_
 	assert_false(w.mob_skills.slow_state(w.time).is_empty(), "the canonical synthetic boss cast Slow")
 	w.spend_hp(7)
 	w.learn_skill("dark_sight")
-	assert_true(w.start_buff("dark_sight", w.runner.stats_of(w, "dark_sight")))
+	# SH11 #436: Dark Sight is a Hidden Form now; a running Form keeps its Hidden window across the transfer like any buff.
+	w.runner.forms.start(w, "dark_sight", w.runner.stats_of(w, "dark_sight"))
 	w.runner.cooldowns.dark_sight = 12.0
 	w._teleport_left = 0.6
 	w.potions.consume("hp")
@@ -201,6 +202,7 @@ func test_transfer_keeps_character_timers_and_pools_clears_statuses_and_rehomes_
 	assert_true(w.transfer_pending)
 	var hp: int = w.player_state.hp
 	var buffs := w.buffs.snapshot()
+	var forms := w.runner.forms.snapshot()
 	var potion := w.potions.cooldown_left.duplicate()
 	var character := w.character_snapshot()
 	var nav := w.nav
@@ -212,6 +214,7 @@ func test_transfer_keeps_character_timers_and_pools_clears_statuses_and_rehomes_
 	assert_eq(w.map_entered_at, t)
 	assert_eq(w.player_state.hp, hp)
 	assert_eq(w.buffs.snapshot(), buffs)
+	assert_eq(w.runner.forms.snapshot().size(), forms.size(), "the Dark Sight Form survives the transfer")
 	assert_true(w.is_hidden())
 	assert_eq(w.skill_readiness("dark_sight").left, 12.0)
 	assert_eq(w._teleport_left, 0.6)

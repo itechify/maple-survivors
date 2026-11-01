@@ -6609,6 +6609,9 @@ The `thief --disorder=1` flow-driver probe captures a real cast on an evidence-o
 
 ### 7.23 Dark Sight (#211, spec #167)
 
+**Replaced by the Form in 7.135 (Shadower SH11 #436): the passive-slot buff below, its HP thresholds, its cards and its tests no longer exist; the
+Hidden state, the speed penalty and the 50% avatar opacity it describes carry over to the Form.**
+
 `dark_sight` (4001003, book 400, ranks 1–20, any weapon) reuses the Hidden state in 7.18. It auto-casts below
 30% MaxHP with a living mob within 250 px (the same reach as Oak Barrel), when affordable and ready. It never fails
 and draws no failure RNG. Hidden blocks contact, mob and boss attacks and the character's attacks; movement, buffs,
@@ -9822,7 +9825,32 @@ cast its own critical chance and bonus, read from the skill's canonical level fi
   +{bonus}% critical damage" (`SkillText.level_line`, tier C wording).
 - Data checks: `FinishingStrike.errors` (called by `DataRepo._load_all`) needs an object naming a non-empty `chance_field` and
   `bonus_field`; `FinishingStrike.level_errors(book)` checks that both name numeric canonical fields on every level of every rank
-  (the cache-dependent unit test for the shipped skills belongs to SH11, which adds Assassinate).
+  (`test_dark_sight` runs it on the real Assassinate book, cache-gated, SH11 #436).
+
+### 7.135 Shadower skill entries (spec #425)
+
+One paragraph per ticket, appended. Constants under each ticket's own "Shadower SH<k> constants" heading.
+
+**Dark Sight and Assassinate (SH11 #436).** `dark_sight` (4001003, book 400, 20 levels, ranks read WZ levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20) moves from
+`thief.json` to `shadower.json` and is rewritten as the Shadower's Form slot: `kind form`, `damage none`, `cast {rule form, mob_within 150}` (a living monster
+within 150 px, so a window is not burned walking between spawns), `form {duration 5.0, exclusive_group shadower_stance, effects {}, subs [assassinate]}`,
+`buff {hidden, stat speed, field speed, duration 5.0}`, a 20 s cooldown from the cast (25% uptime). While the window runs the character is Hidden (7.131):
+monsters ignore it, nothing lands, and every other attack skill is silenced (cooldowns keep running); the speed penalty is the WZ column (-26 / -12 / 0 at ranks
+1 / 4 / 8) and ends with the window; the avatar is drawn at 50% alpha (7.23). The old passive-slot buff (auto-cast below 30% HP, 250 px, ends above 60%, 30 s cooldown),
+its `dark_sight_new` / `dark_sight_rank` cards and its HP-threshold tests are removed; a playable Shadower's cards come from the pool.
+`assassinate` (4221001, book 422, `slot form_sub`, `form_sub_of [dark_sight]`) is the sub: the `subs` entry carries `first_after 0.8`, `interval 2.0` and
+`ignores_hidden true` (casts at 0.8, 2.8 and 4.8 s of the 5 s window), a `box` cast on at least one monster (a scheduled boss first, then the nearest; it waits,
+due and not consumed, while the box is empty) over the canonical box (-100,-120)..(-10,0), `mobCount 1`, three lines (`attackCount 3`; the String says four, the
+node is used) of 230 / 425 / 600% at WZ levels 4 / 15 / 30, and `finish_strike {prop, criticalDamage}` (7.133): the last line crits on 38 / 60 / 90% (plus the base
+chance) for +120 / +175 / +250 points. It ranks with its parent through its own 30-level table, so Dark Sight rank 8 casts level 30. Presentation: the cast stance
+`assassination` held 1.9 s (the whole 11-frame body stance, under the 2.0 s interval), the 25-frame `effect` at the caster, the 10-frame `special` as the hit art on
+each line, `Use` and `Use2` alternating per cast. Rarity bonuses (the form is `damage: none`, so the Rare damage x1.2 multiplies the sub through `form_sub_damage`):
+Rare Assassinate (damage x1.2), Epic Haste (cooldown x0.88), Unique Deep Shadow (`form_time` x1.5, a 7.5 s window with a fourth Assassinate at 6.8 s), Legendary
+Deep Shadow plus damage x1.2; the Legendary shares the Unique's repeat counter and a Normal Mastery repeat cuts the cooldown x0.95 (no damage to raise). Tests:
+`test_dark_sight` (definitions, admission at 150 px, the 5 s window and `form_ended`, the cooldown, the speed by rank, the Assassinate timeline, one monster and
+three lines, nearest and boss-first targeting, waiting with an empty box, rank 8 at level 30, the finisher over 300 casts, silenced attacks, mob and boss attacks
+on a Hidden caster, every rarity bonus, the pool cards and Mastery, the real-cache numbers at all eight ranks and `FinishingStrike.level_errors` on the real
+book), `test_dark_sight_render` (the faded avatar for the window), `test_map_transfer` (a running Dark Sight Form survives the transfer).
 
 ## 8. Upgrades
 
@@ -10623,9 +10651,9 @@ Thief tracer (#207) additions:
 | Thief equipment weights | PAD 10, LUK 6, DEX 3; other weights match Beginner | C initial selection, untuned |
 | Thief weapons | chosen 1472061/1332063 worn, opposite in Equip or overflow pickup; stars 2070015 | B Dark Lord gifts (v83-facts section 4); A item IDs/stats; C path/overflow presentation |
 | Thief RNG | stream 15, thief_rng, reserved for Steal success | C independent stream; existing streams unchanged |
-| Dark Sight values (#211) | 20 ranks; MP 24→5, duration 10→200 s, speed −30→0, any weapon, no failure, darksight action/effect/Use sound | A Skill.wz/400.img/skill/4001003 |
-| Dark Sight escape (#211) | casts below 30% HP with a mob within 250 px; ends above 60%; fixed 30 s cooldown from cast; action hold 0.6 s | C owner escape/cooldown rules; reach matches Oak Barrel; action hold ours, untuned |
-| Dark Sight cards and appearance (#211) | learn/rank weights 3/2, job 400 only, no carry; Hidden non-morph avatar opacity 0.5 (blink can dim further) | C survivor card/presentation choices; A rank cap 20 |
+| Dark Sight values (#211; speed column only, the rest replaced by SH11 #436) | 20 ranks; MP 24→5, duration 10→200 s, speed −30→0, any weapon, no failure, darksight action/effect/Use sound | A Skill.wz/400.img/skill/4001003 |
+| Dark Sight escape (#211, REMOVED by SH11 #436: see "Shadower SH11 constants") | casts below 30% HP with a mob within 250 px; ends above 60%; fixed 30 s cooldown from cast; action hold 0.6 s | C owner escape/cooldown rules; reach matches Oak Barrel; action hold ours, untuned |
+| Dark Sight cards and appearance (#211; the cards were REMOVED by SH11 #436, the 50% opacity stays) | learn/rank weights 3/2, job 400 only, no carry; Hidden non-morph avatar opacity 0.5 (blink can dim further) | C survivor card/presentation choices; A rank cap 20 |
 | Thief attacks | Lucky Seven: 250px, 1s cooldown, 600px/s, radius8, pierce0; Double Stab: weapon reach, one target, 1.2s cooldown; both action0.6s | C initial untuned cast choices; A counts/costs/damage/action art; B LUK formula |
 | Thief cards | attack learn/rank 4/3, Nimble Body 2/2, behavior weight2/max3, +1 star/target; attacks carry to 410/420 | C initial untuned choices; A rank cap20 |
 | Thief roster | ordinary Lv10–70 Thief-bit gear; shields only for dagger; ordinary/dark ATT scrolls | C curated selection/filter; A IDs and WZ requirements/stats/rates |
@@ -12328,3 +12356,22 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | `balance.status_bonuses.venomous_stab` | poison; chance 14 16 18 20 24 26 28 30; time 2 2 3 3 3 4 4 4; level 4 8 12 15 19 23 27 30; element `s` | tier A: Venomous Stab 4220005 `prop`, `time` and the rank -> poison level map, equal level for level to 4120005 |
 | `repeat_chance` of `venomous_stab` | 3 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #425 SH-13 |
 | `test_late_equipment_bands` Shadower row | job 422, `["dagger"]`, shield check off (the shipped Thief shield list has no piece in bands 1, 2, 14, 15; SH2 changes no equipment data) | tier C: test table, spec #425 |
+
+### Shadower SH11 constants (#436)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Dark Sight window | 5.0 s (`form.duration` and the literal `buff.duration`); the WZ `time` (30 to 200 s) is session-scale and unused | tier C: spec #425 SH-4 (the WZ field is tier A, unused) |
+| Dark Sight speed penalty | the WZ `speed` column, -26 / -12 / 0 at ranks 1 / 4 / 8 (levels 3 / 10 / 20) | tier A: Skill.wz 4001003 |
+| Dark Sight admission | `cast {rule form, mob_within 150}` | tier C: spec #425 SH-6 (Assassinate's reach) |
+| Dark Sight cooldown | 20 s from the cast (25% uptime) | tier C: spec #425 SH-6 |
+| Dark Sight exclusive group | `shadower_stance` (Smokescreen is a zone, not a form) | tier C: spec #425 |
+| Dark Sight stance hold | `darksight` 0.6 s (the old value) | tier C: ours |
+| Assassinate timing | first cast 0.8 s into the window, then every 2.0 s (0.8 / 2.8 / 4.8 s of 5 s) | tier C: spec #425 SH-5 |
+| Assassinate numbers | damage 230 / 425 / 600% x 3 lines on one monster; `prop` 38 / 60 / 90, `criticalDamage` 120 / 175 / 250; box (-100,-120)..(-10,0); WZ levels 4 / 15 / 30 at ranks 1 / 4 / 8 | tier A: Skill.wz 4221001 (attackCount 3 from the node, not the String's "4") |
+| Last line as the lethal strike | `prop` is the last line's critical chance, `criticalDamage` its bonus in skill-percent points | tier B/C: spec #425 SH-7 (reading of the String) |
+| Assassinate stance hold | `assassination` 1.9 s (the 11-frame body stance, less than the 2.0 s interval) | tier C: ours (SH11) |
+| Assassinate art | `effect` at the caster, `special` as the hit art on each line, `Use` / `Use2` alternating | tier C: SH1 contact-sheet roles; the nodes and sounds are tier A |
+| Assassinate cooldown field | 2.0 s (mirrors the interval; the sub driver does not read it) | tier C: ours |
+| Rarity bonuses | Rare Assassinate damage x1.2; Epic Haste cooldown x0.88; Unique Deep Shadow `form_time` x1.5; Legendary Deep Shadow plus damage x1.2 | tier C: spec #425 first pass |
+| Removed | the passive-slot buff: HP trigger 30%, end above 60%, 250 px, 30 s cooldown, 10 to 200 s duration, `dark_sight_new` / `dark_sight_rank` cards | superseded (7.23) |
