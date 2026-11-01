@@ -1,5 +1,5 @@
 {
-	"_doc": "Thief first job (#167/#207). Rank equals canonical Skill.wz level; canonical requirements, counts, costs, damage and art are tier A. Survivor casting choices are labelled per entry. Canonical prerequisites are ignored (tier C owner choice #31). Binding skill keys: nimble_body, double_stab, lucky_seven; later tickets append their own entries.",
+	"_doc": "Thief first job (#167/#207). Rank equals canonical Skill.wz level; canonical requirements, counts, costs, damage and art are tier A. Survivor casting choices are labelled per entry. Canonical prerequisites are ignored (tier C owner choice #31). Binding skill keys: nimble_body, double_stab, lucky_seven; later tickets append their own entries. Double Stab, Steal and Savage Blow moved to skills/shadower.json with SH6 #431 (Lucky Seven and Drain to night_lord.json with NL7).",
 	"skills": {
 		"nimble_body": {
 			"skill_id": 4000000, "book": "400", "job": 400, "kind": "passive", "slot": "passive",
