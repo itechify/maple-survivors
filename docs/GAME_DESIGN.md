@@ -187,6 +187,19 @@ Battleship (a timed Form on a drawn mount with a hull that soaks hits, `only_ski
 step up their bullets at Lv18 and Lv35. C14 added the selection, fixture and bot scores; C15 flipped `playable` and recorded the QA in 7.120.15 and 4.2.
 Sections 7.120–7.122 and the Corsair constants block in section 11 own every number; no balance tuning in this QA.
 
+**Landed in the Shadower spec (#425, SH1-SH14 #426-#439):** job 422 is playable between Night Lord and Buccaneer on the Job page (eleven rows; the list
+pitch shrinks to 15 px; SH13 fixed the row Button size so a click at a row's centre picks that row); F/P (212) remains the default. A Shadower wields a dagger
+(the Razor at creation), starts with Double Stab and Assaulter (the stunning dash-attack on the Rush key, outside both slot tracks and never a card) and draws
+its nine actives from a hand-picked pool: Double Stab, Steal, Savage Blow (the dagger fillers, 7.135), Boomerang Step and Band of Thieves (stunning line and
+the other-selves nova), Ninja Ambush (Night Lord's ground strike with the Shadower numbers), Meso Explosion (the finisher on a ten-pip meso charge, 7.134),
+Dark Sight (a timed Hidden form with its Assassinate sub-skill, 7.131) and Smokescreen (a placed safe zone that negates every hit, 7.132). New reusable
+mechanics are data-driven: the Hidden form (`buff.hidden`, `ignores_hidden`), the safe zone (`SafeZone`, `hit_negated`) and the finishing strike (`FinishingStrike`,
+the last line's critical chance and bonus, 7.133). SH13 added the selection, fixture, hub kit, Skill-window tabs and the independent replay oracle; SH14 flipped
+`playable`, gave the job Hero's melee HP baseline (600 at Lv1, 65 per level, tier C #346; 7.137), recaptured both Shadower goldens (cause: the HP baseline only),
+found and fixed one tooling gap (a bare `--job=422` tool round never loaded the Razor) and recorded the QA in 7.137 and 4.2. Sections 7.130-7.137 and the
+"Shadower SH1-SH14 constants" tables own every number; no balance tuning in this QA (the smoke results swing by seed: Shadower is weak on Ellinia and Perion and some seeds outlast F/P on
+Henesys and Kerning; the levers are listed in 4.2).
+
 ### Known design gaps (open after the slice)
 
 These are findings of the QA pass, #293 and #307, recorded as gaps, not as met targets. Nothing here was tuned in #294.
@@ -5391,6 +5404,49 @@ changes neither the asset manifest nor the web shell, so the import screen lists
 Oracles: `test_character_baseline`, `test_tick_cost_identity` and the Hero, Bowmaster, Marksman (when present) and Night Lord
 baselines reproduce their hashes (see the full-suite results in the NL12 note); no hash was recaptured, no tests deleted. The #383 review fixes recaptured the Night Lord hash only (echo reach and aim spread, 7.94.3); every other job's oracle is unchanged.
 
+### Shadower SH14 QA and regression smoke (#439, 2026-11-01)
+
+Seeds **1, 2, 2026** (training seeds only, no held-out seed, no tuning patch), the four first regions (Henesys, Ellinia, Perion, Kerning), `bot` and `random`,
+for Shadower (422) and the default F/P (212); Sleepywood bot with the starter equipment and with each job's committed fixture (`shadower_t2.json`,
+`fp_arch_mage.json`). `JOBS=3`, `ISOLATE=439s`, shared cache `cache-426`. 60/60 records, all 20 batch exits 0; no crash, world warning or missing asset.
+A Shadower's bare `--job=422` run wears the creation Razor (after the tooling fix below). C = CLEARED, D = DEAD, TO = still alive at the 1800 s cap (never a
+clear); values are seconds.
+
+| Stage / policy | Shadower 422 | F/P 212 |
+|---|---|---|
+| henesys / bot | 0/3 C; D 488.4-650.7; TO 1 (Lv24) | 0/3 C; D 417.3-646.7 |
+| henesys / random | 0/3 C; D 415.6-465.9; TO 1 (Lv23) | 0/3 C; D 428.6-668.0 |
+| ellinia / bot | 0/3 C; D 233.3-409.0 | 0/3 C; D 621.2-635.9 |
+| ellinia / random | 0/3 C; D 231.5-316.9 | 0/3 C; D 302.8-623.0 |
+| perion / bot | 0/3 C; D 265.4-396.1 | 0/3 C; D 308.1-651.8 |
+| perion / random | 0/3 C; D 283.7-344.5 | 0/3 C; D 331.5-466.1 |
+| kerning / bot | 0/3 C; D 313.3-518.0; TO 1 (Lv28) | 0/3 C; D 311.0-535.5 |
+| kerning / random | 1/3 C; D 311.6-405.9; C 1681.2 | 0/3 C; D 306.5-373.2 |
+| sleepywood / starter | 0/3 C; D 14.8-21.1 | 0/3 C; D 11.4-15.1 |
+| sleepywood / kit | 0/3 C; D 21.5-22.6 | 1/3 C; D 23.8-767.0; C 925.2 |
+
+Shadower: first-region clears 1/24 (Kerning random, seed 2026, 1681.2 s, three bosses killed, Lv32) and 3 further runs alive at the cap (Henesys bot and random
+and Kerning bot, each one seed, Lv23-28, two maps or three); the first boss spawned in 18/24 runs (Henesys 6/6, Kerning 6/6, Perion 4/6, Ellinia 2/6, where
+runs die at 231-317 s at Lv7-9) and a boss was killed in 4/24 (F/P: 24/24 and 17/24). The Henesys bot runs filled six actives at 134.0 / 139.1 / 192.4 s. This is
+neither stop condition (every run dying before the first boss, or every run clearing): Henesys and Kerning reach the boss and some seeds go much further than F/P.
+**Shadower's results swing by seed (seed 1 and 2026 reach the later maps, seed 2 dies at the first boss), and Ellinia and Perion are its weak regions;** nothing was
+tuned. Sleepywood with the first-four-regions kit dies in 21-23 s at Lv1 as every job does (F/P's kit clears 1/3). Levers for the balance pass (the spec's list):
+Double Stab / Steal / Savage Blow cadence and reach, Assaulter's cooldown and stun chance, Band of Thieves and Boomerang Step stun and damage, Ninja Ambush
+cooldown, the meso charge pip rate (1 per 600 mesos) and +2% per pip, Meso Explosion's 4-pip gate and keep, Dark Sight's 5 of 20 s window, Smokescreen's cooldown
+(24 s) and life (6 s), the HP baseline of this ticket.
+
+F/P's three Henesys bot records (seeds 1, 2, 2026) are **byte-identical to the unmodified `spec/425-shadower` base (8e9abbfe)** run with the same cache, and
+Hero (112) and the eight other playable jobs' Henesys bot records (seeds 1, 2, 2026, 420 s cap) are byte-identical to the base too (table in "Other jobs"
+below), so SH14's changes (a data flip and HP rows keyed 422, `balance_run.gd`'s Shadower-only block, one extra equipment id in the tool setup) moved nothing for them.
+
+**Shadower measurements** (the new `shadower` record block, summed over the 30 Shadower records): the meso charge's time-weighted mean pips **2.0** over all 30
+runs (the four seed-2026 bot runs hold **6.3-7.6**, every other first-region run 1.1-2.0; Sleepywood 0) with **peak 10** in 7 runs; **Dark Sight windows 192**, with
+**520 Assassinate casts** (1282 landed lines, **222 of them critical**: the last-line finisher); **Smokescreen zones 147** and **17,582 raw `hit_negated` events**
+(contact negation fires every tick inside a zone: read the 147 zones, not the raw count; SH4); **Meso Explosion casts 427** (14,967 landed lines, about 35 per
+cast); **Assaulter presses 3116** (2614 landed hits, stuns on non-bosses); Double Stab 7662 casts, Steal 6004, Savage Blow 3977, Boomerang Step 1203, Band of
+Thieves 936, Ninja Ambush 701.
+
+
 ## 5. Experience and levels
 
 **There is no MP (ADR 0006, #285).** Skills are gated by their cooldown only: no MP pool, costs, MP-short state, MP
@@ -10076,6 +10132,57 @@ every hit source negated and landing after the cloud, a real contact tick, every
 zone, Mastery cooldown, bot scores, Skill window text, the view's two art shapes; the last test reads the real cache for all
 eight ranks and the art and SKIPS without it), `test_safe_zone_view`.
 
+### 7.137 Shadower QA and merge readiness (spec #425, SH14 #439)
+
+SH14 is the QA ticket: it made Shadower playable, gave it the melee HP baseline, played the whole loop and re-ran every shipped job's oracle. Constants:
+"Shadower SH14 constants (#439)".
+
+- **`playable: true`** in the 422 entry of `jobs/shadower.json` (the entry had no `playable` key until now). `default_job` stays 212. The tests that pinned "422 is
+  unplayable" or ten Job-page rows moved to the shipped state (eleven rows, Shadower after Night Lord, 15 px pitch, the keyboard step Night Lord -> Shadower ->
+  Buccaneer), and the refusal cases (`not playable`) use an "unplayable" patch; the "playable" patch mirrors SH13 added are gone (`test_shadower_selection`,
+  `test_shadower_hub_kit`, `test_creation_shadower`, `test_skill_window_shadower`, `test_shadower_data`; `test_creation_bishop` / `_bowmaster` / `_corsair` /
+  `_night_lord` list eleven rows). The fixture `shadower_t2.json` was regenerated on the shipped data (only its `_doc` changed: no `patch` key, revision 8e9abbfe).
+- **HP baseline (decision SH-14):** `balance.player.ap["422"].hp` 600 and `balance.growth["422"].hp` 65, Hero's melee numbers (the Paladin and Dark Knight did the same),
+  tier C #346, a first pass for the training seeds; the Thief line's 22 per level stays in the `400` row and the shared default (50 at Lv1) stays for the other thieves.
+  In a round a Shadower shows HP 600 at Lv1, 665 at Lv2, 795 at Lv4, 990 at Lv7 and 1185 at Lv10 (`evidence/sh14`, by eye). The Free Market's HP bar still shows the
+  hub's 50 for every job at Lv1 (the hub is not a round).
+- **Goldens moved, cause written:** `test_shadower_baseline` `GOLDEN` `4a7a6a0e...` -> `1d6313f3...` and `GOLDEN_OUTSIDERS` `38eac8d1...` -> `9405eac0...`. The initial
+  `player_state` is hashed and HP changes the round (hits taken, regen, potions). Proof of the cause: with the two HP rows removed from the data the old hashes
+  reproduced exactly (neither the flip nor the new `shadower` record block moved them). Every other job's oracle (F/P `test_character_baseline` and
+  `test_tick_cost_identity`, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer, Bowmaster, Corsair, Night Lord) reproduced without recapture.
+- **Tooling gap found and fixed:** a tool round with `--job=422` and no `--character` (the bare playtest and the bare smoke) cast Double Stab **never**: the setup's
+  starter equipment list (`DataRepo.starter_equipment_ids`) held no Razor (it is neither a MakeCharInfo option nor a drop, and a character's held ids only enter with
+  a `--character`), so the world had no canonical info for the held weapon and `WeaponReach` was 0. The first bare Henesys playtest died at the first boss at Lv1
+  with 0 kills and 40 damage (Assaulter only). Flow-created characters and every `--character` run were never affected. `starter_equipment_ids` now also lists the
+  creation weapon of every playable job. F/P and Hero records are byte-identical before and after (seed 1, 150 s), and the three F/P Henesys bot records equal the base.
+- **Record block:** `balance_run.gd` adds a `shadower` object to the record of job 422 only (`charge_mean`, `charge_peak`, `dark_sight_windows`, `casts` and `hits` per
+  skill key, `assassinate_crits`, `zones`, `negated_hits`); other jobs' records keep their bytes (Corsair's `corsair` block is the precedent). Pinned in
+  `test_shadower_selection`.
+- **Screenshot timing:** `capture_delay` (a playtest-only key, as Paladin's and Corsair's) on Ninja Ambush 0.7 s, Smokescreen 0.6 s, Meso Explosion 0.6 s, Band of Thieves
+  0.3 s, Boomerang Step 0.3 s, Dark Sight 1.0 s and Assassinate 0.9 s so each first-cast shot shows its effect.
+- **Flow scenario:** `redesign --job=422 --seed=1` PASSED (33 picks; `evidence/sh14/redesign/`, 31 shots read by eye): the eleven-row Job page with Shadower highlighted
+  and "Razor - WATK 20 - 0.72s", Free Market, map select with Ellinia locked, an invulnerable Henesys round (first level-up offer with the Shadower cards, slots-full offer,
+  boss draw, CLEAR, fades, map arrivals, the Mastery offer), results (Lv31, 612 kills, three bosses), Free Market with Ellinia unlocked and a worn drop, the Ellinia round with
+  loot and the diagnostic death, results, hub with the loot kept, deletion and history (cleared, died, deleted). This is flow evidence, not survival evidence.
+- **Playtests** (`--job=422 --seed=2026 --speed=4 --vsync=off`, `missing: []` in all, no warning):
+
+| Run | Result | Meso charge mean / peak | `sim_us_per_tick` (mean) |
+|---|---|---|---|
+| Henesys, creation Razor | DEAD 397.1 s Lv11, 255 kills, no boss kill, max alive 112 | 5.38 / 10 | 764 |
+| Henesys, `shadower_t2.json` | DEAD 791.0 s Lv31, 1818 kills, 2 bosses killed, map 3 at 712 s, max alive 248 | 7.75 / 10 | 965 |
+| Sleepywood, creation Razor | DEAD 34.3 s Lv1 | 0 / 0 | 770 |
+| Sleepywood, `shadower_t2.json` | DEAD 23.7 s Lv1 (Lv1 on the fifth region, as every job) | 0 / 0 | n/a |
+
+  Diagnostic runs with a temporarily narrowed pool (edits reverted, `git status` clean of them; Henesys seeds 3 and 5, kit, 6 and 5 minutes, `missing: []`): pool Dark Sight /
+  Smokescreen / Meso Explosion (Lv11, 228 kills) and pool Ninja Ambush / Band of Thieves / Boomerang Step / Savage Blow (Lv9, 190 kills, meso charge peak 10). Looked at by
+  eye (`evidence/sh14/`, gitignored): the dagger and `cast_*` shots of Double Stab, Steal, Savage Blow, Assaulter (dash, hit number), Boomerang Step (the long golden line through
+  a snail), Band of Thieves (the burst with stacked numbers and the full ten-pip row), Ninja Ambush (the zone box with a ninja on each side and a red hit number), Assassinate (the
+  green crescent beside the faded avatar), Dark Sight (the blue column and the buff icon), Meso Explosion (the masked burst and a column of numbers), **Smokescreen (the cloud box on the ground and
+  `hit_negated`: a "Guard" label over the character with a number that did not land)**, the meso charge pip row beside the timer, HP bar growth with level. **Not captured in a frame:**
+  a poisoned pack (no Venomous Stab grant is taken by the bot in these seeds; Night Lord's poison probe, `night_lord_status_probe`, and the unit tests cover the visual), a distinctly readable stunned pack
+  (stuns are applied: 22 status applications in the SH13 oracle, Assaulter and Boomerang Step presses in the smoke) and a mid-flight Assaulter dash at the capture size.
+- **Web gate:** see "Other jobs and web gate" below.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -12698,3 +12805,17 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Baseline oracle length | 21,600 ticks (six minutes), seed 1, the pre-#241 opening and whole-round curve, creation outfit with the Razor | tier C: the Night Lord and Corsair oracle length |
 | `GOLDEN` (shipped pool) | `4a7a6a0e705ad262721d92019fe1d66d48fa47c42a0180f96b60172cfcd30a72`; 418 casts, 948 hits, 10 Dark Sight windows | tier C: captured here; identical with and without the asset cache; **superseded by SH14**: now `1d6313f3...` (HP baseline) |
 | `GOLDEN_OUTSIDERS` (pool frozen to Boomerang Step, Savage Blow, Smokescreen) | `38eac8d13529543734a706e0ab4955db57d50c43253e4e10b6956032eaab313f` | tier C: captured here; **superseded by SH14**: now `9405eac0...` (HP baseline) |
+
+### Shadower SH14 constants (#439)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `playable` of 422 | `true` (the entry had no key before) | tier C: spec #425 SH-14 |
+| `balance.player.ap["422"].hp` | 600 (Lv1 starting HP; the shared default is 50) | tier C #346: Hero's melee baseline, a first pass as the Paladin and Dark Knight specs do; training seeds only, the balance pass owns it |
+| `balance.growth["422"].hp` | 65 per level (the Thief line's 22 stays in the `400` row) | tier C #346: Hero's melee growth |
+| `GOLDEN` (shipped pool) | `1d6313f323a30b6c6c75b5e0537f98c3f3198b2950a8a150dcdd6e6bde6ec910` (was `4a7a6a0e...`) | tier C: recaptured; cause the HP baseline only (the old hash reproduced with the two HP rows removed) |
+| `GOLDEN_OUTSIDERS` | `9405eac0a78bc0b476efabfe2cc3f766297bc531dd1c1e785c3a4b11b3a537a6` (was `38eac8d1...`) | tier C: recaptured, same cause |
+| `capture_delay` | Ninja Ambush 0.7, Smokescreen 0.6, Meso Explosion 0.6, Band of Thieves 0.3, Boomerang Step 0.3, Dark Sight 1.0, Assassinate 0.9 seconds | tier C: playtest screenshot timing only, not read by the sim |
+| `shadower` record block | `charge_mean` (time-weighted pips), `charge_peak`, `dark_sight_windows`, `casts` / `hits` per skill, `assassinate_crits`, `zones`, `negated_hits` (raw) | tier C (ours): measurement only, job 422 records only |
+| Tool setup equipment list | adds the creation weapon of every playable job (the Razor 1332005 for 422) | tier C (ours): tooling fix, no sim change |
+| Everything else | no new constant; the QA record is in 4.2 and 7.137 | n/a |
