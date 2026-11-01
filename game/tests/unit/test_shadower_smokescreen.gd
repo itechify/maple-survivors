@@ -469,7 +469,7 @@ func test_the_view_takes_one_animation_or_the_puff_variants_and_draws_a_differen
 	var view := SafeZoneView.new()
 	view.begin("cloud", Rect2(0, 0, 300, 100), 5.0, 90.0, variants)
 	view.advance(1.0)
-	assert_eq(view.puff_count(), 5, "300 px / 64 px of puffs, from the variants")
+	assert_eq(view.puff_count(), 6, "300 px / 48 px of puffs, from the variants")
 	view.free()
 
 

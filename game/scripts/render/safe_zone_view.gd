@@ -9,7 +9,8 @@ extends Node2D
 ## Works from data only: `begin` takes the zone's world box, its life and the cloud's art: one SpriteAnim, an Array of
 ## them (the puff VARIANTS of Smokescreen's `tile`, eleven two-frame puffs that each fade in and out, SH1 correction 3), or
 ## null for a cloud without art. Tier C (ours): the whole look. Puff `k` is drawn with variant `(k * VARIANT_STRIDE) mod n`
-## standing on the floor line, spread every PUFF_STEP px over the box, the second puff of each pair shifted up PUFF_LIFT px;
+## standing on the floor line, spread every PUFF_STEP px over the box (pulled in so none reaches past its sides), the second
+## puff of each pair shifted up PUFF_LIFT px;
 ## which WZ node is the cloud is the reading of SH1's contact sheet, confirmed by SH12's screenshot.
 
 ## tier C: the box tint and outline colours (faint, so the cloud shows without hiding the fight), the outline width.
@@ -17,8 +18,8 @@ const FILL := Color(0.78, 0.8, 0.92, 0.10)
 const OUTLINE := Color(0.88, 0.9, 1.0, 0.42)
 const OUTLINE_WIDTH := 1.0
 ## tier C: horizontal distance between two puffs, the lift of every second puff, and the most puffs one zone draws.
-const PUFF_STEP := 64.0
-const PUFF_LIFT := 16.0
+const PUFF_STEP := 48.0
+const PUFF_LIFT := 30.0
 const MAX_PUFFS := 20
 ## tier C: seconds the cloud fades in at its start and out at its end (or when it is replaced or the map changes).
 const FADE := 0.4
@@ -199,6 +200,13 @@ func _draw_puffs(zi: int) -> int:
 		var frame := anim.frame_at(t, true)
 		# The puff stands on the floor line: its bottom edge (origin-relative) sits PUFF_SINK px under it.
 		var at := positions[puff] - Vector2(0.0, frame.region.size.y - frame.origin.y - PUFF_SINK)
+		# A puff never reaches past the box's sides (a big puff of the first or last spot is pulled in): the cloud is what
+		# protects, so it must not look wider than the box.
+		var rect: Rect2 = zone.rect
+		var left := frame.origin.x
+		var right := frame.region.size.x - frame.origin.x
+		if left + right <= rect.size.x:
+			at.x = clampf(at.x, rect.position.x + left, rect.end.x - right)
 		_pool.show(zi * MAX_PUFFS + puff, frame, at.round(), false, anim.alpha_at(t, true) * fade)
 	return positions.size()
 

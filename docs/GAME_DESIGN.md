@@ -9785,8 +9785,9 @@ places a zone behaves byte-identically (the `safe_zones.is_empty()` guards cost 
   ordinary `cast` event; the definition's `tile` animation (read from the definition's `tile` path at the cast's level, as `effect`
   is) loops as a row of puffs over the box's floor for the zone's life; a faint tinted box and outline; a pale "Guard" word over the
   character on a negated hit (at most one per 0.4 s). A skill without a `tile` path draws the box alone. **Which WZ node is the
-  cloud is a reading (tier C): SH12 confirms or corrects it against SH1's contact sheet.** The probe
-  (`scenes/debug/safe_zone_probe.tscn`) shows the look on synthetic art.
+  cloud is a reading (tier C): SH12 (7.136) confirmed it against Smokescreen's real node and corrected the shape: `tile` is
+  eleven two-frame puff variants, not one loop.** The probe (`scenes/debug/safe_zone_probe.tscn`) shows the look on synthetic art, or
+  with `--real` on the real puffs.
 - **Text.** The card and the Skill window: "Sets off a smoke cloud for {duration} s: hits that land while you stand inside it are
   negated. Needs {min_mobs} monsters within {mob_within} px." with the resolved life (a `zone_time` card shows 6 -> 9 s: label
   "Cloud duration").
@@ -9853,6 +9854,41 @@ with at least one monster in the box, both on the default 30-level rank table (r
 Tests: `test_shadower_boomerang_band` (forward line follows the facing, nearest-N and two lines each, stun roll and boss
 exemption, Band lines / monsters / box by rank, totals rising across the non-monotone percents, per-line hit art, every rarity
 bonus changing the resolved cast, card flow, bot scores, Skill window text, and the real-cache numbers of all eight ranks).
+
+### 7.136 Smokescreen (spec #425 SH12, #437)
+
+Smokescreen (4221006, book / job 422, `skills/shadower.json` key `smokescreen`) is the first user of the safe zone (7.132) and
+the Shadower pool's defensive entry (R5): a place, not a stat buff. It is data on the SH4 seam; the only code is the view reading the
+real art.
+- **Definition.** `kind instant`, `slot active`, `damage none`, `cast {rule safe_zone, min_mobs 3, mob_within 250}`,
+  `safe_zone {duration 6.0}`, cooldown 24 s, action `smokeshell` (tier A, the body has 7 frames; held 0.6 s, tier C), the cast
+  `effect` (11 frames: a 1x1 lead frame, the white dust ring and the green smoke shell at the feet, four small tail frames) and a
+  top-level `tile` path beside it (the manifest already exports the whole 422 book, `effect` and `tile` are preloaded in
+  `RunScene._warm`), the `Use` sound. No `ranks` key: the default 30-level table reads WZ levels 4 / 8 / 12 / 15 / 19 / 23 /
+  27 / 30 at ranks 1..8. The WZ `time` (31 -> 60 s) and `cooltime` (600 at every level) are session values and are not read.
+- **The box by rank** is the node's `lt` / `rb` as given, anchored where the Shadower stood at the cast: +-120 x +-90 at rank 1, (-150,
+  -112)..(150, 113) at rank 4 (the node's y edges are one pixel off symmetric at several levels and are not symmetrised) and
+  +-200 x +-150 at rank 8; every rank is wider than the one before (240, 260, 280, 300, 340, 360, 380, 400 px).
+- **Rarity bonuses** (tier C, #288 schema; `_rarity` in the data): Wide Smoke `area` x1.2 (the box, also the cloud art), Haste
+  cooldown x0.88 (24 -> 21.12 s), Thick Smoke `zone_time` x1.5 (a 9 s cloud, read at placement), Legendary = the Unique's id (so it
+  shares the repeat counter) plus `area` x1.2 because the skill has no damage. A Rare+ card adds one rank plus its bonus. Normal Mastery
+  on this `damage: none` skill is cooldown x0.95 (#346, `UpgradePool`), repeats x0.8.
+- **Bot.** `card_scores` for `smokescreen_new` 100 and `_rank` 74 are SH2's (`jobs/shadower.json`), because `BotInput._base_score` only
+  scores projectile, instant and box skills as attacks. The bot does not steer into the cloud (out of scope, recorded).
+- **The art, read against the real node** (SH1's contact sheet, confirmed here by a screenshot of a real cloud with a negated hit):
+  `effect` is the cast, once, on the caster. `tile` is **eleven puff variants** `tile/<0..10>/<0..1>` (47..137 px wide), each two
+  frames of 650-900 ms whose alpha ramps 64 -> 128 and 128 -> 64, origin at the sprite's centre. `SpriteAnim` of the `tile` node
+  itself is therefore empty. `SafeZoneView.load_art(library, path)` returns the node's own animation when it holds frames, otherwise
+  one animation per numbered child; `SafeZoneView.begin` takes one animation, an Array of them or null. Puff `k` draws variant
+  `(5k) mod n` standing on the floor line (its bottom edge 8 px below it), every 48 px across the box with every second one lifted
+  30 px, each at its own phase of the loop, pulled in so it never reaches past the box's sides.
+- **Negated hits.** Every hit source is negated while the body centre is inside the box (the SH4 rule): contact (60 `hit_negated` a
+  second while a monster touches), monster attacks, balls and boss attacks. Out of the box, or after the 6 s, the same hit lands.
+
+Tests: `test_shadower_smokescreen` (the definition, the box by rank from a synthetic table copied from the node, 6 s / 24 s, admission,
+every hit source negated and landing after the cloud, a real contact tick, every rarity bonus changing the cast and the placed
+zone, Mastery cooldown, bot scores, Skill window text, the view's two art shapes; the last test reads the real cache for all
+eight ranks and the art and SKIPS without it), `test_safe_zone_view`.
 
 ## 8. Upgrades
 
@@ -12340,7 +12376,7 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Negation site | after the Hidden / guard net, before the avoid roll; edges of the box count as inside; the test point is the body centre (`player_body_center()`), the box is anchored at the cast origin | tier C: spec #425 SH-11, ours (SH4) |
 | Boss reflect negated | a Reflect boss's hit on the character (`source_kind reflect`) is negated inside a zone | tier C: ours (SH4) |
 | `zone_time` | a multiplicative skill modifier on the life, read at placement; card label "Cloud duration" | tier C: spec #425 |
-| Cloud look | box fill `Color(0.78, 0.8, 0.92, 0.10)`, outline `Color(0.88, 0.9, 1.0, 0.42)` 1 px, puffs every 64 px (every second one 16 px up, at most 20) on the floor line, fade in and out 0.4 s | tier C: ours (SH4) |
+| Cloud look | box fill `Color(0.78, 0.8, 0.92, 0.10)`, outline `Color(0.88, 0.9, 1.0, 0.42)` 1 px, puffs every 48 px (every second one 30 px up, at most 20) on the floor line, fade in and out 0.4 s (SH12 changed the puff step 64 -> 48 and the lift 16 -> 30 for the real art, Shadower SH12 constants) | tier C: ours (SH4, SH12) |
 | "Guard" word | text "Guard", 14 px, `Color(0.86, 0.93, 1.0)`, rises 26 px over 0.8 s, at most one per 0.4 s | tier C: ours (SH4) |
 | Card text | "Sets off a smoke cloud for {duration} s: hits that land while you stand inside it are negated. Needs {min_mobs} monsters within {mob_within} px." | tier C: spec #425 |
 
@@ -12372,3 +12408,17 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Band of Thieves `action` | `weapon` (the held dagger's first stance; the WZ node has none) | tier C: spec #425, asset notes (#426) |
 | Band of Thieves art | `effect` on the caster, `hit_lines` = `hit/1..5` by line, `hit/0` the fallback; `hitAfter` not modelled (all lines on the cast tick) | tier C: ours (SH8) |
 | Rarity bonuses (both) | damage x1.2, cooldown x0.88 / `area` x1.2, `count` / `attack_count` +1, Legendary = Unique + damage x1.2 | tier C: spec #425 |
+
+### Shadower SH12 constants (#437)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Smokescreen box by rank | the node's `lt` / `rb` at WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30: +-120 x +-90, (-130,-97)..(130,98), +-140 x +-105, (-150,-112)..(150,113), (-170,-127)..(170,128), +-180 x +-135, (-190,-142)..(190,143), +-200 x +-150; not symmetrised | tier A (Skill.wz 4221006); anchor at the cast origin, spec #425 SH-11 |
+| Smokescreen life / cooldown | 6.0 s / 24 s (WZ `time` 31 -> 60 s and `cooltime` 600 are session values, not read) | tier C: spec #425 SH-11 |
+| Smokescreen admission | `min_mobs` 3 within `mob_within` 250 px, and not inside its own live cloud | tier C: spec #425 SH-11 |
+| Smokescreen action hold | `smokeshell` held 0.6 s (the body plays 7 frames of 120-360 ms) | tier C: ours (SH12) |
+| Smokescreen rank table | the default 30-level table (no `ranks` key) | tier C: spec #425 |
+| Rarity bonuses | Wide Smoke `area` x1.2, Haste cooldown x0.88, Thick Smoke `zone_time` x1.5 (9 s), Legendary = Thick Smoke + `area` x1.2 (same id and counter); repeat scale x0.8; Normal Mastery cooldown x0.95 | tier C: spec #425 |
+| Cloud art | `effect` = the cast (11 frames, once); `tile` = eleven two-frame puff variants (alpha 64 -> 128 -> 64) | tier A nodes; the reading tier C: SH1's contact sheet, confirmed by SH12's screenshot |
+| Puff variant stride / floor sink | puff `k` shows variant `(5 k) mod n` (5 is coprime with 11, so neighbours differ); the puff's bottom edge sits 8 px below the floor line | tier C: ours (SH12) |
+| Puff spacing / lift | every 48 px across the box (was 64), every second puff 30 px up (was 16), at most 20; each puff pulled inside the box's sides | tier C: ours (SH12, replaces SH4's 64 / 16 for the real art) |
