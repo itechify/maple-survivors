@@ -10155,6 +10155,11 @@ SH14 is the QA ticket: it made Shadower playable, gave it the melee HP baseline,
   a `--character`), so the world had no canonical info for the held weapon and `WeaponReach` was 0. The first bare Henesys playtest died at the first boss at Lv1
   with 0 kills and 40 damage (Assaulter only). Flow-created characters and every `--character` run were never affected. `starter_equipment_ids` now also lists the
   creation weapon of every playable job. F/P and Hero records are byte-identical before and after (seed 1, 150 s), and the three F/P Henesys bot records equal the base.
+- **Tests the focused filters missed (found by the full suite):** a playable Shadower makes the pool generate the plain new / rank cards of Double Stab, Steal and Savage Blow, so
+  `test_bandit_attacks`, `test_thief` and `test_thief_parity` now assert the generic "+1 rank" pool cards (the explicit legacy cards stay gone, as NL12 did for Drain and Lucky
+  Seven); `test_bowmaster_data` lists eleven jobs; `test_data_files` expects the creation weapons in the setup list; `test_buccaneer_bot` / `test_corsair_bot` require every playable
+  job's pool skills to carry explicit 100 / 74 card scores, so the six that scored by the pool default were written out in `jobs/shadower.json` (same values); `test_shadower_ninja_ambush`
+  treats `capture_delay` as an owner key. No test was deleted.
 - **Record block:** `balance_run.gd` adds a `shadower` object to the record of job 422 only (`charge_mean`, `charge_peak`, `dark_sight_windows`, `casts` and `hits` per
   skill key, `assassinate_crits`, `zones`, `negated_hits`); other jobs' records keep their bytes (Corsair's `corsair` block is the precedent). Pinned in
   `test_shadower_selection`.
@@ -12806,7 +12811,7 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | `hub_kit.equipment` | 1002001 (all-job hat), 1332000 (Lv12 Thief dagger), 1082002 (all-job gloves), 1040031 (Thief-bit top, Lv10) | tier C: ours, the Night Lord kit's pattern with a dagger |
 | `hub_kit.fallback_item` | 1332011 (Lv40 Thief dagger, PAD 55): what the flow driver wears at Lv1 when a round dropped no equipment | tier C: ours |
 | Job page pitch with eleven rows | floor((366 - 198) / 11) = 15 px (ten rows 16, up to eight 21) | tier C: NL11 #410's rule, unchanged |
-| Bot card scores | no new entries; all nine pool skills score 100 learn / 74 rank (three explicit from SH2, six by the pool default) | tier C: spec #425 |
+| Bot card scores | no new entries; all nine pool skills score 100 learn / 74 rank (three explicit from SH2, six by the pool default) | tier C: spec #425; **SH14 wrote the six default ones out** (7.137) |
 | Baseline oracle length | 21,600 ticks (six minutes), seed 1, the pre-#241 opening and whole-round curve, creation outfit with the Razor | tier C: the Night Lord and Corsair oracle length |
 | `GOLDEN` (shipped pool) | `4a7a6a0e705ad262721d92019fe1d66d48fa47c42a0180f96b60172cfcd30a72`; 418 casts, 948 hits, 10 Dark Sight windows | tier C: captured here; identical with and without the asset cache; **superseded by SH14**: now `1d6313f3...` (HP baseline) |
 | `GOLDEN_OUTSIDERS` (pool frozen to Boomerang Step, Savage Blow, Smokescreen) | `38eac8d13529543734a706e0ab4955db57d50c43253e4e10b6956032eaab313f` | tier C: captured here; **superseded by SH14**: now `9405eac0...` (HP baseline) |
@@ -12822,5 +12827,6 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | `GOLDEN_OUTSIDERS` | `9405eac0a78bc0b476efabfe2cc3f766297bc531dd1c1e785c3a4b11b3a537a6` (was `38eac8d1...`) | tier C: recaptured, same cause |
 | `capture_delay` | Ninja Ambush 0.7, Smokescreen 0.6, Meso Explosion 0.6, Band of Thieves 0.3, Boomerang Step 0.3, Dark Sight 1.0, Assassinate 0.9 seconds | tier C: playtest screenshot timing only, not read by the sim |
 | `shadower` record block | `charge_mean` (time-weighted pips), `charge_peak`, `dark_sight_windows`, `casts` / `hits` per skill, `assassinate_crits`, `zones`, `negated_hits` (raw) | tier C (ours): measurement only, job 422 records only |
+| Card scores of the six dagger / line skills | `double_stab`, `steal`, `savage_blow`, `boomerang_step`, `band_of_thieves`, `ninja_ambush_shadower`: `_new` 100, `_rank` 74 in `jobs/shadower.json` | tier C: the pool default's own numbers written out (the guard `test_every_pool_skill_of_every_playable_job_has_new_100_and_rank_74_scores` needs every playable job explicit); no behaviour change, no golden moved |
 | Tool setup equipment list | adds the creation weapon of every playable job (the Razor 1332005 for 422) | tier C (ours): tooling fix, no sim change |
 | Everything else | no new constant; the QA record is in 4.2 and 7.137 | n/a |
