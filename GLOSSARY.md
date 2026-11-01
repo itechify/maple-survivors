@@ -184,6 +184,11 @@ _Avoid_: transformation, disguise
 A Form whose `buff` block carries a `morph_field`, so it also draws the character as a Morph and gives the buff's defence,
 speed and jump while it lasts (Buccaneer's Transformation and Super Transformation). It needs no Form effect key.
 
+**Hidden form**:
+A Form whose `buff` block sets `hidden`, so the character is Hidden for the Form's window (Shadower's Dark Sight). Its
+sub-skills that carry `ignores_hidden` still attack while every other attack is silenced. It needs no Form effect key.
+_Avoid_: stealth form
+
 **Reaction skill**:
 A skill that nothing casts on a timer or a key: the world triggers it when something happens to the character. Resurrection
 is the first: it catches a lethal hit (its cast rule is `reaction`, so the auto-caster and the bot never use it).
@@ -544,6 +549,12 @@ A pool active whose meter block gates admission and spends units for extra damag
 finishers; Energy Drain and Energy Orb are Buccaneer's. Their meter_keep rarity modifier leaves units unspent.
 _Avoid_: ultimate, proc
 
+**Finishing strike**:
+The last damage line of a multi-line cast, when the skill has a `finish_strike` block: it rolls its own critical chance (the
+base chance plus the level's `prop`, capped at certain) and adds the level's `criticalDamage` in skill-percent points. Every target's
+last line is a finishing strike; a one-line cast's only line is. It adds no random draw. Assassinate's three lines end in one (`FinishingStrike`).
+_Avoid_: finisher (a meter-gated pool skill), last-hit bonus, execute
+
 **Physical follower**:
 A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
 _Avoid_: pet (the Free Market pet is a cosmetic companion), minion
@@ -585,3 +596,9 @@ crit and element do not apply. Physical immunity and ordinary on-hit, kill and l
 
 **Status bonus** — A rarity or Mastery effect granting an ordered, rank-resolved status to one skill, independently of
 its numeric modifiers and native on-hit status. Repeating the grant adds diminishing chance points (M22, #402).
+
+**Safe zone** — A placed ground box in which every hit the character takes is negated for the box's short life (M18, spec #425).
+It is a place, not a stat buff: the hit does nothing at all (no damage, no hit window, no knock-back), monsters keep attacking, and
+statuses their skills apply are not hits. Cast by the `safe_zone` rule, fixed where it was cast, one per skill; Smokescreen is its
+first user. `SafeZone`, events `safe_zone_started` / `safe_zone_ended` / `hit_negated`.
+_Avoid_: shield, barrier, invulnerability buff

@@ -45,7 +45,7 @@ const ADVENTURER_LINES: PackedStringArray = ["common", "beginner", "warrior", "m
 
 
 ## Append each shipped class here; existing entries never move (tier C: deterministic fragment order).
-const CLASS_LINES: PackedStringArray = ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "corsair", "night_lord", "marksman"]
+const CLASS_LINES: PackedStringArray = ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "corsair", "night_lord", "marksman", "shadower"]
 
 
 ## All present fragments: fixed Adventurers, registered classes, then unregistered names sorted for diagnostics.
@@ -140,6 +140,8 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 	errors.append_array(skill_template_errors(out.get("skills", {})))
 	errors.append_array(GroundStrike.errors(out.get("skills", {})))
 	errors.append_array(EchoCast.errors(out.get("skills", {})))
+	errors.append_array(FinishingStrike.errors(out.get("skills", {})))
+	errors.append_array(SafeZone.errors(out.get("skills", {})))
 	errors.append_array(knockback_errors(out.get("skills", {})))
 	var skill_defs: Variant = out.get("skills", {}).get("skills")
 	if skill_defs is Dictionary:
@@ -563,8 +565,9 @@ static func stage_mob_ids(data: Dictionary, stage_key: String, mob_imgs: Diction
 
 ## Every item whose canonical info a setup loads, without duplicates: the default creation outfit
 ## (Equipment.DEFAULT_OUTFIT), every MakeCharInfo top, bottom,
-## shoes and weapon option of both genders, every equipment_drops item, and everything `character` (a CharacterSnapshot,
-## format 1 or 2) holds.
+## shoes and weapon option of both genders, every equipment_drops item, the creation weapon of every playable job (a tool
+## round with `--job` and no `--character` wears it, and the Razor of a Shadower is in no other list: SH14 #439) and everything
+## `character` (a CharacterSnapshot, format 1 or 2) holds.
 static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {},
 		character: Dictionary = {}) -> PackedInt32Array:
 	var ids := PackedInt32Array()
@@ -578,6 +581,9 @@ static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {
 	# Every item that can drop (survivor list), so a kill can pick by the real reqLevel/reqJob and roll the real stats.
 	for id: Variant in data.get("equipment_drops", {}).get("items", []):
 		_add_id(ids, int(id))
+	var job_tree := jobs(data)
+	for job_id: int in job_tree.playable_jobs():
+		_add_id(ids, job_tree.creation_weapon(job_id))
 	if not character.is_empty():
 		for id: Variant in CharacterSnapshot.held_item_ids(character, jobs(data)):
 			_add_id(ids, int(id))

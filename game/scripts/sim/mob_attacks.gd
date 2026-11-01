@@ -364,8 +364,10 @@ static func _impact(pending: Dictionary, world: RunWorld) -> void:
 		# (spec #144): no damage, no player_hit and no hit art. A rolled MISS is not blocked and keeps its art.
 		if world.hit_window_blocks(source):
 			return
+		# A hit a safe zone negates (M18) is no hit either: no hit art, as for the window above.
+		var negated := world.safe_zone_covers_player()
 		world.take_hit(float(pending.damage), bool(pending.magic), pending.element, pending.pos, source)
-		if String(pending.hit) != "":
+		if String(pending.hit) != "" and not negated:
 			emit(pending, "hit", world)
 
 

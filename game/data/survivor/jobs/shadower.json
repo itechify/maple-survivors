@@ -1,0 +1,131 @@
+{
+	"_doc": "Shadower line (spec #425, ticket SH2 #427). The second thief line after Night Lord, and the first dagger job: its job entry, its meso charge meter, its AP row, its bot card scores and its status-bonus catalogue entry. Skill definitions are in skills/shadower.json (SH6-SH12 append to it). An undefined skill key is never offered or learned. 422 is playable since SH14 #439 (QA ticket) and JobTree.default_job() stays 212 (survivor/jobs.json default_job). Ruling D15: the line is not in DataRepo.CLASS_LINES during the spec; DataRepo.lines() discovers it by its files and it is appended to CLASS_LINES at its redesign merge.",
+	"jobs": {
+		"422": {
+			"starting_skill": "double_stab",
+			"_starting_skill": "tier C: spec #425: Double Stab (4001334, book 400) is the starting active (slot 1) and the first skill a round learns; SH6 #431 moves it from skills/thief.json into skills/shadower.json.",
+			"mobility_skill": "assaulter",
+			"_mobility_skill": "tier C: spec #425 D1: Assaulter (4211002) is the mobility skill on the skill key (the existing rush key, one job owns one), outside both slot tracks and never a card; it follows balance.mobility_rank_levels like Rush. Defined by SH7 #432.",
+			"skill_pool": [
+				"double_stab",
+				"steal",
+				"savage_blow",
+				"boomerang_step",
+				"band_of_thieves",
+				"meso_explosion",
+				"ninja_ambush_shadower",
+				"dark_sight",
+				"smokescreen"
+			],
+			"_skill_pool": "tier C: spec #425: the nine hand-picked Shadower actives from the 400/420/421/422 books (Assaulter is the mobility skill, Assassinate a form sub-skill, neither a pool entry). Inert until SH6-SH12 define them: an undefined key is never offered or learned.",
+			"weapon_families": [
+				"dagger"
+			],
+			"_weapon_families": "tier C: spec #425: daggers only (WeaponInfo family dagger, 133xxxx); claws (147xxxx) belong to Night Lord. Armour drops by the Thief class bit and Thief shields drop with a dagger (existing tier C rule).",
+			"creation_weapon": 1332005,
+			"_creation_weapon": "tier A item fact: the Razor 1332005 (reqJob 0 so any class can wear it, reqLevel 5 which is not enforced #292, PAD 20, a dagger); the choice is tier C, spec #425.",
+			"meter": {
+				"id": "meso_charge",
+				"max": 10,
+				"gain": {
+					"event": "meso_picked",
+					"amount": 1,
+					"per_mesos": 600
+				},
+				"per_unit": {
+					"stat": "damage",
+					"value": 0.02
+				},
+				"art": "Item.wz/Special/0900.img/09000002/iconRaw"
+			},
+			"_meter": "tier C: spec #425 SH-10: the meso charge, a counter filled by meso pickups and never a currency (D7). 1 pip per 600 mesos picked up (Night Lord: 1000), max 10, NO decay (the finisher spends the charge, so a decay would be a race against a clock the player cannot see), +2% damage per held pip on every pool cast (Hero's Combo is +5%). Tier A fact: the art is the meso coin's animation frame, already imported for pickups. Read by PlayerMeter's meso_picked rule (NL4 #403).",
+			"playable": true,
+			"_playable": "tier C: spec #425 SH14 #439: Shadower is playable alongside the other jobs after its QA (flow scenario, playtests, smoke); 212 remains the default.",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/shadower_t2.json",
+				"scrolls": [
+					2043302,
+					2043301,
+					2043300,
+					2043304,
+					2043305
+				],
+				"equipment": [
+					1002001,
+					1332000,
+					1082002,
+					1040031
+				],
+				"fallback_item": 1332011
+			},
+			"_hub_kit": "tier C: spec #425 SH13 #438: the --hub / flow-driver test kit of a Shadower. Fixture = shadower_t2.json (the tier-1 dagger kit: Iron Dagger 1332010, Lv25 PAD 40); scrolls = the five dagger ATT scrolls of scrolls/thief.json (10%, 60%, 100%, dark 70%, dark 30%; 5 stacks of 10 within the Use tab); spare equipment = the all-job hat 1002001, a second dagger (1332000, Lv12 Thief), the all-job gloves 1082002 and a Thief-bit top (1040031, Lv10), all wearable by job 422; fallback_item = the Lv40 dagger 1332011 (Thief) the flow driver wears at Lv1 when a round dropped no equipment."
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"422": {
+					"hp": 600,
+					"_hp": "tier C #346 (SH14 #439): Hero's melee starting HP, a first pass as the Paladin and Dark Knight specs do (a dagger Shadower fights in contact range); training seeds only, GAME_DESIGN 4.2. The balance pass owns it.",
+					"primary": "luk",
+					"secondary": "dex",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 25
+						},
+						{
+							"level": 25,
+							"target": 25
+						},
+						{
+							"level": 200,
+							"target": 200
+						}
+					],
+					"_ap": "tier C: spec #425: the Thief (400) row copied verbatim (the Thief gear pattern, no new tuning); explicit so 422 no longer falls back through 421/420/400. Starting HP and HP growth are Hero's (hp 600, growth 65 below), SH14 #439."
+				}
+			}
+		},
+		"bot": {
+			"card_scores": {
+				"double_stab_new": 100,
+				"double_stab_rank": 74,
+				"steal_new": 100,
+				"steal_rank": 74,
+				"savage_blow_new": 100,
+				"savage_blow_rank": 74,
+				"boomerang_step_new": 100,
+				"boomerang_step_rank": 74,
+				"band_of_thieves_new": 100,
+				"band_of_thieves_rank": 74,
+				"ninja_ambush_shadower_new": 100,
+				"ninja_ambush_shadower_rank": 74,
+				"dark_sight_new": 100,
+				"dark_sight_rank": 74,
+				"smokescreen_new": 100,
+				"smokescreen_rank": 74,
+				"meso_explosion_new": 100,
+				"meso_explosion_rank": 74
+			},
+			"_card_scores": "tier C: spec #425: the numbers BotInput's pool default gives every curated skill (learn 100, rank 74), written out for all nine pool skills (SH14 #439: the guard test `test_every_pool_skill_of_every_playable_job_has_new_100_and_rank_74_scores` needs every playable job's pool to be explicit, as the Night Lord, Paladin and Corsair lines do; the six dagger / line skills were the pool default before and score the same). Dark Sight (a Form) and Smokescreen (a placed safe zone, damage none) are not projectile / instant / box skills, and Meso Explosion is the meter-gated finisher, so those three carried explicit entries from SH2."
+		},
+		"growth": {
+			"422": {
+				"hp": 65,
+				"_hp": "tier C #346 (SH14 #439): Hero's melee HP growth per level, copied from jobs/hero.json; GAME_DESIGN 4.2. The Thief line's 22 stays in the 400 row."
+			}
+		},
+		"status_bonuses": {
+			"venomous_stab": {
+				"kind": "poison",
+				"element": "s",
+				"chance": [14, 16, 18, 20, 24, 26, 28, 30],
+				"time": [2, 2, 3, 3, 3, 4, 4, 4],
+				"level": [4, 8, 12, 15, 19, 23, 27, 30],
+				"repeat_chance": 3
+			}
+		},
+		"_status_bonuses": "spec #425 SH-13 (M22): the rarity status-bonus catalogue entry of Venomous Stab (4220005); NL3 #402's code parses and validates it, SH2 only stores it. Keys are global, so the entry has its own name. Tier A: chance, time and level are Venomous Stab's prop, time and rank -> poison level map (verified equal level for level to Night Lord's venomous_star, 4120005). Tier C: repeat_chance (points added per repeat of the same grant, scaled by the x0.8 repeat factor). The WZ text 'usable up to 3 times against each monster' is not modelled (the poison refreshes without stacking)."
+	}
+}

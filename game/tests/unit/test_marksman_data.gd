@@ -70,11 +70,11 @@ func _world(job_id: int, p_seed := 362) -> RunWorld:
 
 # --- the line ---------------------------------------------------------------------------------------------------------
 
-func test_marksman_line_is_registered_last_right_after_night_lord() -> void:
+func test_marksman_line_is_registered_right_after_night_lord() -> void:
 	assert_true("marksman" in DataRepo.lines())
 	# Ruling D15: a shipped class line is appended to CLASS_LINES in redesign-merge order (Corsair, Night Lord, then Marksman).
 	var registered := Array(DataRepo.CLASS_LINES)
-	assert_eq(registered.back(), "marksman", "marksman is the last registered class line")
+	assert_eq(registered.find("shadower"), registered.find("marksman") + 1, "shadower (appended at its merge) follows marksman")
 	assert_eq(registered.find("marksman"), registered.find("night_lord") + 1, "marksman follows night_lord in CLASS_LINES")
 	assert_eq(DataRepo.fragment_path("jobs_survivor", "marksman", "res://data"), "res://data/survivor/jobs/marksman.json")
 	assert_eq(DataRepo.fragment_path("skills", "marksman", "res://data"), "res://data/survivor/skills/marksman.json")
@@ -84,7 +84,7 @@ func test_marksman_follows_the_registered_classes_in_the_shipped_order() -> void
 	var lines := Array(DataRepo.lines())
 	assert_eq(lines.slice(0, 7), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
 	assert_eq(lines.find("marksman"), lines.find("night_lord") + 1, "right after Night Lord in the line order")
-	assert_eq(lines.slice(7), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "corsair", "night_lord", "marksman"])
+	assert_eq(lines.slice(7), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "corsair", "night_lord", "marksman", "shadower"])
 
 
 func test_the_marksman_line_loads_without_errors_and_adds_its_job_and_only_crossbowman_books() -> void:

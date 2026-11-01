@@ -925,6 +925,7 @@ character 1332001
 character 1332002
 character 1332003
 character 1332004
+character 1332005
 character 1332006
 character 1332008
 character 1332009
@@ -1401,6 +1402,8 @@ img Skill.wz/410.img *
 img Skill.wz/411.img *
 img Skill.wz/412.img *
 img Skill.wz/420.img *
+img Skill.wz/421.img *
+img Skill.wz/422.img *
 img Skill.wz/500.img *
 img Skill.wz/510.img *
 img Skill.wz/511.img *
@@ -1561,6 +1564,7 @@ img Sound.wz/Skill.img 4111002
 img Sound.wz/Skill.img 4111004
 img Sound.wz/Skill.img 4111005
 img Sound.wz/Skill.img 4111006
+img Sound.wz/Skill.img 4121001
 img Sound.wz/Skill.img 4121004
 img Sound.wz/Skill.img 4121007
 img Sound.wz/Skill.img 4121008
@@ -1568,6 +1572,13 @@ img Sound.wz/Skill.img 4201002
 img Sound.wz/Skill.img 4201003
 img Sound.wz/Skill.img 4201004
 img Sound.wz/Skill.img 4201005
+img Sound.wz/Skill.img 4211002
+img Sound.wz/Skill.img 4211004
+img Sound.wz/Skill.img 4211006
+img Sound.wz/Skill.img 4221001
+img Sound.wz/Skill.img 4221004
+img Sound.wz/Skill.img 4221006
+img Sound.wz/Skill.img 4221007
 img Sound.wz/Skill.img 5001001
 img Sound.wz/Skill.img 5001002
 img Sound.wz/Skill.img 5001003

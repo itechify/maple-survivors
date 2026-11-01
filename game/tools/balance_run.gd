@@ -421,6 +421,14 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"marked_monster_seconds": 0.0, "hits": {}} if w.job_id() == 522 else {}
 	var ship_start := -1.0
 	var mark_until := {}
+	# Shadower (422) only, measurement for the QA smoke (spec #425 SH14 #439): the meso charge's time-weighted mean and peak, Dark Sight
+	# windows, casts and hits of its skills (Assassinate's critical hits, Meso Explosion's lines), Smokescreen zones, raw negated hits
+	# (contact negation fires every tick; count the zones for the ordinary reading) and Assaulter presses. Other jobs record nothing.
+	var shadower := {"charge_mean": 0.0, "charge_peak": 0, "dark_sight_windows": 0, "casts": {}, "hits": {}, "assassinate_crits": 0,
+		"zones": 0, "negated_hits": 0} if w.job_id() == 422 else {}
+	var charge_value := 0
+	var charge_at := 0.0
+	var charge_area := 0.0
 	var potion_uses: Array = []
 	var reach := {}
 	var alive_min: Array = []
@@ -516,7 +524,24 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 							cast.value = float(buff.value)
 							break
 					buff_casts.append(cast)
+				"cast":
+					if not shadower.is_empty():
+						shadower.casts[String(e.skill)] = int(shadower.casts.get(String(e.skill), 0)) + 1
+				"meter_changed":
+					if not shadower.is_empty():
+						charge_area += charge_value * (w.time - charge_at)
+						charge_at = w.time
+						charge_value = int(e.value)
+						shadower.charge_peak = maxi(int(shadower.charge_peak), charge_value)
+				"safe_zone_started":
+					if not shadower.is_empty():
+						shadower.zones += 1
+				"hit_negated":
+					if not shadower.is_empty():
+						shadower.negated_hits += 1
 				"form_started":
+					if not shadower.is_empty() and String(e.skill) == "dark_sight":
+						shadower.dark_sight_windows += 1
 					if not corsair.is_empty() and String(e.skill) == "battleship":
 						corsair.ship_boardings += 1
 						ship_start = w.time
@@ -527,6 +552,11 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 						if String(e.reason) == "broken":
 							corsair.hull_broken += 1
 				"mob_hit":
+					if not shadower.is_empty():
+						var sh_skill := String(e.get("skill", ""))
+						shadower.hits[sh_skill] = int(shadower.hits.get(sh_skill, 0)) + 1
+						if sh_skill == "assassinate" and bool(e.crit):
+							shadower.assassinate_crits += 1
 					if not corsair.is_empty():
 						var hit_skill := String(e.get("skill", ""))
 						corsair.hits[hit_skill] = int(corsair.hits.get(hit_skill, 0)) + 1
@@ -654,6 +684,10 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		record["god"] = true
 	if hit_log > 0:
 		record["last_hits"] = last_hits
+	if not shadower.is_empty():
+		charge_area += charge_value * (w.time - charge_at)
+		shadower.charge_mean = snappedf(charge_area / maxf(0.001, w.time), 0.01)
+		record["shadower"] = shadower
 	if mob_attack_hits > 0:
 		# #76: only rounds where an ordinary mob's attack landed record this, so other rounds keep their exact bytes.
 		record["mob_attack_hits"] = mob_attack_hits

@@ -102,10 +102,13 @@ func step(dt: float, world: RunWorld) -> void:
 			# tier C (spec #88): an ordinary ball the hit window turns away is neither a hit nor used up; it flies on
 			# and can still land once the window ends (also from inside the body box: the sweep then enters at t = 0).
 			if not world.hit_window_blocks(source):
+				# A ball a safe zone negates (M18) is still used up, but bursts no hit art: no mob_projectile_hit.
+				var negated := world.safe_zone_covers_player()
 				world.take_hit(damage[slot], magic[slot] != 0, element[slot], source_pos[slot], source)
-				world.emit("mob_projectile_hit", {"proj": slot, "mob": mob[slot], "mob_id": mob_id[slot],
-					"pos": from.lerp(to, enter), "hit": hit_visual[slot], "facing": 1 if vx[slot] > 0.0 else -1,
-					"time": world.time})
+				if not negated:
+					world.emit("mob_projectile_hit", {"proj": slot, "mob": mob[slot], "mob_id": mob_id[slot],
+						"pos": from.lerp(to, enter), "hit": hit_visual[slot], "facing": 1 if vx[slot] > 0.0 else -1,
+						"time": world.time})
 				despawn(slot)
 				continue
 		if range_left[slot] <= 1e-6:

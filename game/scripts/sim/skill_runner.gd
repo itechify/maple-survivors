@@ -59,6 +59,8 @@ const RULE_POLICY := {
 	"burst": {"faces_target": true},
 }
 
+## form key -> {version, rank, boxes} the sub-skill boxes form_sub_side checks (refreshed when the loadout or rank changed).
+var _sub_boxes := {}
 ## skill key -> seconds until ready (<= 0 = ready).
 var cooldowns := {}
 ## skill key -> the cooldown set at its last cast (absent before the first cast); the HUD sweep's denominator.
@@ -347,7 +349,9 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 ## ordering them, so a ready skill without a target costs no target list.
 func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> bool:
 	if String(st.kind) == "form":
-		return forms.admits(world, key) and _buff_admission(world, st, origin) != BUFF_REFUSED
+		if not forms.admits(world, key) or _buff_admission(world, st, origin) == BUFF_REFUSED:
+			return false
+		return not bool(st.cast_params.get("sub_target", false)) or form_sub_side(world, key, st) != 0
 	if String(st.kind) == "summon":
 		# tier C (Gaviota, spec #384 C6): a cast block `mob_within` admits the summon only with a living monster that near.
 		var near := float(st.cast_params.get("mob_within", 0.0))
@@ -387,6 +391,8 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			return bool(st.has_box) and _any_target(world, origin, float(st.range), 1)
 		"chain":
 			return ChainCast.has_target(world, st, origin)
+		"safe_zone":
+			return world.safe_zones.admits(world, key, st, origin)
 		"manual", "reaction":
 			return false # a pressed key or the world's trigger casts it, never the target scan
 		"hp_or_undead":
@@ -413,7 +419,10 @@ func prepare_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2)
 
 func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
 	if String(st.kind) == "form":
-		return {"go": true} if has_target(world, key, st, origin) else {}
+		if not has_target(world, key, st, origin):
+			return {}
+		# tier C (D17): a form with `cast.sub_target` turns the caster to the side its sub-skill's box holds a target on.
+		return {"go": true, "facing": form_sub_side(world, key, st)} if bool(st.cast_params.get("sub_target", false)) else {"go": true}
 	match String(st.cast_rule):
 		"", "nearest", "burst":
 			return _admit_nearest(world, key, st, origin)
@@ -429,6 +438,8 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_cluster(world, st, origin)
 		"chain":
 			return ChainCast.admit(world, st, origin)
+		"safe_zone":
+			return {"go": true} if world.safe_zones.admits(world, key, st, origin) else {}
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
 		"manual", "reaction":
@@ -443,6 +454,25 @@ func _buff_admission(world: RunWorld, st: Dictionary, origin: Vector2) -> int:
 	if near > 0.0:
 		return BUFF_ADMITTED if _any_target(world, origin, near, 1) else BUFF_REFUSED
 	return BUFF_ADMITTED if float(st.duration) > 0.0 else BUFF_FALLS_THROUGH
+
+
+## tier C (D17, spec #425 review): the side (-1 or 1; 0 for none) on which a sub-skill of form `key` (resolved parent stats `st`)
+## has a living target in its box, the current facing first. Reads the subs that hold a box; a form with none has no side.
+func form_sub_side(world: RunWorld, key: String, st: Dictionary) -> int:
+	var cached: Dictionary = _sub_boxes.get(key, {})
+	if cached.is_empty() or int(cached.version) != world.loadout.version or int(cached.rank) != int(st.rank):
+		var boxes: Array[Dictionary] = []
+		for sub: Dictionary in world.book.def(key).get("form", {}).get("subs", []):
+			var sub_st := world.loadout.sub_stats(String(sub.skill), st, int(st.rank))
+			if bool(sub_st.has_box):
+				boxes.append({"box": sub_st.box, "need": maxi(1, int(sub_st.cast_params.get("min_targets", 1)))})
+		cached = {"version": world.loadout.version, "rank": int(st.rank), "boxes": boxes}
+		_sub_boxes[key] = cached
+	for side: int in [world.player.facing, -world.player.facing]:
+		for entry: Dictionary in cached.boxes:
+			if world.skill_box_count(entry.box, int(entry.need), Callable(), PackedByteArray(), side) >= int(entry.need):
+				return side
+	return 0
 
 
 func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
@@ -528,7 +558,7 @@ func resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2,
 	var first_x := world.mob_center(targets[0]).x if not targets.is_empty() else 0.0
 	if bool(RULE_POLICY.get(String(st.cast_rule), {}).get("faces_target", false)) and not targets.is_empty() and String(st.kind) != "buff":
 		world.face_toward(first_x)
-	elif String(st.cast_rule) == "weapon_reach":
+	elif String(st.cast_rule) == "weapon_reach" or (String(st.kind) == "form" and plan.has("facing")):
 		world.player.facing = int(plan.facing) # admitted on that side, so it is the nearest mob's side
 	elif String(st.cast_rule) == "range_around" and not targets.is_empty():
 		world.face_toward(first_x, true)
@@ -594,6 +624,8 @@ func resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2,
 				_throw(world, key, st, plan)
 			"chain":
 				ChainCast.resolve(world, key, st, plan, world.visual_index(String(st.hit)))
+			"safe_zone":
+				world.safe_zones.place(world, key, st, origin)
 			"hp_or_undead":
 				_resolve_hp_or_undead(world, key, st, targets)
 			"burst":
@@ -840,7 +872,7 @@ func _resolve_target(world: RunWorld, st: Dictionary, slot: int, index: int, lin
 		var line_hv := target_hv
 		if not by_line.is_empty():
 			line_hv = world.visual_index(String(by_line[line])) if line < by_line.size() else -1
-		world.hit_mob(slot, st, line_hv)
+		world.hit_mob(slot, FinishingStrike.line_stats(st, line, lines), line_hv, null, line)
 
 
 func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets: PackedInt32Array) -> void:

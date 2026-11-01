@@ -74,7 +74,8 @@ func test_bandit_without_steal_preserves_event_and_player_bytes() -> void:
 
 
 func test_savage_blow_casts_four_five_or_six_lines_with_any_weapon() -> void:
-	for pair: Array in [[1, 4, 15], [10, 4, 15], [11, 5, 18], [20, 5, 18], [21, 6, 27], [30, 6, 27]]:
+	# SH6 #431: the default 30-level table, ranks 1..8 read levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 (4 / 4 / 5 / 5 / 5 / 6 / 6 / 6 lines).
+	for pair: Array in [[1, 4], [2, 4], [3, 5], [4, 5], [5, 5], [6, 6], [7, 6], [8, 6]]:
 		var w := _world()
 		assert_true(w.learn_skill("savage_blow"))
 		w.loadout.set_rank("savage_blow", pair[0])
@@ -91,7 +92,8 @@ func test_savage_blow_casts_four_five_or_six_lines_with_any_weapon() -> void:
 
 
 func test_steal_rolls_canonical_chance_on_stream_15_and_retries_until_one_drop() -> void:
-	for rank_value in [1, 30]:
+	# SH6 #431: rank 1 reads level 4 (prop 14 in the WZ and in the fixture), rank 8 level 30 (prop 40).
+	for rank_value in [1, 8]:
 		var w := _world()
 		assert_true(w.learn_skill("steal"))
 		w.loadout.set_rank("steal", rank_value)
@@ -102,7 +104,7 @@ func test_steal_rolls_canonical_chance_on_stream_15_and_retries_until_one_drop()
 		var successes := 0
 		for trial in 200:
 			var m := _target(w)
-			var should_succeed := expected.randf() * 100.0 < (11.0 if rank_value == 1 else 40.0)
+			var should_succeed := expected.randf() * 100.0 < (14.0 if rank_value == 1 else 40.0)
 			w.drain_events()
 			w.hit_mob(m, st, -1)
 			var drops := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned")
@@ -120,7 +122,7 @@ func test_steal_rolls_canonical_chance_on_stream_15_and_retries_until_one_drop()
 				failures += 1
 				# The same mob remains eligible; later lines must eventually succeed.
 				for retry in 100:
-					var success := expected.randf() * 100.0 < (11.0 if rank_value == 1 else 40.0)
+					var success := expected.randf() * 100.0 < (14.0 if rank_value == 1 else 40.0)
 					w.hit_mob(m, st, -1)
 					assert_eq(w.swarm.stolen[m], 1 if success else 0)
 					if success:
@@ -234,7 +236,7 @@ func test_a_lethal_steal_can_take_extra_loot_without_replacing_the_death_roll() 
 	oracle.state = w.thief_rng.state
 	for attempt in 100:
 		var before := oracle.state
-		if oracle.randf() * 100.0 < 11.0:
+		if oracle.randf() * 100.0 < 14.0:
 			w.thief_rng.state = before
 			break
 	var m := _target(w)
@@ -268,26 +270,25 @@ func test_learning_steal_does_not_add_steal_rolls_to_other_attacks() -> void:
 	assert_eq(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned").size(), 0)
 
 
-func test_bandit_attack_cards_are_branch_only_power_cards_with_three_target_steps() -> void:
+## SH6 #431: the standalone `<key>_new/_rank/_targets` cards were deleted with the port into the Shadower line; the extra-target
+## step is the `count` modifier the rarity bonus (Pickpocket) and Mastery use, so this checks it directly.
+func test_bandit_attack_legacy_cards_are_gone_and_count_steps_reach_more_targets() -> void:
 	for key in ["savage_blow", "steal"]:
 		var w := _world()
-		assert_false(key + "_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
-		assert_true(w.upgrades.card(key + "_new").power)
-		assert_true(w.upgrades.apply(key + "_new", w) > 0)
-		assert_eq(w.upgrades.card(key + "_rank").max_rank, 30)
-		assert_eq(w.upgrades.card(key + "_targets").max_rank, 3)
+		# SH14 #439: a Shadower is playable, so the pool generates the plain new / rank cards of its pool (the generic "+1 rank" cards,
+		# no explicit data card); the old explicit `_targets` card stays gone.
+		assert_true(w.upgrades.card(key + "_targets").is_empty(), key + "_targets is gone")
+		for id in [key + "_new", key + "_rank"]:
+			assert_eq(String(w.upgrades.card(id).get("desc", "")), "+1 rank", id + " is the generic pool card, not an explicit data card")
+		assert_true(w.learn_skill(key))
 		for step in 3:
-			RF.add_modifier_effects(w, w.upgrades.card(key + "_targets"))
+			w.loadout.add_skill_mod(key, "count", "add", 1)
 		assert_eq(SkillRunner.strike_count(w.runner.stats_of(w, key)), 4)
-		assert_false(key + "_targets" in w.upgrades.eligible(w))
 		# Cast all four targets; Savage Blow deals four lines to each at rank 1, Steal one.
 		for i in 4:
 			_target(w)
 		w.runner.step(DT, w)
 		assert_eq(_hits(w, key).size(), 16 if key == "savage_blow" else 4)
-		for job in [400, 410]:
-			w.progression.job_id = job
-			assert_false(key + "_rank" in w.upgrades.eligible(w))
 
 
 func test_original_bandit_attack_tables_and_art_match_the_synthetic_fixture() -> void:
