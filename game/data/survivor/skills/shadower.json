@@ -1,4 +1,157 @@
 {
 	"_doc": "Shadower skill definitions (spec #425). Empty until the skill tickets land; each appends inside its own region, and a key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). SH6 #431 moves Double Stab, Steal and Savage Blow here from skills/thief.json (ported, no explicit ranks); SH7 #432 Assaulter (mobility); SH8 #433 Boomerang Step and Band of Thieves; SH9 #434 Ninja Ambush (key ninja_ambush_shadower); SH10 #435 Meso Explosion; SH11 #436 Dark Sight (moved from skills/thief.json and rewritten as a hidden Form) and Assassinate (form_sub); SH12 #437 Smokescreen (safe_zone). The pool is in jobs/shadower.json.",
-	"skills": {}
+	"skills": {
+		"dark_sight": {
+			"skill_id": 4001003,
+			"book": "400",
+			"job": 400,
+			"kind": "form",
+			"slot": "active",
+			"name": "Dark Sight",
+			"desc": "Vanish from sight for a few seconds, then strike from the shadows.",
+			"text": {
+				"desc": "Vanish for a few seconds: monsters ignore you, nothing can hit you and every attack except Assassinate is silenced. Assassinate ambushes one monster at a time.",
+				"h": "Speed {buff_value}; {cooldown} sec. between uses"
+			},
+			"icon": "Skill.wz/400.img/skill/4001003/icon",
+			"damage": "none",
+			"_provenance": "Tier A: Skill.wz 4001003 speed (-30 to 0 over 20 levels; the eight mapped levels 3/5/8/10/13/15/18/20 read -26 -22 -16 -12 -7 -5 -2 0, so rank 1 / 4 / 8 is -26 / -12 / 0), the darksight action, the 4-frame effect and the Use sound; mpCon and the session-scale WZ time (30 to 200 s) are not read. Tier C (spec #425 SH-4, SH-6, SH11 #436): rewritten from the passive-slot buff that auto-cast below 30% HP into a pool Form of the exclusive group shadower_stance, a 5 s Hidden window (the literal buff.duration), admitted when a living mob is within 150 px, 20 s cooldown (25% uptime), carrying Assassinate (first cast 0.8 s in, then every 2.0 s); the 50% avatar alpha of 7.23 stays; the rarity bonuses. Docs: GAME_DESIGN 7.131 and 7.135.",
+			"cast": {
+				"rule": "form",
+				"mob_within": 150
+			},
+			"cooldown": 20.0,
+			"buff": {
+				"hidden": true,
+				"stat": "speed",
+				"field": "speed",
+				"duration": 5.0
+			},
+			"form": {
+				"duration": 5.0,
+				"exclusive_group": "shadower_stance",
+				"effects": {},
+				"subs": [
+					{
+						"skill": "assassinate",
+						"first_after": 0.8,
+						"interval": 2.0,
+						"ignores_hidden": true
+					}
+				]
+			},
+			"action": "darksight",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/400.img/skill/4001003/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4001003/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "assassinate",
+						"text": "Assassinate",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "haste",
+						"text": "Haste",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "deep_shadow",
+						"text": "Deep Shadow",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.5
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "deep_shadow",
+						"text": "Deep Shadow",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.5
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"assassinate": {
+			"skill_id": 4221001,
+			"book": "422",
+			"job": 422,
+			"kind": "instant",
+			"slot": "form_sub",
+			"form_sub_of": [
+				"dark_sight"
+			],
+			"name": "Assassinate",
+			"desc": "Strike a monster three times from the shadows; the last strike may be a lethal critical.",
+			"text": {
+				"desc": "While Dark Sight hides you, you strike the nearest monster three times; the last strike may be a lethal critical.",
+				"h": "Damage {damage}%, {attack_count} hits, up to {mob_count|monster|monsters}"
+			},
+			"icon": "Skill.wz/422.img/skill/4221001/icon",
+			"damage": "physical",
+			"_provenance": "Tier A: Skill.wz 4221001 damage 230 / 425 / 600 % at WZ levels 4 / 15 / 30 (= 5 x the String percent), attackCount 3 (the String says 4; the node is used), mobCount 1, prop 38 / 60 / 90 and criticalDamage 120 / 175 / 250 (read through finish_strike), the canonical box lt (-100,-120) rb (-10,0), the assassination action (top-level action/0 and effect/action), the 25-frame effect, the 10-frame special, and the Use and Use2 sounds (UOLs into 4121001). The WZ time and accumulative damage are not modelled. Tier C (spec #425 SH-5, SH-7, SH11 #436): a Form sub of Dark Sight with no slot and no card, ranking with its parent through its own 30-level table (Dark Sight rank 8 casts level 30), one box cast on at least one target (a scheduled boss first, then the nearest), the last line a critical on prop with criticalDamage points (FinishingStrike), the full 1.9 s assassination stance held (under the 2.0 s interval), the special art drawn as the hit on each line, Use and Use2 alternating per cast. Docs: GAME_DESIGN 7.133 and 7.135.",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 2.0,
+			"finish_strike": {
+				"chance_field": "prop",
+				"bonus_field": "criticalDamage"
+			},
+			"action": "assassination",
+			"action_time": 1.9,
+			"ball": "",
+			"hit": "Skill.wz/422.img/skill/4221001/special",
+			"effect": "Skill.wz/422.img/skill/4221001/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4221001/Use",
+				"use_cycle": [
+					"Sound.wz/Skill.img/4221001/Use",
+					"Sound.wz/Skill.img/4221001/Use2"
+				],
+				"hit": ""
+			}
+		}
+	},
+	"_sh11_region": "SH11 #436 owns dark_sight and assassinate (the last two keys); other tickets append their own entries above them."
 }
