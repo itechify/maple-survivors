@@ -1492,8 +1492,10 @@ host and under a sub-path such as `/maple-survivors/` (the shell uses relative U
 The workflow `.github/workflows/pages.yml` ("Web build"): its `build` job runs on every pull request, on pushes to
 `main` and on `workflow_dispatch`. It installs the pinned Godot 4.7.2 editor (`scripts/godot.sh`) and its web templates
 (`scripts/godot_templates.sh install-web`), Rust with `wasm32-unknown-unknown` and the locked `wasm-bindgen-cli`, runs
-`cargo test`, `node --test web/dev/test/*.test.mjs` and `bash scripts/test.sh`, then `export.sh --web` and the artifact
-check again, and uploads `game/export/web` as the Pages artifact. Tests that need the real asset cache (or
+`cargo test` and `node --test web/dev/test/*.test.mjs`, then `export.sh --web` and the artifact check again, and uploads
+`game/export/web` as the Pages artifact. The `game-tests` job runs `bash scripts/test.sh` as four parallel shards
+(`TEST_SHARD=K/4`, round-robin over the sorted test files) on pull requests and `workflow_dispatch`, not on pushes to
+`main`, which the pull request already tested. Tests that need the real asset cache (or
 `MAPLE_WZ_ROOT`) SKIP in CI because CI has no WZ data and never will; a SKIP proves nothing, and the log counts them.
 The `deploy` job (`actions/deploy-pages`) runs only for pushes to `main` and `workflow_dispatch`, never for pull
 requests, so a pull request proves the whole pipeline except the final publish. `workflow_dispatch` is only offered

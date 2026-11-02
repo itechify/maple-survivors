@@ -4,6 +4,7 @@ extends Node
 ##
 ##   bash scripts/test.sh                  # import + run everything
 ##   bash scripts/test.sh combat footholds # only files whose name contains one of the filters
+##   TEST_SHARD=2/4 bash scripts/test.sh   # every 4th selected file starting at the 2nd (CI splits the suite this way)
 ##
 ## Exit code 0 = all passed, 1 = failures. Output: one line per failing assertion, one per skipped test, a summary.
 ## A failed file/discovery or empty selection counts as one failed check; failed + skipped never exceeds total.
@@ -20,6 +21,18 @@ func _ready() -> void:
 
 func run(filters: PackedStringArray) -> int:
 	var files := _discover(filters)
+	var shard := OS.get_environment("TEST_SHARD")
+	var shard_error := ""
+	if shard != "":
+		var parts := shard.split("/")
+		var k := int(parts[0]) if parts.size() == 2 and parts[0].is_valid_int() else 0
+		var n := int(parts[1]) if parts.size() == 2 and parts[1].is_valid_int() else 0
+		if n < 1 or k < 1 or k > n:
+			shard_error = "TEST_SHARD must be K/N with 1 <= K <= N, got %s" % shard
+			files = PackedStringArray()
+		else:
+			files = _shard(files, k, n)
+			print("shard %d/%d: %d files" % [k, n, files.size()])
 	_reset_global_settings()
 	var t0 := Time.get_ticks_msec()
 	var total := 0
@@ -27,7 +40,11 @@ func run(filters: PackedStringArray) -> int:
 	var skipped := 0
 	var guard := ScriptErrorGuard.new()
 	guard.attach()
-	if files.is_empty():
+	if shard_error != "":
+		print("FAIL " + shard_error)
+		failed += 1
+		total += 1
+	elif files.is_empty():
 		print("FAIL no test files selected in %s (filters: %s)" % [UNIT_DIR, filters])
 		failed += 1
 		total += 1
@@ -102,6 +119,16 @@ func _reset_global_settings() -> void:
 	var settings := get_node_or_null("/root/Settings") as GameSettings
 	if settings != null:
 		settings.reload_from(TestCase.test_dir("settings.cfg"))
+
+
+## Round-robin over the sorted files: the slow files cluster by name (one feature's tests sit together), so every
+## shard gets a share of each cluster.
+static func _shard(files: PackedStringArray, k: int, n: int) -> PackedStringArray:
+	var out: PackedStringArray = []
+	for i in files.size():
+		if i % n == k - 1:
+			out.append(files[i])
+	return out
 
 
 func _discover(filters: PackedStringArray) -> PackedStringArray:

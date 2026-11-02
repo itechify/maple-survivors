@@ -37,9 +37,12 @@ class RunnerContract(unittest.TestCase):
     def write(self, name, source):
         (self.game / 'tests' / name).write_text(source)
 
-    def run_suite(self, timeout='15'):
+    def run_suite(self, timeout='15', shard=None):
         env = dict(os.environ, TEST_TIMEOUT_S=timeout)
         env.pop('ISOLATE', None)
+        env.pop('TEST_SHARD', None)
+        if shard is not None:
+            env['TEST_SHARD'] = shard
         return subprocess.run(['bash', str(self.root / 'scripts/test.sh')], env=env,
                               text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
 
@@ -122,6 +125,26 @@ class RunnerContract(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn('1 tests, 0 failed, 0 skipped', result.stdout)
         self.assertIn('TESTS_PASSED', result.stdout)
+
+    def test_shards_cover_every_file_once(self):
+        for name in ('a', 'b', 'c'):
+            self.write('unit/test_%s.gd' % name, 'extends TestCase\nfunc test_%s() -> void:\n\tskip("%s")\n' % (name, name))
+        seen = []
+        for shard, count in (('1/2', 2), ('2/2', 1)):
+            result = self.run_suite(shard=shard)
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertIn('%d tests, 0 failed, %d skipped, %d files' % (count, count, count), result.stdout)
+            seen += [line.split('::')[0] for line in result.stdout.splitlines() if line.startswith('SKIP ')]
+        self.assertEqual(sorted(seen), ['SKIP test_a', 'SKIP test_b', 'SKIP test_c'])
+
+    def test_invalid_shard(self):
+        self.write('unit/test_ok.gd', 'extends TestCase\nfunc test_ok() -> void:\n\tpass\n')
+        for shard in ('3/2', '0/2', 'two'):
+            self.check_failure(self.run_suite(shard=shard), '1 tests, 1 failed, 0 skipped')
+
+    def test_empty_shard(self):
+        self.write('unit/test_ok.gd', 'extends TestCase\nfunc test_ok() -> void:\n\tpass\n')
+        self.check_failure(self.run_suite(shard='2/2'), '1 tests, 1 failed, 0 skipped')
 
 
 if __name__ == '__main__':
