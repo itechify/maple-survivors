@@ -62,7 +62,7 @@ changing gameplay.
   writer in `tools/wzimport/src/testutil.rs`. Tests against real data run only when `MAPLE_WZ_ROOT` is set.
 - Tests that need the real asset cache call `require_cache()` and SKIP without it. A SKIP proves nothing; say so when
   reporting. CI (`.github/workflows/pages.yml`: `cargo test`, `node --test web/dev/test/*.test.mjs`,
-  `bash scripts/test.sh`) has no WZ data, so those tests SKIP there.
+  `bash scripts/test.sh` in four `TEST_SHARD=K/4` shards on pull requests only) has no WZ data, so those tests SKIP there.
 - Gameplay changes need a deterministic test (seeded RNG, fixed dt). Visual changes need a screenshot checked by eye
   (`bash scripts/playtest.sh`), saved to `evidence/`.
 
